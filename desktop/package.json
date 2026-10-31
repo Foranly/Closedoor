@@ -61,7 +61,8 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "artifactName": "Closedoor-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

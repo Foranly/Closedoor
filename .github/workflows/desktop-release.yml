@@ -1,0 +1,186 @@
+name: Desktop Release
+
+# Construye los instaladores de Windows, macOS y Linux y los publica como assets
+# del Release de GitHub que lee la web (`src/assets/data/desktopApp.js`).
+#
+#   · push de un tag `v*`  → compila y publica ese tag.
+#   · manual               → compila y publica el tag que indiques en el input.
+#
+# Antes de lanzarlo, sube la versión en `desktop/package.json` Y en
+# `src/assets/data/desktopApp.js` (`DESKTOP_VERSION`): el job `release` comprueba
+# que el tag coincida con `desktop/package.json` y que existan los 5 assets con
+# los nombres exactos que espera la página /download.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag del release a publicar (ej. v0.1.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  # Sin firma de código: los instaladores se generan igual, pero Windows muestra
+  # SmartScreen y macOS el aviso de "desarrollador no identificado".
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+jobs:
+  build-windows:
+    name: Windows (NSIS)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar
+        run: npx electron-builder --win --x64 --publish never
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: desktop/dist/*.exe
+          if-no-files-found: error
+
+  build-macos:
+    name: macOS (dmg arm64 + x64)
+    runs-on: macos-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: ./desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar
+        run: npx electron-builder --mac --x64 --arm64 --publish never
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-installers
+          path: desktop/dist/*.dmg
+          if-no-files-found: error
+
+  build-linux:
+    name: Linux (AppImage + deb)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar
+        run: npx electron-builder --linux AppImage deb --publish never
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-installers
+          path: |
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+          if-no-files-found: error
+
+  release:
+    name: Publicar Release
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Descargar instaladores
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Comprobar tag y nombres de los assets
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./desktop/package.json').version")
+
+          TAG="${INPUT_TAG:-${GITHUB_REF_NAME}}"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::El tag '$TAG' no coincide con desktop/package.json (v$VERSION)."
+            echo "::error::Sube la version en desktop/package.json y en src/assets/data/desktopApp.js."
+            exit 1
+          fi
+
+          # Un push de tag no debe sobrescribir un release ya publicado (misma
+          # version = la app instalada no se actualizaria). Al lanzarlo a mano se
+          # permite, para poder reparar un release incompleto.
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::El release $TAG ya existe. Sube la version antes de publicar otro."
+            exit 1
+          fi
+
+          fail=0
+          for f in \
+            "Closedoor-$VERSION.exe" \
+            "Closedoor-$VERSION-arm64.dmg" \
+            "Closedoor-$VERSION-x64.dmg" \
+            "Closedoor-$VERSION-x86_64.AppImage" \
+            "Closedoor-$VERSION-amd64.deb"
+          do
+            if [ -f "artifacts/$f" ]; then
+              echo "OK   $f"
+            else
+              echo "::error::Falta el asset '$f' (desktopApp.js lo espera con ese nombre)."
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Crear o actualizar el Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: Closedoor ${{ inputs.tag || github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: artifacts/*

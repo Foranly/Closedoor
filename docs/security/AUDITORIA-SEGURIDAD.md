@@ -346,8 +346,8 @@ Los conteos por área cambian al añadir checks: lo que importa es que el total 
 
 ## Ejecutar la auditoría antes de publicar
 
-El repositorio **no tiene workflows de GitHub Actions** (se retiraron a propósito).
-La auditoría se corre a mano:
+El repositorio **no tiene CI de seguridad**: el único workflow es el de release de
+escritorio. La auditoría se corre a mano:
 
 ```bash
 node scripts/test-security-full.mjs     # DB/RLS, XSS, auth, cache, CSP

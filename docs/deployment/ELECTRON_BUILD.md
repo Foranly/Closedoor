@@ -193,13 +193,19 @@ construyen solas desde `src/assets/data/desktopApp.js`
 (`DESKTOP_RELEASE_TAG`, `DESKTOP_DOWNLOAD_BASE`, `DESKTOP_DOWNLOADS`).
 
 1. Sube `version` en `desktop/package.json` y `DESKTOP_VERSION` en `desktopApp.js`.
-2. Genera los instaladores (en cada plataforma, o en CI con un runner por SO).
-3. Crea el Release con el tag `v<versión>` y adjunta los archivos con los nombres
-   que espera `DESKTOP_DOWNLOADS`.
+2. **Automático**: publica el tag `v<versión>` (o lanza a mano el workflow
+   *Desktop Release* con ese tag). `.github/workflows/desktop-release.yml` compila
+   Windows, macOS y Linux, comprueba que el tag coincide con la versión y que
+   existen los cinco assets con los nombres que espera `DESKTOP_DOWNLOADS`, y crea
+   el Release con ellos. Si algo no cuadra, el job falla antes de publicar.
+3. **Manual** (sin Actions): `npm --prefix desktop run build:<plataforma>`, renombra
+   el `.exe` si hace falta y sube los cinco archivos al Release `v<versión>`.
 4. Comprueba que `/download` enlaza a los assets reales.
 
-Si un archivo no existe, la tarjeta de `/download` cae al enlace del Release en vez
-de romperse.
+Los nombres salen de `build.*.artifactName` en `desktop/package.json`; el de Windows
+no lleva arquitectura (`Closedoor-<v>.exe`), macOS y Linux sí (`-arm64`, `-x64`,
+`-x86_64`, `-amd64`). Si un archivo no existe, la tarjeta de `/download` cae al
+enlace del Release en vez de romperse.
 
 ---
 
