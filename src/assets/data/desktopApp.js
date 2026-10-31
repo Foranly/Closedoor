@@ -16,7 +16,7 @@
  *   Linux    → Closedoor-0.1.0-x86_64.AppImage · Closedoor-0.1.0-amd64.deb
  */
 
-export const DESKTOP_VERSION = '0.1.0';
+export const DESKTOP_VERSION = '0.1.1';
 
 /** Tag del Release que contiene los instaladores. */
 export const DESKTOP_RELEASE_TAG = `v${DESKTOP_VERSION}`;
