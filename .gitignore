@@ -21,14 +21,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.env.example
 /cdn-server
 /.freebuff
 nul
-# Credenciales de servidores (no subir nunca)
 docs/INFRAESTRUCTURA.md
-# Entorno virtual Python
 .venv
+.env
+.env.local
+.env.development.local
 
 uploads/images/user-aaa_chat_006b5ae8.gif
 uploads/images/user-aaa_chat_9636fcfb.gif
