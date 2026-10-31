@@ -1,7 +1,7 @@
 # Auditoría y Endurecimiento de Seguridad — Closedoor
 
-**Estado:** la suite de auditoría exige **100%** (cualquier fallo sale con exit 1 y
-bloquea el merge en CI).
+**Estado:** la suite de auditoría exige **100%**. Se ejecuta a mano antes de publicar
+(cualquier fallo sale con exit 1).
 **Migraciones de seguridad:** 053, 054, 055, 056, 057, 058, 059, 060, 069, 071, 074
 
 ---
@@ -168,7 +168,7 @@ texto plano:
 > `login_email_by_username(uname, pwd)`, que solo devuelve el email si la contraseña es
 > correcta. Ver sección 14.
 
-**El test de seguridad ahora EXIGE estos bloqueos** (checks `1d`, `1d2`, `1d3`): si la migración no está aplicada, la auditoría baja de 100% y el CI bloquea el merge.
+**El test de seguridad ahora EXIGE estos bloqueos** (checks `1d`, `1d2`, `1d3`): si la migración no está aplicada, la auditoría baja de 100%.
 
 ### 10. Tablas de interacción social sin RLS (auditoría en vivo — migración 055)
 
@@ -344,29 +344,29 @@ Los conteos por área cambian al añadir checks: lo que importa es que el total 
 
 ---
 
-## CI: la auditoría nunca puede bajar de 100%
+## Ejecutar la auditoría antes de publicar
 
-**`.github/workflows/security-audit.yml`** (nuevo) — ejecuta la auditoría en cada push/PR a `main`:
+El repositorio **no tiene workflows de GitHub Actions** (se retiraron a propósito).
+La auditoría se corre a mano:
 
-1. `npm ci` (dependencias desde el lockfile)
-2. Pre-flight check de secrets (mensaje claro si faltan — los PR desde forks no reciben secrets y fallan con un aviso explícito, no con un cascadón de 401)
-3. `node scripts/test-security-full.mjs` con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` desde **GitHub Secrets**
-4. `npx vite build` (verifica que el build y la meta CSP sigan generándose)
-5. `timeout-minutes: 15` para que un test colgado falle rápido
-
-**Cambios necesarios en el test para que funcione en CI:**
-- `scripts/test-security-full.mjs` ahora **sale con exit code 1 si hay CUALQUIER fallo** (antes solo imprimía el aviso y el CI habría pasado igual).
-- Acepta credenciales desde `process.env` (GitHub Secrets) con fallback a `.env.local` — comprobado en modo CI usando solo variables de entorno.
-
-**Setup en GitHub (una vez):**
-
-```
-Settings  Secrets and variables  Actions  New repository secret
-  VITE_SUPABASE_URL        https://xxxx.supabase.co
-  VITE_SUPABASE_ANON_KEY   la anon key pública
+```bash
+node scripts/test-security-full.mjs     # DB/RLS, XSS, auth, cache, CSP
+npm run validate-locales                # traducciones
+npx vite build                          # build + meta CSP
 ```
 
-A partir de ahí, cualquier push que rompa una prueba de seguridad **bloquea el merge** con el badge en el PR.
+`scripts/test-security-full.mjs` **sale con exit 1 si hay CUALQUIER fallo** y acepta
+credenciales desde `process.env` (con fallback a `.env.local`), así que puede
+ejecutarse en cualquier CI o cron sin tocar el código:
+
+```bash
+VITE_SUPABASE_URL=https://xxxx.supabase.co \
+VITE_SUPABASE_ANON_KEY=<anon> \
+node scripts/test-security-full.mjs
+```
+
+> Con credenciales del proyecto real el script consulta la DB de producción: úsalo
+> desde una red de confianza y nunca con la `service_role` key.
 
 ---
 
@@ -408,8 +408,8 @@ A partir de ahí, cualquier push que rompa una prueba de seguridad **bloquea el 
 
 **CI**
 
-- `.github/workflows/security-audit.yml` ejecuta la suite y el build en cada push/PR
-  a `main`; cualquier fallo bloquea el merge.
+- Sin CI en el repo: la suite y el build se ejecutan a mano antes de publicar
+  (`node scripts/test-security-full.mjs` + `npx vite build`).
 
 ### Tabla resumen: Qué puede hacer cada rol
 
@@ -464,7 +464,6 @@ A partir de ahí, cualquier push que rompa una prueba de seguridad **bloquea el 
 | `vercel.json` | HSTS, Permissions-Policy |
 | `server.js` | Security headers |
 | `test-security-full.mjs` | Helpers reales en XSS, exit code para CI |
-| `security-audit.yml` | CI en cada push/PR |
 
 ---
 
@@ -473,7 +472,7 @@ A partir de ahí, cualquier push que rompa una prueba de seguridad **bloquea el 
 1. Migraciones 053-060 aplicadas en Supabase
 2. Habilitar **Leaked Password Protection** en Supabase Auth Password Settings
 3. Redeploy en Vercel (headers + CSP)
-4. CI activo en GitHub Actions
+4. `node scripts/test-security-full.mjs` en 100% antes de cada deploy
 5. No hay nada que configurar para la música: el audio se resuelve con innertube
    dentro de la app (`api/_innertube.js`, servido por `/api/music/stream`)
 6. Re-ejecutar `node scripts/test-security-full.mjs` tras cualquier cambio

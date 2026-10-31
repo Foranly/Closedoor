@@ -44,8 +44,9 @@ en orden numérico.
 
 ## Credenciales e infraestructura
 
-`INFRAESTRUCTURA.md` (ubicaciones y credenciales del servidor CDN) vive solo en la
-copia local: está en `.gitignore` y no se publica en el repositorio.
+Las credenciales del servidor CDN **no viven en el repositorio**: `INFRAESTRUCTURA.md`
+se guarda **fuera de la carpeta del proyecto**. No lo copies dentro del repo, ni
+siquiera de forma temporal.
 
 La configuración **no secreta** del CDN (variables de entorno, validación JWT HS256/ES256,
 rate limits, límites de subida) está documentada en los comentarios de

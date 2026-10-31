@@ -24,14 +24,20 @@ dist-ssr
 /cdn-server
 /.freebuff
 nul
-docs/INFRAESTRUCTURA.md
 .venv
-.env
-.env.local
-.env.development.local
+
+# Variables de entorno: ignora cualquier .env real, deja la plantilla
+.env*
+!.env.example
 
 uploads/images/user-aaa_chat_006b5ae8.gif
 uploads/images/user-aaa_chat_9636fcfb.gif
 /uploads
-/.github
 /release
+
+# Instrucciones locales de Copilot (se quedan fuera del repo)
+.github/copilot-instructions.md
+
+# Credenciales de servidores: el archivo vive fuera del repo. Esta regla es una
+# segunda barrera por si acaso se copia dentro otra vez.
+**/INFRAESTRUCTURA*.md
