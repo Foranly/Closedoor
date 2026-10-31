@@ -19,7 +19,6 @@ const UA = 'Mozilla/5.0 (compatible; FastChangeBot/1.0)';
 // canal con el artista. Así la búsqueda puede ser la de YouTube (mucho más
 // precisa) sin ensuciar las cards ni el matcheo del stream.
 
-/** Quita acentos/puntuación para comparar "Artista - Topic" vs prefijo. */
 function compareKey(text) {
   return String(text || '')
     .toLowerCase()
@@ -30,20 +29,8 @@ function compareKey(text) {
     .trim();
 }
 
-/** Sufijos de vídeo que no forman parte del nombre de la canción. */
 const VIDEO_NOISE_RE = /[([][^)\]]*\b(?:official|oficial|video|videoclip|audio|lyric|lyrics|letra|visualizer|hd|hq|4k|remaster(?:ed)?|music video)\b[^)\]]*[)\]]/gi;
 
-/**
- * Miniatura para el frontend.
- * - `lh3.googleusercontent.com` es el arte de álbum real; se sube a 400×400
- *   (la URL viene a 60/120 px).
- * - `yt3.googleusercontent.com` es el avatar del canal/artista, NO la portada
- *   de la canción. Cuando conocemos el videoId se prefiere la miniatura del
- *   vídeo (`i.ytimg.com`), que es la portada que ve el usuario en YouTube.
- * - Sin videoId se devuelve la URL tal cual (upscaled si es de googleusercontent).
- * - Vídeos: se usa mqdefault por videoId (16:9 sin bandas y sin la firma
- *   `sqp`/`rs` que caduca).
- */
 function normalizeYouTubeArtwork(url, videoId) {
   const value = String(url || '').trim();
   const videoThumb = videoId

@@ -1,34 +1,10 @@
 /**
  * Vercel serverless function — stream de audio de una canción.
  *
- * Reemplaza al proxy del music server (yt-dlp + ffmpeg): ahora resuelve el
- * stream con la API innertube (ver api/_innertube.js) y proxya el archivo de
- * googlevideo.
- *
- * Por qué se proxya (y no se devuelve la URL al navegador):
- *  - La URL de googlevideo está firmada para la IP que la resolvió: desde el
- *    navegador daría 403.
- *  - Está atada a una sesión/expira (~6 h), así que no se puede cachear en el
- *    cliente indefinidamente.
- * El proxy traduce el `Range` del cliente a un bloque acotado (googlevideo
- * rechaza con 403 los rangos abiertos y los que pasan de ~1 MiB: ver
- * upstreamRangeHeader) y devuelve el 206 con su `Content-Range` real, así el
- * <audio> hace streaming progresivo y puede buscar (seek) dentro de la canción.
- *
  * Uso:
  *   GET /api/music/stream?artist=Daft%20Punk&title=Get%20Lucky&duration=248
  *   GET /api/music/stream?videoId=dQw4w9WgXcQ          (atajo si ya se conoce)
  *   GET /api/music/stream?artist=…&title=…&prewarm=1   (resuelve SIN audio)
- *
- * ⚠️ El pre-warm vive AQUÍ y no en /api/music/resolve a propósito: en Vercel cada
- * archivo de `api/` es una función distinta (contenedor y memoria propios), así
- * que precalentar desde otra función no compartía la caché y el stream pagaba la
- * resolución completa igualmente. Pidiendo `prewarm=1` a ESTA función, la
- * resolución queda cacheada en la instancia que después sirve el audio.
- *
- * Respuestas: 200/206 audio, 200 JSON (prewarm), 400 falta título, 404 sin
- * coincidencia razonable, 504 presupuesto de resolución agotado, 502 fallo al
- * resolver o al traer el audio.
  */
 
 import {
@@ -40,15 +16,6 @@ import {
   activeStreamSource as activeSource,
 } from '../_innertube.js';
 
-// ⚠️ El nombre lleva `_` a proposito y NO es una funcion serverless: en Vercel
-// cualquier archivo bajo `api/` crea una funcion en esa ruta, y una funcion GANA
-// al rewrite de vercel.json. Como este pipeline de funciones cuelga, tener
-// `api/music/stream.js` hacia que /api/music/stream nunca llegara al host propio
-// (medido: 12 s colgado con la funcion vs 0,47 s por el rewrite sin archivo).
-// Con `_`, la ruta no existe en Vercel y la sirve el host via `/api/music/(.*)`.
-// Sin funcion tampoco hay `maxDuration`: el bloque de 1 MiB (upstreamRangeHeader)
-// es lo que acota cada peticion, no el reloj de la plataforma.
-
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
@@ -56,17 +23,7 @@ const CORS_HEADERS = {
   'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
 };
 
-// Cada bloque es ≤1 MiB: en 12 s o llega o esa URL no sirve. Con dos intentos
-// posibles, un CDN colgado consume 24 s como máximo (y el total sigue por
-// debajo del tope de la función: ver maxDuration).
 const AUDIO_TIMEOUT_MS = 10_000;
-
-// Presupuestos de resolución DENTRO de esta función. La suma del peor caso tiene
-// que caber en maxDuration (60 s, verificado en producción que Vercel lo respeta:
-// la función moría a los 60,4 s): primera resolución + intento de audio +
-// re-resolución (URL caducada) + intento = 20 + 10 + 12 + 10 = 52 s, con ~8 s de
-// margen para el arranque en frío. El default del resolver (25 s) se reserva para
-// /resolve, cuyo tope son 30 s.
 const RESOLVE_BUDGET_FIRST_MS = 20_000;
 const RESOLVE_BUDGET_RETRY_MS = 12_000;
 
@@ -79,11 +36,6 @@ function jsonResponse(body, status = 200) {
 
 /**
  * Trae el audio del CDN de YouTube con un rango ACOTADO.
- *
- * ⚠️ El `Range` del cliente nunca se reenvía tal cual: las URLs de innertube
- * llevan `rqh=1` y googlevideo responde 403 tanto a los rangos abiertos
- * (`bytes=0-`, justo lo que manda el navegador al arrancar el <audio>) como a los
- * que pasan de ~1 MiB. Ver upstreamRangeHeader en api/_innertube.js.
  */
 async function fetchAudio(streamUrl, rangeHeader, userAgent) {
   const headers = { Range: rangeHeader };
@@ -123,8 +75,6 @@ export default async function handler(req) {
     );
   } catch (err) {
     const notFound = /coincidencia razonable/.test(err.message || '');
-    // 504 propio y rápido en vez de esperar a que la plataforma corte la
-    // función (que devolvía el 504 opaco tras 60 s).
     const status = notFound ? 404 : isResolveTimeout(err) ? 504 : 502;
     return jsonResponse(
       { success: false, error: err.message || 'No se pudo resolver el stream' },

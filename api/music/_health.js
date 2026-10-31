@@ -9,18 +9,6 @@
  */
 
 import { getInnertubeInfo } from '../_innertube.js';
-
-// SIN `export const config`: las funciones de `api/` que responden en produccion
-// (music-search, sitemap, og-*, livekit-token) no declaran config, y estas tres
-// (health, stream, resolve) eran las unicas que lo hacian. Cuelgan en produccion
-// incluso en rutas que no tocan la red, y Vercel documenta que para el runtime
-// Node.js "no additional configuration is needed". Los topes de duracion viven
-// en vercel.json (ver `functions`).
-
-// Marcador de build de la FUNCIÓN: permite saber en un solo request qué código
-// está vivo en producción. Si /api/music/health no responde (o no trae `build`),
-// lo desplegado no es esta versión: en el último incidente el dominio servía un
-// cliente nuevo con funciones antiguas y costó distinguirlo.
 const BUILD = 'music-5';
 
 const CORS_HEADERS = {

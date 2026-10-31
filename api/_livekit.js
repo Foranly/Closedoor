@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
  *  - server.js                   → Express (servidor local)
  *  - plugins/livekitTokenPlugin.js → Vite dev
  *
- * ⚠️ IMPORTANTE (bug corregido): el cliente Supabase que consulta `calls` y
+ * IMPORTANTE (bug corregido): el cliente Supabase que consulta `calls` y
  * `is_conversation_participant` DEBE llevar el Authorization del usuario
  * (Bearer access_token). Si se consulta con el cliente anónimo, RLS bloquea
  * las filas silenciosamente (devuelve [] sin error) y la llamada parece no

@@ -91,28 +91,12 @@ const CLIENTS = [
 
 const INNERTUBE_BASE = 'https://www.youtube.com/youtubei/v1';
 const SEARCH_RESULTS_URL = 'https://www.youtube.com/results';
-// Búsqueda de CATÁLOGO (YouTube Music). Se usa para el buscador de canciones:
-// descarta las subidas de YouTube (UGC) y devuelve solo el catálogo musical.
-// También es HTML (no youtubei/v1/search), así que no envenena el player.
 const MUSIC_SEARCH_URL = 'https://music.youtube.com/search';
-// UA de navegador para la página de resultados (el UA móvil de ANDROID_VR
-// devuelve un HTML recortado donde no siempre está ytInitialData).
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
-// Timeout por paso contra YouTube. En serverless (Vercel) esto lo paga el reloj
-// de la función: un paso que no contesta razonablemente rápido está muerto, y
-// esperar 12 s sólo sirve para reventar el límite de la plataforma (504).
 const REQUEST_TIMEOUT_MS = 7_000;
-
-// Presupuesto TOTAL de una resolución (búsqueda + cadena de clientes). Con esto
-// el handler decide él mismo cuándo rendirse (y responde un error legible) en
-// lugar de que la plataforma lo mate con un 504 a los 60 s.
 const RESOLVE_BUDGET_MS = 25_000;
-// Mensaje único del timeout: los handlers lo usan para responder 504 en vez de
-// 502 (ver isResolveTimeout).
 const RESOLVE_TIMEOUT_MESSAGE = 'no se pudo resolver el audio a tiempo (timeout)';
-// Margen mínimo para intentar otro cliente: por debajo de esto no se arranca uno
-// nuevo (es mejor devolver lo que ya se tenga).
 const MIN_CLIENT_BUDGET_MS = 2_500;
 
 /**
@@ -129,18 +113,15 @@ function deadlineGuard(budgetMs) {
   };
 }
 
-// TTL de la caché de resolución. Las URLs de googlevideo viven ~6 h; se guarda
-// 2 h para no servir nunca una URL vencida en una sesión larga.
+// TTL de la caché de resolución.
 const STREAM_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
-// Igual que el music server anterior: resolver es la parte lenta, así que se
-// cachea también la BÚSQUEDA (qué videoId corresponde a cada canción).
 const SEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 300;
 
 // ── Cachés en memoria del proceso serverless ──
-const streamCache = new Map(); // key → { value, at }
-const searchCache = new Map(); // key → { value, at }
-const musicSearchCache = new Map(); // key → { value, at }
+const streamCache = new Map();
+const searchCache = new Map(); 
+const musicSearchCache = new Map();
 
 function cacheGet(cache, key, ttl) {
   const hit = cache.get(key);
@@ -161,68 +142,10 @@ function cacheSet(cache, key, value) {
   }
 }
 
-// ── Rango de la petición al CDN de googlevideo ──
-// Medido contra la API real (2026-10): las URLs de innertube llevan `rqh=1`
-// ("range query") y el CDN responde **403** a cualquier petición cuyo final
-// pase de ~1 MiB, y también a los rangos abiertos (`Range: bytes=0-`, que es
-// justo lo que manda el navegador al arrancar el <audio>) porque un rango
-// abierto implica un final = tamaño del archivo.
-//
-// Por eso el proxy NUNCA reenvía el rango del cliente tal cual: pide siempre un
-// bloque ACOTADO (1 MiB) desde el offset pedido. El navegador recibe un 206 con
-// `Content-Range` real y sigue pidiendo el resto por su cuenta, como cualquier
-// medio progresivo.
-//
-// ⚠️ Tope real medido (2026-10, IP residencial Y de datacenter, con ANDROID_VR
-// y con IOS): con `rqh=1` el CDN entrega **sólo el primer MiB del archivo**. La
-// medida es posicional y absoluta, no de tamaño: en la misma URL,
-// `bytes=0-1048575` y `bytes=1000000-1048575` dan 206, pero `bytes=1048576-…`
-// da 403 — incluso en la PRIMERA petición de una URL recién resuelta desde una
-// IP residencial. La URL tampoco lleva un param `range` que reescribir:
-// añadirlo con un rango fuera del MiB firmado da 416 (`&range=1048576-2097151`),
-// con rango abierto da 403, y quitarlo o poner `rqh=0` da 403 (re-verificado
-// 2026-10-10 con una URL recién resuelta: el CDN acepta sólo 0-1048575).
-//
-// Consecuencia práctica (medida con un navegador real, 2026-10-10): el <audio>
-// de Chrome NO espera a consumir el buffer — pide la continuación
-// (`Range: bytes=1048576-`) en paralelo al arrancar, y el 502 de esa petición
-// mata el pipeline entero (PIPELINE_ERROR_READ a los ~1,5 s, con 64 s ya en
-// buffer). Por eso:
-//   1. el resolver elige, si existe, un formato cuya pista ENTERA quepa en el
-//      tramo servible (itag 599 = 32 kbps m4a suele caber incluso en canciones
-//      de 3-4 min) → la canción suena completa, con menos calidad;
-//   2. si ninguno cabe, se sirve el formato MUXED (itag 18), cuyas URLs NO
-//      están limitadas por rango (ver pickMuxedFormat) → la canción suena
-//      entera. Si la pista no tiene muxed con URL, marca `playable: false` y la
-//      card reproduce directo el preview de 30 s en vez de un stream condenado.
-//
-// 📌 Idea tomada del proyecto Scrup (ytdownloader): el audio-only va "gated"
-// (su URL caduca/limita), el muxed no. Scrup además lo pide con el cliente
-// ANDROID; aquí se usa ANDROID como ÚLTIMO cliente de la cadena porque es el
-// único de los sondeados que devuelve a la vez audio-only (139/140/249/251/599/
-// 600) y muxed (18) con URL directa: IOS no expone muxed y ANDROID 21.x sirve el
-// audio cifrado (sin URL), que es lo que obliga a Scrup a usar sólo el muxed.
-// ⚠️ El presupuesto por URL no es constante: medido (2026-10-10) que tras mucho
-// sondeo desde la misma IP una URL fresca entregaba sólo ~300 KB en trozos de
-// 100 KB y devolvía 403 a peticiones mayores, sin recuperarse al esperar
-// (token-bucket por IP). Si el CDN rechaza el bloque, el proxy responde 502 en
-// la primera petición y la card cae al preview sin dejar audio a medias.
-// Levantar el tope exige PO token (un servicio extra, p. ej.
-// bgutil-ytdlp-pot-provider: era lo que hacía el music server yt-dlp borrado).
-// Ver README.
 export const MAX_UPSTREAM_RANGE_BYTES = 1024 * 1024;
-
-// Margen para distinguir "URL caducada" de "el CDN no da más": las URLs de
-// googlevideo viven ~6 h, así que un 403 a los pocos minutos de resolverla no es
-// caducidad (ver urlMayBeExpired).
 export const STREAM_URL_FRESH_MS = 5 * 60 * 1000;
 
 /**
- * ¿Merece la pena re-resolver porque la URL pudo caducar?
- *
- * Un 403/410 en el primer bloque de una URL recién resuelta NO es caducidad:
- * es el allowance del CDN por URL (ver MAX_UPSTREAM_RANGE_BYTES). En ese caso
- * re-resolver gasta una llamada al player y ~1-2 s antes de dar el mismo 502.
  *
  * @param {{resolvedAt?: number}} resolved Resolución (`resolvedAt` en ms).
  * @param {number} [nowMs] Instante actual (inyectable para tests).
@@ -344,18 +267,9 @@ export function pickBestCandidate(candidates, track) {
 }
 
 /**
- * Elige el formato de audio con mejor relación compatibilidad/tamaño.
- * Orden: m4a 140 (131 kbps, lo reproduce todo) > opus 251 (mejor calidad pero
- * Safari no lo decodifica) > el m4a disponible con más bitrate > el primero.
  *
  * @param {Array} adaptiveFormats Formatos del player (streamingData).
  * @param {{ maxBytes?: number }} [options] Con `maxBytes` sólo se eligen
- *   formatos cuya pista ENTERA quepa en ese tamaño (el CDN con `rqh=1` sólo
- *   entrega el primer MiB de cada URL: ver MAX_UPSTREAM_RANGE_BYTES). Se
- *   prefiere perder calidad antes que no poder oír la canción completa:
- *   140 → el mejor m4a que quepa → el mejor opus que quepa (Safari no lo
- *   decodifica, así que va último). Si NINGUNO cabe, devuelve la elección
- *   normal y es el llamador quien marca `playable: false`.
  */
 export function pickAudioFormat(adaptiveFormats = [], { maxBytes = 0 } = {}) {
   const audio = adaptiveFormats.filter(
@@ -384,14 +298,7 @@ export function pickAudioFormat(adaptiveFormats = [], { maxBytes = 0 } = {}) {
 }
 
 // ── Llamadas a innertube ──
-// ⚠️ NO enviar `visitorData` en el contexto. Verificado empíricamente: con un
-// visitorData obtenido de un search, el player responde LOGIN_REQUIRED
-// ("Sign in to confirm you're not a bot"); sin él, el mismo video responde OK.
-// (El cliente real sí lo manda, pero acá, sin sesión de usuario ni PO token, el
-// visitorData juega en contra.)
 
-// Antirráfaga: innertube castiga varias llamadas simultáneas desde una misma
-// IP. Las peticiones se encadenan para no solaparse.
 let requestChain = Promise.resolve();
 
 function serialize(fn) {
@@ -424,8 +331,6 @@ async function innertubeRequest(endpoint, body, apiClient, timeoutMs = REQUEST_T
   return res.json();
 }
 
-// El cliente ANDROID_VR devuelve `compactVideoRenderer` (no `videoRenderer`,
-// que es lo que usa WEB). Se soportan ambos por si cambia el cliente.
 const VIDEO_RENDERER_KEYS = ['videoRenderer', 'compactVideoRenderer'];
 
 function textOf(node) {
@@ -435,8 +340,6 @@ function textOf(node) {
   return '';
 }
 
-/** ytInitialData de /results no trae lengthSeconds: la duración viene en
- *  `lengthText` ("3:34"). Se soportan las dos formas. */
 function durationOf(renderer) {
   if (renderer.lengthSeconds) return Number(renderer.lengthSeconds) || 0;
   return parseDuration(textOf(renderer.lengthText));
@@ -492,11 +395,8 @@ async function searchViaResultsPage(query, limit, timeoutMs = REQUEST_TIMEOUT_MS
   return collectVideoRenderers(data, [], new Set()).slice(0, limit);
 }
 
-/**
+/*
  * Busca videos en YouTube.
- *
- * ⚠️ Usa la página /results y NO youtubei/v1/search: el search de innertube
- * deja marcada la sesión y el player siguiente responde LOGIN_REQUIRED.
  */
 export async function searchTracks(query, { limit = 10, fresh = false, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   const q = String(query || '').trim();
@@ -514,9 +414,6 @@ export async function searchTracks(query, { limit = 10, fresh = false, timeoutMs
 }
 
 // ── Búsqueda en el catálogo de YouTube Music ──
-// La página de YouTube Music NO trae ytInitialData: embebe los datos como
-// strings JS escapados dentro de initialData.push({ path: '/search', data: '...' }).
-// Se decodifican y se parsean sin ejecutar JS.
 
 /** Decodifica escapes JS (\x7b, \u2022, …) de un string embebido en el HTML. */
 function decodeJsString(value) {
@@ -558,9 +455,6 @@ function collectMusicItems(node, out) {
 }
 
 const MUSIC_ARTIST_PAGE = 'MUSIC_PAGE_TYPE_ARTIST';
-// ATV = canción del catálogo (art track) · OMV = vídeo musical oficial.
-// Fuera: UGC (subidas de YouTube), podcasts, álbumes, playlists, artistas y
-// perfiles. Eso es lo que separa YouTube Music de un search normal de YouTube.
 const MUSIC_SONG_TYPES = new Set(['MUSIC_VIDEO_TYPE_ATV', 'MUSIC_VIDEO_TYPE_OMV']);
 
 /** Convierte un musicResponsiveListItemRenderer en un track de canción. */
@@ -619,17 +513,6 @@ function musicItemToTrack(renderer) {
   return { videoId, title, artist, artwork, durationSec };
 }
 
-/**
- * Busca canciones SOLO en el catálogo de YouTube Music.
- *
- * Devuelve candidatos normalizados { videoId, title, artist, artwork, durationSec }.
- * Filtra las subidas de YouTube (UGC), podcasts y colecciones: si no hay
- * canciones del catálogo, el llamador debe caer a iTunes/Deezer.
- *
- * ⚠️ Igual que searchTracks, usa HTML y NO youtubei/v1/search: el search de
- * innertube deja marcada la sesión y el player siguiente responde
- * LOGIN_REQUIRED (ver cabecera del módulo).
- */
 export async function searchYouTubeMusic(query, { limit = 10, fresh = false, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   const q = String(query || '').trim();
   if (!q) return [];
@@ -670,44 +553,16 @@ export async function searchYouTubeMusic(query, { limit = 10, fresh = false, tim
   return tracks;
 }
 
-/**
- * Resuelve un videoId a un stream de audio reproducible, probando los clientes
- * de la cadena hasta que uno responda con formatos utilizables.
- *
- * Elige el formato que quepa ENTERO en el tramo que entrega el CDN
- * (MAX_UPSTREAM_RANGE_BYTES). Devuelve:
- *   { url, mimeType, codecs, itag, contentLength, videoId, title, client,
- *     playable, degraded }
- * donde `playable: false` significa que la pista es más grande que el tramo
- * servible → la card debe usar el preview de 30 s, y `degraded: true` que se
- * bajó de calidad para que la canción sí quepa completa.
- */
 export async function resolveVideoAudio(videoId, { budgetMs = 0 } = {}) {
   if (!videoId) throw new Error('resolveVideoAudio: falta videoId');
 
-  // Presupuesto opcional: sin él se comporta como antes (un intento por
-  // cliente); con él, la cadena se corta cuando se agota para no reventar el
-  // reloj de la función serverless que la llamó.
   const guard = budgetMs > 0 ? deadlineGuard(budgetMs) : null;
   const failures = [];
-  // true si la cadena se cortó por presupuesto (no por fallos de YouTube).
   let budgetCut = false;
-  // Primera resolución utilizable aunque la pista NO quepa entera: se devuelve
-  // sólo si ningún cliente ofrece un formato que sí quepa (playable:false → la
-  // card reproduce el preview de 30 s en vez de un stream condenado).
   let tooBig = null;
-  // Resolución que SÍ cabría entera pero SIN red de seguridad (audio-only y el
-  // cliente no expone `formats` muxed). Las URLs audio-only están "gated": el
-  // CDN puede rechazar su primer bloque, y sin muxed no hay a qué caer → la
-  // card se quedaba en el preview de 30 s. Medido el 2026-10-16 con Feid -
-  // Ferxxo 100: ANDROID_VR bloqueado, IOS OK pero muxed=0 (y su itag 139 cabía
-  // entero → devolvía ahí), ANDROID OK con el itag 18 de reserva. Por eso una
-  // resolución sin red sólo se acepta si NINGÚN cliente ofrece una con red.
   let bestEffort = null;
 
   for (const apiClient of CLIENTS) {
-    // Sin presupuesto suficiente no se arranca otro cliente: es preferible
-    // devolver lo que ya se tenga (tooBig) o fallar rápido.
     if (guard && (guard.expired() || guard.remaining() < MIN_CLIENT_BUDGET_MS)) {
       budgetCut = true;
       break;
@@ -729,8 +584,6 @@ export async function resolveVideoAudio(videoId, { budgetMs = 0 } = {}) {
     const status = json?.playabilityStatus?.status;
     if (status && status !== 'OK') {
       const reason = json?.playabilityStatus?.reason || `no reproducible (${status})`;
-      // LOGIN_REQUIRED = YouTube pidió verificación para esta IP/cliente. Se
-      // prueba el siguiente cliente; si todos fallan, el error lo dice.
       failures.push(`${apiClient.name}: ${reason}`);
       continue;
     }
@@ -738,9 +591,6 @@ export async function resolveVideoAudio(videoId, { budgetMs = 0 } = {}) {
     const formats = json?.streamingData?.adaptiveFormats;
     const best = pickAudioFormat(formats);
     const muxed = pickMuxedFormat(json?.streamingData?.formats);
-    // 1º) el mejor audio-only cuya pista ENTERA quepa en el tramo servible (el
-    //     archivo más pequeño). 2º) si no cabe, el muxed, que no está limitado
-    //     por rango → la canción suena entera (ver pickMuxedFormat).
     const audioOnly = pickAudioFormat(formats, { maxBytes: MAX_UPSTREAM_RANGE_BYTES });
     const audioOnlyLength = Number(audioOnly?.contentLength) || 0;
     const audioOnlyFits = audioOnlyLength > 0 && audioOnlyLength <= MAX_UPSTREAM_RANGE_BYTES;
@@ -761,55 +611,26 @@ export async function resolveVideoAudio(videoId, { budgetMs = 0 } = {}) {
       videoId,
       title: json?.videoDetails?.title || '',
       client: apiClient.name,
-      // El muxed siempre es servible entero; el audio-only sólo si cabe en el
-      // tramo que el CDN entrega de una URL.
       playable: isMuxed || (contentLength > 0 && contentLength <= MAX_UPSTREAM_RANGE_BYTES),
-      // true si hubo que bajar de calidad (itag distinto al mejor disponible)
       degraded: !!best && String(best.itag) !== String(format.itag),
-      // Red de seguridad del audio-only: si el CDN rechaza su primer bloque
-      // (403 = allowance de la URL agotado) el stream se sirve desde el muxed.
       fallbackUrl: isMuxed ? null : muxed?.url || null,
       fallbackLength: isMuxed ? 0 : Number(muxed?.contentLength) || 0,
     };
 
-    // Cabe ENTERA y trae red de seguridad (muxed, o es el propio muxed): es la
-    // buena y no se consulta a los demás clientes.
     if (entry.playable && (isMuxed || entry.fallbackUrl)) return entry;
-    // Cabe entera pero sin red: se guarda y se sigue probando por si otro
-    // cliente trae el muxed de reserva (ANDROID lo expone, VR/IOS no).
     if (entry.playable) {
       if (!bestEffort) bestEffort = entry;
       continue;
     }
-    // Si no cabe se prueba el siguiente cliente (ANDROID expone los itags de
-    // baja calidad, VR/IOS no) antes de rendirse con esta.
     if (!tooBig) tooBig = entry;
   }
 
-  // Preferencia: lo que cabe entero (con red si la hubo, si no sin ella) antes
-  // que una pista que no cabe y fuerza el preview de 30 s.
   if (bestEffort) return bestEffort;
   if (tooBig) return tooBig;
-  // Se agotó el presupuesto (o no quedaba margen para otro cliente) y no hay
-  // nada utilizable: el error honesto es el timeout, no "todos los clientes
-  // fallaron".
   if (guard?.expired() || budgetCut) throw new Error(RESOLVE_TIMEOUT_MESSAGE);
   throw new Error(`no se pudo resolver el audio (${failures.join(' | ')})`);
 }
 
-/**
- * Formato MUXED (vídeo+áudio en un MP4 progresivo): itag 18 = 360p con AAC
- * ~128 kbps. No es ideal en ancho de banda, pero es la ÚNICA vía fiable de
- * servir una canción larga entera: verificado (2026-10-10, IP residencial y de
- * datacenter con el cliente ANDROID) que sus URLs sirven CUALQUIER offset —
- * incluidas posiciones de 3, 5 y 12 MB de un archivo de 13 MB — mientras las
- * URLs audio-only (adaptive) devuelven 403 en cuanto el CDN agota el allowance
- * de esa URL. Es la idea que usa el proyecto Scrup (ytdownloader): el audio-only
- * va "gated", el muxed no.
- *
- * Orden: itag 18 (el más ligero: ~496 kbps totales) → itag 22 (720p) → el de
- * menor bitrate. Los formatos sin `url` directa (firmados/cipher) se descartan.
- */
 export function pickMuxedFormat(streamingFormats = []) {
   const muxed = streamingFormats.filter(
     (f) => typeof f.url === 'string' && String(f.mimeType || '').startsWith('video/')
@@ -848,10 +669,6 @@ export function activeStreamSource(resolved) {
   return { url: resolved?.url, contentLength: resolved?.contentLength || 0 };
 }
 
-/**
- * ¿El error de una resolución es un agotamiento del presupuesto de tiempo?
- * (para que los handlers respondan 504 en vez de 502).
- */
 export function isResolveTimeout(err) {
   return /a tiempo \(timeout\)/.test(err?.message || '');
 }
@@ -884,10 +701,6 @@ export async function resolveTrackAudio(track, { fresh = false, budgetMs = RESOL
     if (cached) return { ...cached, cached: true };
   }
 
-  // Todo el trabajo (búsqueda + cadena de clientes) comparte un presupuesto: el
-  // handler serverless prefiere responder un 504 suyo y legible antes que morir
-  // con el 504 de la plataforma tras 60 s de espera (el usuario ve el preview
-  // en ambos casos, pero aquí en segundos y con un motivo en el cuerpo).
   const guard = deadlineGuard(budgetMs);
 
   let videoId = track?.videoId || null;
@@ -901,8 +714,6 @@ export async function resolveTrackAudio(track, { fresh = false, budgetMs = RESOL
         timeoutMs: guard.timeoutFor(REQUEST_TIMEOUT_MS),
       });
     } catch (err) {
-      // Un paso abortado por el presupuesto sale como timeout legible (504 en el
-      // handler) en lugar del error crudo de undici ("operation was aborted").
       const aborted = err?.name === 'TimeoutError' || err?.name === 'AbortError';
       if (aborted || guard.expired()) throw new Error(RESOLVE_TIMEOUT_MESSAGE, { cause: err });
       throw err;
@@ -916,9 +727,6 @@ export async function resolveTrackAudio(track, { fresh = false, budgetMs = RESOL
   const resolved = await resolveVideoAudio(videoId, { budgetMs: guard.remaining() });
   const value = {
     ...resolved,
-    // Cuándo se resolvió: permite distinguir "URL caducada" de "el CDN no da
-    // más audio de esta IP" cuando el primer bloque responde 403 (ver
-    // urlMayBeExpired).
     resolvedAt: Date.now(),
     track: { artist: track.artist || '', title, duration: track.duration || 0 },
   };

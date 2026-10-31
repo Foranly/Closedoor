@@ -16,16 +16,11 @@
  * que aquí se convierten a los `(req, res)` de Node http / Connect. El audio se
  * pipea (no se bufferiza) para que el <audio> pueda hacer streaming y seek.
  *
- * ⚠️ No es una función serverless (empieza por `_`, convención que Vercel ya usa
+ * No es una función serverless (empieza por `_`, convención que Vercel ya usa
  * en este proyecto para `_innertube.js`, `_music.js`, `_livekit.js`, `_sitemap.js`).
  */
 
 import { Readable } from 'node:stream';
-// ⚠️ Los handlers llevan `_` delante A PROPÓSITO: en Vercel cualquier archivo
-// bajo `api/` se convierte en una función serverless, y una función en esa ruta
-// GANA al rewrite de `vercel.json` (comprobado en produccion: /api/music/health
-// colgaba 12 s con la función, mientras /api/music/nonexistent lo servia el host
-// propio en 0,47 s). Con `_` no hay función, y /api/music/(.*) llega al host.
 import healthHandler from './music/_health.js';
 import resolveHandler from './music/_resolve.js';
 import streamHandler from './music/_stream.js';

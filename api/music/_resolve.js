@@ -19,11 +19,6 @@
 
 import { resolveTrackAudio, isResolveTimeout } from '../_innertube.js';
 
-// ⚠️ El `_` del nombre es deliberado: sin el, este archivo seria una funcion
-// serverless en /api/music/resolve, y una funcion gana al rewrite de vercel.json
-// (ver api/music/_stream.js). Aqui no hay funcion ni `maxDuration`: la ruta la
-// sirve el host propio via `/api/music/(.*)`.
-
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
