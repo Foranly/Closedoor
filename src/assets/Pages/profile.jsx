@@ -1922,8 +1922,7 @@ function Profile() {
                     initialAvatarPosition={ownProfile?.avatar_position || '50% 50%'}
 
                     initialBannerCredits={ownProfile?.banner_credits || ''}
-                    initialAvatarCredits={ownProfile?.avatar_credits || ''}                      initialBannerCredits={ownProfile?.banner_credits || ''}
-                    initialAvatarCredits={ownProfile?.avatar_credits || ''}
+                    initialAvatarCredits={ownProfile?.avatar_credits || ''}                      
                     initialProfileBg={getCdnUrl(ownProfile?.profile_background_url || '')}
                     initialProfileBgPosition={ownProfile?.profile_background_position || '50% 50%'}
                     initialProfileBgBlur={ownProfile?.profile_background_blur ?? 0}
