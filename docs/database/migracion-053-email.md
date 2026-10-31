@@ -1,56 +1,40 @@
-# Migración 053 (v2) — Proteger columna email (a prueba de balas)
+# Grant por columna en `profiles` (migraciones 053 → 069)
 
-**Dónde:** Supabase SQL Editor New query pegar todo Run
-**Nota:** la v1 (REVOKE de columna simple) no surtió efecto. Esta versión revoca TODO y regrantea por columna. Es idempotente — se puede ejecutar de nuevo sin error.
+Nota de contexto sobre cómo se protegió la columna `email` de `profiles`. El SQL
+aplicable no se copia aquí para no duplicarlo: vive en
+`src/assets/services/migrations/`.
+
+---
+
+## Qué pasó
+
+RLS filtra **filas**, no columnas: con la anon key se podía pedir
+`select=id,email,username` y leer todos los emails. La columna tampoco se podía
+"ocultar" con una política.
+
+## Cómo se resolvió
+
+| Migración | Qué hace |
+|---|---|
+| `053_revoke_email_column.sql` | `REVOKE ALL ON public.profiles` y grants explícitos **por columna**; `email` queda solo en `INSERT` (registro). Crea los RPC `SECURITY DEFINER` para login y comprobación de registro. No basta con un `REVOKE` de columna simple: en Supabase no surte efecto. |
+| `054_secure_rpcs.sql` | Retira `EXECUTE` de `anon` en los RPC críticos y añade role check (`auth.uid() IS NOT NULL`). |
+| `055_hardening_table_access.sql` | RLS en las tablas sociales y `REVOKE SELECT` de las tablas crudas (`posts`, `profiles`): el acceso anónimo va por las vistas `posts_public` / `profiles_public`. |
+| `069_drop_profiles_email.sql` | `DROP COLUMN profiles.email`: el email real vive en `auth.users` (privado, gestionado por GoTrue), así que la columna sobraba y era el origen de la fuga. |
+| `071_fix_profiles_grants.sql` | Ajusta los grants por columna a las columnas que existen tras las migraciones anteriores. |
+| `074_username_login.sql` | Sustituye `get_email_by_username` por `login_email_by_username`, que solo devuelve el email si la contraseña es correcta (y con throttle). |
+
+## Cómo verificarlo
 
 ```sql
--- 1. Eliminar TODOS los grants previos de la tabla
-REVOKE ALL ON public.profiles FROM anon, authenticated;
-
--- 2. Grants explícitos por columna (SIN email en SELECT/UPDATE)
-GRANT SELECT (id, username, avatar_url, bio, created_at, updated_at, banner_url, followers, followings, roles, social_links, accent_color, is_private, interests, stats_private, stats_visibility, profile_views_count, banner_position, avatar_position, accent_color_secondary, accent_surface_color, accent_surface_glass, show_accent_profile, accent_visibility, show_accent_explore, show_interests, show_profile_stats, show_trending, profile_background_url, profile_background_position, profile_background_blur, profile_background_dim, show_likes, show_saves, allow_mention, allow_encrypted_add, pronouns, banner_credits, avatar_credits, profile_text_color, banner_dim, filter_encrypted, show_accent, displayname, time_format_24h, theme, locale, show_badges, badges_visibility, user_status, user_status_updated_at, song) ON public.profiles TO anon, authenticated;
-
-GRANT INSERT (id, email, username, displayname, created_at) ON public.profiles TO anon, authenticated;
-
-GRANT UPDATE (id, username, avatar_url, bio, created_at, updated_at, banner_url, followers, followings, roles, social_links, accent_color, is_private, interests, stats_private, stats_visibility, profile_views_count, banner_position, avatar_position, accent_color_secondary, accent_surface_color, accent_surface_glass, show_accent_profile, accent_visibility, show_accent_explore, show_interests, show_profile_stats, show_trending, profile_background_url, profile_background_position, profile_background_blur, profile_background_dim, show_likes, show_saves, allow_mention, allow_encrypted_add, pronouns, banner_credits, avatar_credits, profile_text_color, banner_dim, filter_encrypted, show_accent, displayname, time_format_24h, theme, locale, show_badges, badges_visibility, user_status, user_status_updated_at, song) ON public.profiles TO anon, authenticated;
-
-GRANT DELETE ON public.profiles TO anon, authenticated;
-
--- 3. RPC: resolver email por username (login)
-CREATE OR REPLACE FUNCTION public.get_email_by_username(uname text)
-RETURNS text
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT email
-  FROM public.profiles
-  WHERE username = lower(uname)
-  LIMIT 1;
-$$;
-
-REVOKE ALL ON FUNCTION public.get_email_by_username(text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.get_email_by_username(text) TO anon, authenticated;
-
--- 4. RPC: ¿existe el email? (registro)
-CREATE OR REPLACE FUNCTION public.email_exists(addr text)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.profiles WHERE email = lower(addr)
-  );
-$$;
-
-REVOKE ALL ON FUNCTION public.email_exists(text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.email_exists(text) TO anon, authenticated;
-
--- 5. Verificación (opcional): debe mostrar email solo como INSERTABLE
--- SELECT grantee, privilege_type, column_name
--- FROM information_schema.column_privileges
--- WHERE table_name = 'profiles' AND column_name = 'email';
+SELECT grantee, privilege_type, column_name
+FROM information_schema.column_privileges
+WHERE table_name = 'profiles' AND column_name = 'email';
+-- ✅ sin filas: la columna no existe y no hay grants sobre ella
 ```
+
+```js
+// Con la anon key: debe responder 401/permission denied
+await supabase.from('profiles').select('id, email').limit(1);
+```
+
+Detalle del hallazgo, alcance y pruebas: [../security/AUDITORIA-SEGURIDAD.md](../security/AUDITORIA-SEGURIDAD.md).

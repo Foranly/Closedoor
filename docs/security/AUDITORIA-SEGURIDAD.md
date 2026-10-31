@@ -1,26 +1,25 @@
-# Auditoría y Endurecimiento de Seguridad — FastChange
+# Auditoría y Endurecimiento de Seguridad — Closedoor
 
-**Fecha:** Agosto 2026
-**Estado final:** Auditoría **108/108 (100%)** una vez aplicada la migración 074 en Supabase
-(hoy **106/108** local: los 2 checks que dependen de 074 siguen en rojo hasta aplicar la migración)
+**Estado:** la suite de auditoría exige **100%** (cualquier fallo sale con exit 1 y
+bloquea el merge en CI).
 **Migraciones de seguridad:** 053, 054, 055, 056, 057, 058, 059, 060, 069, 071, 074
 
 ---
 
 ## Resumen ejecutivo
 
-Se realizó una auditoría de seguridad integral (DB + cliente + servidor) y se corrigieron
-**3 vulnerabilidades reales** y varios puntos débiles. La suite de pruebas
-(`scripts/test-security-full.mjs`) pasó de **66/69** a **108 checks** (100% con 074 aplicada).
+Auditoría de seguridad integral (DB + cliente + servidor): se corrigieron
+**3 vulnerabilidades reales** y varios puntos débiles. La suite
+(`scripts/test-security-full.mjs`) cubre hoy todas las áreas por debajo.
 
-| Área | Resultado |
+| Área | Estado |
 |---|---|
-| DB (RLS, columnas, RPCs, tablas sociales) | 29/29 (tras aplicar 074) |
-| SQL Injection (API REST) | 6/6 |
-| XSS (helpers reales) | 12/12 |
-| Auth (validaciones, whitelist de email) | 25/25 |
-| Cache (storage cifrado) | 14/14 |
-| Web (CSP, headers, superficie XSS) | 22/22 |
+| DB (RLS, columnas, RPCs, tablas sociales) | cubierta |
+| SQL Injection (API REST) | cubierta |
+| XSS (helpers reales) | cubierta |
+| Auth (validaciones, whitelist de email) | cubierta |
+| Cache (storage cifrado) | cubierta |
+| Web (CSP, headers, superficie XSS) | cubierta |
 
 ---
 
@@ -318,27 +317,30 @@ Esto eliminó los últimos 2 falsos positivos.
 
 ### Qué prueba cada sección
 
-- **DB (17):** RLS en perfiles/posts/conversaciones/notificaciones/mensajes/votos/llamadas,
+- **DB:** RLS en perfiles/posts/conversaciones/notificaciones/mensajes/votos/llamadas,
  email oculto y revocado, RPCs disponibles, UPDATE/DELETE/INSERT de entidades ajenas bloqueados.
-- **SQL (6):** payloads de inyección contra la API REST (parámetros `eq`).
-- **XSS (12):** sanitización real de contenido y URLs (script, eventos, iframe, svg, protocolos).
-- **AUTH (25):** password, username, y email con la **whitelist real** (`validateEmail` de
+- **SQL:** payloads de inyección contra la API REST (parámetros `eq`).
+- **XSS:** sanitización real de contenido y URLs (script, eventos, iframe, svg, protocolos).
+- **AUTH:** password, username, y email con la **whitelist real** (`validateEmail` de
  `emailValidation.js`): dominios permitidos (incl. variantes regionales), case-insensitive,
  plus-addressing, y bloqueo de dominios basura (tempmail, inventados).
-- **CACHE (14):** secureStorage usa XOR + salt + hash de keys + wrap key no extraíble en IDB.
-- **WEB (22):** CSP en build (sin unsafe-eval/inline), cobertura de túneles/LiveKit/Realtime,
+- **CACHE:** secureStorage usa XOR + salt + hash de keys + wrap key no extraíble en IDB.
+- **WEB:** CSP en build (sin unsafe-eval/inline), cobertura de túneles/LiveKit/Realtime,
  headers (sin header CSP HTTP), RPCs, `__supabase` solo DEV, y check negativo de que el
  login NO bloquea por dominio (cuentas legacy).
 
 ### Resultado final
 
 ```
-DB: 27/27 (100%)   SQL: 6/6 (100%)   XSS: 12/12 (100%)
-AUTH: 25/25 (100%)   CACHE: 14/14 (100%)   WEB: 22/22 (100%)
+DB: 100%   SQL: 100%   XSS: 100%
+AUTH: 100%   CACHE: 100%   WEB: 100%
 
- TOTAL: 106/106 (100%)
+ TOTAL: 100%
  TODAS LAS PRUEBAS PASARON
 ```
+
+Los conteos por área cambian al añadir checks: lo que importa es que el total sea
+100% y que el script salga con exit 0.
 
 ---
 
@@ -354,7 +356,7 @@ AUTH: 25/25 (100%)   CACHE: 14/14 (100%)   WEB: 22/22 (100%)
 
 **Cambios necesarios en el test para que funcione en CI:**
 - `scripts/test-security-full.mjs` ahora **sale con exit code 1 si hay CUALQUIER fallo** (antes solo imprimía el aviso y el CI habría pasado igual).
-- Acepta credenciales desde `process.env` (GitHub Secrets) con fallback a `.env.local` — verificado en CI-mode: 77/77 con exit 0 usando solo env vars.
+- Acepta credenciales desde `process.env` (GitHub Secrets) con fallback a `.env.local` — comprobado en modo CI usando solo variables de entorno.
 
 **Setup en GitHub (una vez):**
 
@@ -368,177 +370,46 @@ A partir de ahí, cualquier push que rompa una prueba de seguridad **bloquea el 
 
 ---
 
-## Arquitectura de seguridad del cliente (cómo queda)
+## Modelo de seguridad resultante
 
-```
-localStorage/sessionStorage (datos cifrados XOR + salt por entrada)
-        
-        │  secureStorage.js (getItem/setItem  cifrar/descifrar)
-        │  clave por entrada = SHA-256(masterKey ‖ salt)
-        │
-   Master key (32B CSPRNG) ── SOLO EN MEMORIA ──┐
-        │                                       │
-        └── envuelta con AES-GCM ── CryptoKey no-extraíble (IndexedDB)
-                                          (extractable: false  no se exporta)
+**Cliente** (`secureStorage.js` + `supabaseclient.js`)
 
-Token de sesión:  localStorage cifrado    se descifra solo en memoria al cargar
-                  flujo OAuth: PKCE (nunca en la URL)
-```
+- Master key de 32 B por CSPRNG, **solo en memoria**; envuelta con AES-GCM en una
+  `CryptoKey` no extraíble de IndexedDB.
+- Cada entrada de `localStorage`/`sessionStorage`: `SHA-256(masterKey ‖ salt)` + XOR.
+- La sesión se cifra y se descifra solo en memoria; OAuth con PKCE (el token nunca
+  viaja en la URL).
+- Limitaciones aceptadas (documentadas en `secureStorage.js`): un XSS activo del
+  mismo origen puede llamar a las APIs de descifrado; si se borra IndexedDB hay que
+  re-loguearse una vez.
 
-**Limitaciones aceptadas (documentadas en `secureStorage.js`):**
-- No protege contra XSS activo del mismo origen (un script inyectado puede llamar las APIs del app
- para descifrar en runtime). Ningún esquema client-side puede evitarlo por completo.
-- Si se borra el IndexedDB/datos del sitio, la key envuelta se pierde el usuario debe
- re-loguearse una vez. Es el precio aceptado del nivel de seguridad.
+**Red**
 
----
+- Headers de seguridad en `server.js` y `vercel.json`, y **ningún** header CSP HTTP
+  (la meta CSP inyectada en build es la única política).
+- Meta CSP generada por `plugins/cspPlugin.js` solo en build.
 
-## Flujo completo de seguridad — Cómo funciona
+**Base de datos**
 
-### Capa 1: Cliente (navegador)
+- `profiles`: grants por columna y sin `email` (vive en `auth.users`, solo se lee vía
+  RPC).
+- Vistas `profiles_public` / `posts_public` para el acceso anónimo; tablas crudas
+  revocadas.
+- RLS en todas las tablas sociales; RPCs `SECURITY DEFINER` con `search_path` fijo,
+  `REVOKE` de `anon` y role check interno.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  NAVEGADOR                                                 │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  secureStorage.js                                   │   │
-│  │  ┌──────────────────────────────────────────────┐   │   │
-│  │  │ Master Key (32B CSPRNG) ── SOLO EN MEMORIA  │   │   │
-│  │  │         │                                    │   │   │
-│  │  │         └── envuelta con AES-GCM ── IDB     │   │   │
-│  │  │              (CryptoKey no-extraíble)         │   │   │
-│  │  └──────────────────────────────────────────────┘   │   │
-│  │                                                     │   │
-│  │  localStorage cifrado:                              │   │
-│  │  - Token de sesión (sb-xxx-auth-token)              │   │
-│  │  - Cache de feed, posts, perfil                     │   │
-│  │  - Datos de usuario                                 │   │
-│  │  Cada entrada: SHA-256(masterKey ‖ salt) + XOR      │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  supabaseclient.js                                  │   │
-│  │  - flowType: 'pkce' (OAuth sin token en URL)        │   │
-│  │  - storage: secureSupabaseStorage (cifrado)         │   │
-│  │  - __supabase SOLO en DEV                           │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
+**Validación de entrada**
 
-### Capa 2: Red (headers de seguridad)
+- Registro: password ≥ 6 caracteres, username 3-20 `[a-zA-Z0-9_]`, email en whitelist
+  y CAPTCHA Turnstile.
+- Login: email o username; el username pasa por un RPC con contraseña y throttle.
+- Contenido: `sanitizeContent` / `sanitizeUrl`; la API REST de Supabase parametriza
+  las consultas, así que los payloads de inyección no devuelven filas.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  RESPONSE HEADERS                                           │
-│                                                             │
-│  X-Frame-Options: DENY                    (anti-clickjack) │
-│  X-Content-Type-Options: nosniff           (anti-MIME sniff)│
-│  Referrer-Policy: strict-origin-when-cross-origin          │
-│  Strict-Transport-Security: max-age=31536000  (HSTS)       │
-│  Permissions-Policy: camera=(self), microphone=(self)       │
-│                                                             │
-│  Meta CSP (inyectada por cspPlugin.js solo en build):       │
-│  - script-src: 'self' + Turnstile (sin unsafe-*)            │
-│  - connect-src: Supabase, LiveKit, iTunes, túneles         │
-│  - object-src: 'none'                                       │
-│  - NO hay header CSP HTTP (evita shadowing de la meta)      │
-└─────────────────────────────────────────────────────────────┘
-```
+**CI**
 
-### Capa 3: Base de datos (RLS + GRANT + RPCs)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  SUPABASE DATABASE                                          │
-│                                                             │
-│  ┌─── ANON KEY (sin sesión) ────────────────────────────┐  │
-│  │                                                       │  │
-│  │   PUEDE:                                            │  │
-│  │  - Leer profiles_public (sin email)                   │  │
-│  │  - Leer posts_public (sin encrypted_content)          │  │
-│  │  - Leer comments (contenido público)                  │  │
-│  │  - Llamar email_exists (necesario para registro)      │  │
-│  │  - Login por username SOLO con contraseña correcta    │  │
-│  │  - Llamar get_trending_words (datos agregados)        │  │
-│  │                                                       │  │
-│  │   NO PUEDE:                                         │  │
-│  │  - Leer email de profiles (REVOKE columna)            │  │
-│  │  - Leer likes, follows, reposts (REVOKE tabla)        │  │
-│  │  - Leer conversations, messages (RLS)                 │  │
-│  │  - Leer notifications (RLS)                           │  │
-│  │  - INSERT/UPDATE/DELETE en cualquier tabla (RLS)       │  │
-│  │  - Enumerar emails/usernames (RPC devuelve NULL)      │  │
-│  │  - Llamar bump_hashtag_usage (REVOKE + role check)    │  │
-│  │  - Llamar increment_post_views (REVOKE + role check)  │  │
-│  │  - Llamar unfollow_both_ways (REVOKE + role check)    │  │
-│  │  - Llamar rls_auto_enable (REVOKE)                    │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                                                             │
-│  ┌─── AUTHENTICATED (con sesión) ───────────────────────┐  │
-│  │                                                       │  │
-│  │   PUEDE:                                            │  │
-│  │  - Todo lo que puede anon                             │  │
-│  │  - CRUD en sus propios datos (RLS: user_id=auth.uid)  │  │
-│  │  - Leer likes, follows, reposts (authenticated only)  │  │
-│  │  - Leer conversations/messages (si es participante)   │  │
-│  │  - Leer notifications propias (RLS)                   │  │
-│  │  - Llamar RPCs con role check (auth.uid() IS NOT NULL)│  │
-│  │                                                       │  │
-│  │   NO PUEDE:                                         │  │
-│  │  - Leer email de otros (REVOKE columna + RPC)         │  │
-│  │  - Leer posts encriptados ajenos (RLS: allowed_users) │  │
-│  │  - Modificar datos de otros (RLS)                     │  │
-│  │  - Des-followear otros (role check: uid=blocker_id)   │  │
-│  │  - Ejecutar rls_auto_enable (REVOKE)                  │  │
-│  └───────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Capa 4: Validación de entrada
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  VALIDACIÓN                                                │
-│                                                             │
-│  Registro:                                                  │
-│  - Password: mínimo 6 caracteres                           │
-│  - Username: 3-20 chars, solo [a-zA-Z0-9_]                │
-│  - Email: whitelist de proveedores (Gmail, Outlook, etc.)  │
-│  - Turnstile CAPTCHA (protección contra bots)              │
-│                                                             │
-│  Login:                                                     │
-│  - Email o username + password                              │
-│  - Username → RPC password-gated (sin enumeración)          │
-│  - Validación de formato Y dominio de email (whitelist)     │
-│                                                             │
-│  Contenido:                                                 │
-│  - sanitizeContent: elimina <script>, <iframe>, <svg>,     │
-│    javascript:, onerror=, etc.                              │
-│  - sanitizeUrl: bloquea protocolos peligrosos              │
-│  - Mencion(@) y hashtag(#) procesados vía regex            │
-│                                                             │
-│  SQL Injection:                                             │
-│  - Supabase REST API sanitiza automáticamente              │
-│  - Payloads como ' OR '1'='1 retornan 0 resultados         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Capa 5: CI/CD (automatización)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  GITHUB ACTIONS (security-audit.yml)                        │
-│                                                             │
-│  En cada push/PR a main:                                    │
-│  1. npm ci                                                  │
-│  2. node scripts/test-security-full.mjs (108 checks)        │
-│  3. npx vite build (verifica CSP + build)                   │
-│                                                             │
-│  Si ALGUNO falla  exit 1  merge bloqueado                │
-│  PRs desde forks: fallan con aviso claro (sin secrets)      │
-└─────────────────────────────────────────────────────────────┘
-```
+- `.github/workflows/security-audit.yml` ejecuta la suite y el build en cada push/PR
+  a `main`; cualquier fallo bloquea el merge.
 
 ### Tabla resumen: Qué puede hacer cada rol
 
@@ -592,7 +463,7 @@ Token de sesión:  localStorage cifrado    se descifra solo en memoria al cargar
 | `cspPlugin.js` | Meta CSP en build |
 | `vercel.json` | HSTS, Permissions-Policy |
 | `server.js` | Security headers |
-| `test-security-full.mjs` | 108 checks, helpers reales, CI exit code |
+| `test-security-full.mjs` | Helpers reales en XSS, exit code para CI |
 | `security-audit.yml` | CI en cada push/PR |
 
 ---

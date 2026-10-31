@@ -1,8 +1,8 @@
 # App de escritorio (Electron): lanzar y generar instaladores
 
-Guía práctica de `desktop/`: cómo arrancar la app en desarrollo y cómo generar los
-instaladores. Para el **por qué** y las piezas acopladas (puerto `5990`, CSP,
-detección desde la web) ver [`desktop/README.md`](../../desktop/README.md).
+Guía práctica de `desktop/`: cómo arrancar la app de escritorio en desarrollo y
+cómo generar los instaladores. Para el **por qué** y las piezas acopladas (puerto
+`5990`, CSP, detección desde la web) ver [`desktop/README.md`](../../desktop/README.md).
 
 Resumen de una línea: la app abre la **web publicada** en una ventana de Electron
 (**maximizada**) y levanta en paralelo el **servidor de música del repo** en
@@ -40,8 +40,8 @@ de escritorio.
 ## 3. Lanzarla en desarrollo
 
 ```bash
-npm run desktop                # la ventana carga https://app.foranly.space
-npm run desktop:dev            # la ventana carga http://localhost:5173  (antes: npm run dev)
+npm run desktop                                         # carga https://app.foranly.space
+FORANLY_WEB_URL=http://localhost:5173 npm run desktop    # carga el dev server (npm run dev)
 ```
 
 La ventana abre **maximizada** (1280×820 es el tamaño de restauración) y lleva el
@@ -58,13 +58,9 @@ Qué verás en consola al arrancar:
 ### Segundo plano (bandeja del sistema)
 
 La **X de la ventana no cierra la app**: la oculta en la bandeja del sistema y todo
-sigue vivo (sesión, audio y servidor de música local). Se vuelve con clic en el
-icono de la bandeja, con *Abrir Foranly* en su menú o lanzando `npm run desktop`
-otra vez (instancia única: la trae al frente).
-
-La única forma de salir del todo es **bandeja → Salir** (o cerrar la sesión del
-sistema). Si necesitas el cierre clásico al pulsar la X, comenta el handler
-`mainWindow.on('close', …)` de `desktop/main.js`.
+sigue vivo (sesión, audio y servidor de música local). La única forma de salir del
+todo es **bandeja → Salir**. Comportamiento y recuperación de la ventana
+(instancia única, *Abrir Closedoor*): ver [desktop/README.md](../../desktop/README.md).
 
 Comprobaciones útiles mientras está abierta:
 
@@ -91,8 +87,9 @@ una versión anterior (ver *Orden de despliegue* y el punto 8).
 Si `musicReady` sale `false`, el servidor local no arrancó (ver punto 8) y la web
 cae al preview de 30 s igual que en un navegador.
 
-> Ojo: si ya hay una ventana de Foranly abierta, un segundo `npm run desktop` la
-> enfoca y termina (instancia única); imprime `ya hay una ventana de Foranly abierta`.
+> Ojo: si ya hay una ventana abierta, un segundo `npm run desktop` la enfoca y
+> termina (instancia única); imprime
+> `[desktop] ya hay una ventana de Foranly abierta: se enfoca esa.`
 
 ### En otra máquina de la red (móvil, tablet)
 
@@ -122,28 +119,35 @@ forma de comprobar el proceso completo. `--no-sandbox` es solo para contenedores
 
 ```bash
 npm --prefix desktop run dist -- --linux dir     # empaqueta sin instaladores
-desktop/dist/linux-unpacked/foranly-desktop      # se ejecuta directamente
+desktop/dist/linux-unpacked/Closedoor            # se ejecuta directamente
 ```
 
-El nombre del ejecutable es el `name` del `package.json` (`foranly-desktop`); el
-icono y el nombre visible son los del `productName` (`Foranly`).
+El nombre del ejecutable es el `executableName` del `package.json` (`Closedoor`);
+el icono y el nombre visible son los del `productName`.
 
 ---
 
 ## 6. Generar instaladores
 
+Los scripts de empaquetado viven en `desktop/package.json` y se invocan con
+`--prefix desktop`:
+
 | Comando | Salida | Plataforma que lo puede generar |
 | --- | --- | --- |
-| `npm run desktop:dist` | la del sistema actual | — |
-| `npm run desktop:dist:linux` | `Foranly-<v>-x86_64.AppImage`, `Foranly-<v>-amd64.deb` | Linux |
-| `npm run desktop:dist:win` | `Foranly-Setup-<v>.exe` (NSIS) | Windows (o Linux con Wine) |
-| `npm run desktop:dist:mac` | `Foranly-<v>-arm64.dmg`, `Foranly-<v>-x64.dmg` | **solo macOS** |
-| `npm --prefix desktop run dist -- --linux dir` | `desktop/dist/linux-unpacked/` (sin instalador) | cualquiera |
+| `npm --prefix desktop run build` | instalador(es) de la plataforma actual | — |
+| `npm --prefix desktop run build:linux` | `Closedoor-<v>-x86_64.AppImage`, `Closedoor-<v>-amd64.deb` | Linux |
+| `npm --prefix desktop run build:win` | `.exe` (NSIS) | Windows (o Linux con Wine) |
+| `npm --prefix desktop run build:mac` | `Closedoor-<v>-arm64.dmg`, `Closedoor-<v>-x64.dmg` | **solo macOS** |
+| `npm --prefix desktop run build -- --linux dir` | `desktop/dist/linux-unpacked/` (sin instalador) | cualquiera |
 
-Todo cae en `desktop/dist/` (ignorado por git). El número de versión sale de
-`desktop/package.json` (`version`) **y** de `src/assets/data/desktopApp.js`
-(`DESKTOP_VERSION`): si publicas una versión nueva hay que subir los dos, porque la
-página `/download` muestra los nombres de archivo a partir del segundo.
+Todo cae en `desktop/dist/` (ignorado por git). Los nombres exactos los genera
+`electron-builder` (`build.*.artifactName` en `desktop/package.json`) y **deben
+coincidir** con `DESKTOP_DOWNLOADS` en `src/assets/data/desktopApp.js`: la página
+`/download` y el aviso del reproductor construyen las URLs desde ahí.
+
+El número de versión sale de `desktop/package.json` (`version`) **y** de
+`src/assets/data/desktopApp.js` (`DESKTOP_VERSION`). Si publicas una versión nueva
+hay que subir los dos y crear el tag del Release correspondiente.
 
 ### Qué mete `electron-builder` dentro
 
@@ -164,25 +168,9 @@ desktop/dist/<target>/
 
 ### Iconos
 
-Los iconos salen de `desktop/assets/`, declarados en `build.win/mac/linux.icon`:
-
-| Archivo | Tamaño | Uso |
-| --- | --- | --- |
-| `assets/icon.png` | 512×512 | Ventana y barra de tareas (`BrowserWindow.icon`), instalador y `.exe`/`.AppImage`/`.dmg` (electron-builder genera `.ico`/`.icns` desde este PNG) |
-| `assets/tray.png` | 32×32 | Icono de la **bandeja del sistema** |
-
-Ambos se generan con `npm run desktop:icons` (`scripts/make-desktop-icons.mjs`) a
-partir del tile cuadrado de marca `public/mini_icon.png`: recorta al bounding box
-del alpha, lo centra en un cuadrado y escribe los PNG en Node puro (determinista),
-**re-decodificando el resultado** para no publicar un icono vacío.
-
-⚠️ **No uses `public/logo.svg`** como fuente: medido, su PNG embebido es un trazo
-blanco muy fino (0,59% de píxeles con alpha > 8, alpha máximo 200) pensado para el
-header sobre fondo oscuro; como icono de 32 px desaparece. Si el asset de marca
-cambia, vuelve a correr `npm run desktop:icons`.
-
-`assets/**` va en `build.files`, así que la ruta del código
-(`path.join(__dirname, 'assets', …)`) vale igual en dev y empaquetado.
+Los iconos salen de `desktop/assets/` y se regeneran con `npm run desktop:icons`.
+Detalle (tamaños, qué asset NO usar y por qué):
+[`desktop/README.md`](../../desktop/README.md#piezas-acopladas-si-tocas-una-revisa-la-otra).
 
 ### Firma de código (pendiente)
 
@@ -200,14 +188,18 @@ En CI conviene compilar cada plataforma en su runner (GitHub Actions:
 
 ### Publicar la descarga
 
-1. Sube los instaladores a donde sirvas los binarios (por ejemplo
-   `https://dl.foranly.space/desktop/`).
-2. Rellena `DESKTOP_DOWNLOAD_BASE` en `src/assets/data/desktopApp.js` con esa base.
-3. Comprueba que los nombres coinciden con `DESKTOP_DOWNLOADS` (están escritos en
-   ese mismo archivo).
+Los binarios se publican como **assets de un Release de GitHub**; las URLs se
+construyen solas desde `src/assets/data/desktopApp.js`
+(`DESKTOP_RELEASE_TAG`, `DESKTOP_DOWNLOAD_BASE`, `DESKTOP_DOWNLOADS`).
 
-Hasta el paso 2, `/download` muestra cada tarjeta como **Próximamente** en vez de
-enlazar a un archivo inexistente.
+1. Sube `version` en `desktop/package.json` y `DESKTOP_VERSION` en `desktopApp.js`.
+2. Genera los instaladores (en cada plataforma, o en CI con un runner por SO).
+3. Crea el Release con el tag `v<versión>` y adjunta los archivos con los nombres
+   que espera `DESKTOP_DOWNLOADS`.
+4. Comprueba que `/download` enlaza a los assets reales.
+
+Si un archivo no existe, la tarjeta de `/download` cae al enlace del Release en vez
+de romperse.
 
 ---
 
@@ -277,7 +269,7 @@ bloquea el audio y todo cae al preview.
 2. `curl -s http://127.0.0.1:5990/api/music/health` → `{"ok":true,…}` con la app abierta.
 3. `FORANLY_DEBUG=1` muestra `musicReady: true`.
 4. `npm run build` de la web ✓ (el bundle con la CSP y la página `/download`).
-5. `npm run desktop:dist:<plataforma>` genera el instalador sin errores.
+5. `npm --prefix desktop run build:<plataforma>` genera el instalador sin errores.
 6. Instalador probado en una máquina limpia: abre la web, la canción del perfil
    suena entera y el aviso de descarga **no** aparece dentro de la app.
 7. `DESKTOP_VERSION` y `DESKTOP_DOWNLOAD_BASE` actualizados, y los binarios subidos.

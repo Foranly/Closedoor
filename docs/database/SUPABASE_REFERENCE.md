@@ -1,6 +1,6 @@
-# Referencia de Supabase -- FastChange
+# Referencia de Supabase — Closedoor
 
-Guia unificada de configuracion, esquema de base de datos y consultas SQL para el proyecto FastChange.
+Guia unificada de configuracion, esquema de base de datos y consultas SQL para el proyecto Closedoor.
 
 ---
 
@@ -19,74 +19,13 @@ Guia unificada de configuracion, esquema de base de datos y consultas SQL para e
 
 ## 1. Configuracion inicial
 
-### 1.1 Crear proyecto en Supabase
-
-1. Crear una cuenta en https://app.supabase.com
-2. Crear un nuevo proyecto
-3. Ir a Settings, API
-4. Copiar la **Project URL** y la **anon / public key**
-
-### 1.2 Variables de entorno
-
-Crear el archivo `.env.local` en la raiz del proyecto:
-
-```
-VITE_SUPABASE_URL=https://<proyecto>.supabase.co
-VITE_SUPABASE_ANON_KEY=<clave_anon>
-```
-
-Se admiten los siguientes nombres de variables alternativos:
-
-| Variable principal | Alternativas admitidas |
-|---|---|
-| `VITE_SUPABASE_URL` | `VITE_SUPABASE_DATA_API_URL` |
-| `VITE_SUPABASE_ANON_KEY` | `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PUBLIC_KEY`, `VITE_SUPABASE_KEY` |
-
-### 1.3 Estructura de archivos relacionada
-
-```
-src/
-  context/
-    AuthContext.jsx           -- Proveedor de contexto de autenticacion
-  hooks/
-    useAuth.js                -- Hook para acceder al contexto de autenticacion
-  assets/services/
-    supabaseclient.js         -- Cliente de Supabase (configuracion)
-  assets/Pages/Sing/
-    Login.jsx                 -- Pagina de inicio de sesion
-    Register.jsx              -- Pagina de registro
-```
-
-### 1.4 Flujo de autenticacion
-
-- **Registro**: Crea un usuario con correo electronico y contrasena
-- **Inicio de sesion**: Permite iniciar sesion con correo electronico o nombre de usuario
-- **Cierre de sesion**: Cierra la sesion y elimina el estado de autenticacion
-- **useAuth**: Hook que expone el estado del usuario y las funciones de autenticacion
-
-### 1.5 Ejemplo de uso
-
-```jsx
-import { useAuth } from '../hooks/useAuth';
-
-function MiComponente() {
-  const { user, login, logout, isAuthenticated } = useAuth();
-
-  return (
-    <div>
-      {isAuthenticated ? (
-        <button onClick={logout}>Cerrar sesion: {user.email}</button>
-      ) : (
-        <p>Inicie sesion para continuar</p>
-      )}
-    </div>
-  );
-}
-```
+Esta guía asume el proyecto de Supabase creado y `.env.local` configurado. Puesta en
+marcha, variables de entorno (incluidas las nomenclaturas alternativas de la clave) y
+estructura del repo: [README raíz](../../README.md#instalación).
 
 ### 1.6 Aplicar migraciones
 
-Las migraciones SQL se encuentran en `src/assets/services/migrations/` y deben ejecutarse en orden numerico (001 a 030) desde el SQL Editor de Supabase:
+Las migraciones SQL se encuentran en `src/assets/services/migrations/` y deben ejecutarse **en orden numérico** (de `001` a la última) desde el SQL Editor de Supabase:
 
 1. Abrir https://app.supabase.com y seleccionar el proyecto
 2. Ir a **SQL Editor** en la barra lateral izquierda
@@ -106,7 +45,7 @@ Almacena los perfiles de usuario.
 ```sql
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email VARCHAR(255) NOT NULL UNIQUE,
+  -- Sin columna email: vive en auth.users y solo se lee vía RPC (migraciones 053/069)
   username VARCHAR(255) NOT NULL UNIQUE,
   avatar_url TEXT,
   banner_url TEXT,
@@ -171,7 +110,6 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ```sql
 CREATE INDEX idx_profiles_username ON profiles(LOWER(username));
-CREATE INDEX idx_profiles_email ON profiles(LOWER(email));
 ```
 
 **Trigger de actualizacion automatica:**
@@ -498,7 +436,6 @@ erDiagram
 
     profiles {
         UUID id PK
-        VARCHAR email UK
         VARCHAR username UK
         TEXT avatar_url
         TEXT banner_url
@@ -1197,8 +1134,8 @@ SELECT * FROM profiles;
 -- Buscar un perfil por username
 SELECT * FROM profiles WHERE LOWER(username) = 'testuser';
 
--- Buscar un perfil por email
-SELECT * FROM profiles WHERE LOWER(email) = 'test@example.com';
+-- El email no esta en profiles (migracion 069): vive en auth.users y solo se lee
+-- mediante el RPC login_email_by_username / email_exists. Ver docs/security/.
 
 -- Contar total de usuarios
 SELECT COUNT(*) FROM profiles;

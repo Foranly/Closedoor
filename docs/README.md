@@ -1,49 +1,52 @@
-# Documentacion de FastChange
+# Documentación de Closedoor
 
-Indice de toda la documentacion del proyecto. La guia principal de instalacion y uso esta en el [README de la raiz](../README.md).
+Índice de la documentación del proyecto. La guía de instalación y uso general está
+en el [README de la raíz](../README.md).
 
 ---
 
 ## Base de datos
 
-| Documento | Descripcion |
+| Documento | Descripción |
 |---|---|
-| [database/SUPABASE_REFERENCE.md](./database/SUPABASE_REFERENCE.md) | Referencia unificada de Supabase: configuracion, esquema de tablas, politicas RLS, funciones, triggers y realtime |
-| [database/migracion-053-email.md](./database/migracion-053-email.md) | Migracion 053: proteccion de la columna `email` de la tabla `profiles` |
+| [database/SUPABASE_REFERENCE.md](./database/SUPABASE_REFERENCE.md) | Referencia unificada: configuración, esquema de tablas, políticas RLS, funciones, triggers y realtime |
+| [database/migracion-053-email.md](./database/migracion-053-email.md) | Nota sobre los grants por columna de `profiles` (migración 053) |
+
+Las migraciones aplicables están en `src/assets/services/migrations/` y se ejecutan
+en orden numérico.
 
 ## Seguridad
 
-| Documento | Descripcion |
+| Documento | Descripción |
 |---|---|
-| [security/AUDITORIA-SEGURIDAD.md](./security/AUDITORIA-SEGURIDAD.md) | Auditoria y endurecimiento: vulnerabilidades corregidas, CSP, RPCs y flujo completo de seguridad |
-| [security/DB_SECURITY_TEST.md](./security/DB_SECURITY_TEST.md) | Pruebas manuales de RLS desde DevTools (lectura, escritura y modificacion no autorizada) |
+| [security/AUDITORIA-SEGURIDAD.md](./security/AUDITORIA-SEGURIDAD.md) | Auditoría y endurecimiento: vulnerabilidades corregidas, CSP, RPCs, CI y modelo de permisos |
+| [security/DB_SECURITY_TEST.md](./security/DB_SECURITY_TEST.md) | Pruebas manuales de RLS desde DevTools (lectura, escritura y modificación no autorizada) |
 
-## Musica
+## Música
 
-La cancion del perfil no necesita documentacion de infraestructura: el audio se
-resuelve con la API innertube desde la propia app (`api/_innertube.js`, servido
-por `/api/music/stream`). Ver la seccion "Cancion del perfil" del README raiz.
-
-En el navegador YouTube solo sirve la cancion completa a IPs con buena
-reputacion, asi que la via para oirla entera es la app de escritorio:
-
-- [../desktop/README.md](../desktop/README.md) — envoltorio Electron, servidor de
-  musica local en `127.0.0.1:5990` y piezas acopladas (CSP, puerto).
-- [deployment/ELECTRON_BUILD.md](./deployment/ELECTRON_BUILD.md) — lanzar la app
-  en desarrollo y generar los instaladores paso a paso.
+| Documento | Descripción |
+|---|---|
+| [deployment/MUSIC_STREAMING.md](./deployment/MUSIC_STREAMING.md) | Resolución del audio con innertube: límites del CDN de YouTube, presupuesto de tiempo en serverless, host propio y diagnóstico |
+| [../desktop/README.md](../desktop/README.md) | App de escritorio: por qué existe y qué piezas están acopladas a ella |
+| [deployment/ELECTRON_BUILD.md](./deployment/ELECTRON_BUILD.md) | Lanzar la app en desarrollo y generar/publicar los instaladores |
 
 ## Deploy y redes
 
-| Documento | Descripcion |
+| Documento | Descripción |
 |---|---|
-| [deployment/VERCEL_DEPLOYMENT.md](./deployment/VERCEL_DEPLOYMENT.md) | Deploy en Vercel con OG tags y serverless functions |
-| [deployment/NGROK_SETUP.md](./deployment/NGROK_SETUP.md) | Probar OG tags localmente con tunel ngrok |
-| [deployment/ELECTRON_BUILD.md](./deployment/ELECTRON_BUILD.md) | App de escritorio: requisitos, lanzarla en dev, probarla sin pantalla, generar instaladores y publicar la descarga |
+| [deployment/VERCEL_DEPLOYMENT.md](./deployment/VERCEL_DEPLOYMENT.md) | Deploy en Vercel: build, variables, OG tags y rewrites |
+| [deployment/NGROK_SETUP.md](./deployment/NGROK_SETUP.md) | Probar las OG tags en local con un túnel ngrok |
+| [deployment/ELECTRON_BUILD.md](./deployment/ELECTRON_BUILD.md) | Instaladores de escritorio (requisitos, firma, publicación) |
 
 ## Otros componentes
 
-- [src/hooks/AlphabetEncryption.md](../src/hooks/AlphabetEncryption.md) — detalle del sistema de encriptacion de publicaciones.
+- [../src/hooks/AlphabetEncryption.md](../src/hooks/AlphabetEncryption.md) — encriptación de publicaciones (ofuscación visual + AES-256-GCM).
 
 ## Credenciales e infraestructura
 
-- [INFRAESTRUCTURA.md](./INFRAESTRUCTURA.md) — ubicaciones y credenciales del servidor CDN. **No se sube a git** (ver `.gitignore`).
+`INFRAESTRUCTURA.md` (ubicaciones y credenciales del servidor CDN) vive solo en la
+copia local: está en `.gitignore` y no se publica en el repositorio.
+
+La configuración **no secreta** del CDN (variables de entorno, validación JWT HS256/ES256,
+rate limits, límites de subida) está documentada en los comentarios de
+`cdn-server/main.go`.

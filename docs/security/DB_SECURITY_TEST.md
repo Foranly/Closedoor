@@ -1,514 +1,341 @@
-# Pruebas de Seguridad DB — FastChange
+# Pruebas manuales de seguridad de la base de datos
 
-## Cómo usar
+Comprobaciones de RLS y permisos desde el navegador, tabla por tabla. Automatizadas
+en `scripts/test-security-full.mjs` y `scripts/test-db-security-detail.mjs`; esto es
+la versión manual para reproducir un caso concreto.
 
-1. Abre **DevTools** (F12) pestaña **Console**
-2. Pega **el script de carga de supabase** (una sola vez):
+---
+
+## Cómo usarlo
+
+1. Abre la app en el navegador y entra a **DevTools → Console**.
+2. Carga el cliente una vez por sesión:
 
 ```js
-// Pega esto UNA VEZ al inicio de la sesión:
 const { supabase } = await import('/src/assets/services/supabaseclient.js');
 ```
 
-3. Luego pega cualquier script de prueba **uno por uno** y presiona Enter
-4. Observa la respuesta. Si ves `error: { code: "...", message: "new row violates row-level security..." }` o `{ error: { message: "permission denied for table..." } }` **RLS funciona correctamente** 
-5. Si ves datos devueltos o la operación se completa sin error ** RLS está fallando** en esa tabla
+3. Pega cada prueba **por separado** y pulsa Enter.
+4. Interpretación:
 
-### Script de prueba rápida (todo en uno)
+| Respuesta | Significado |
+|---|---|
+| `permission denied for table …` / `new row violates row-level security` | ✅ RLS funciona |
+| `0 filas` (`[]`) en una lectura que debería estar restringida | ✅ RLS funciona |
+| Datos ajenos, o la operación se completa sin error | ❌ RLS está fallando en esa tabla |
 
-Si quieres hacer una prueba rápida sin tener que pegar 15 scripts, usa este:
+> Cerrar la pestaña pierde `supabase`: hay que volver a ejecutar la línea de import.
+
+---
+
+## Prueba rápida
 
 ```js
-const { supabase } = await import('/src/assets/services/supabaseclient.js');
+console.log('=== PRUEBA RÁPIDA ===');
 
-console.log('===  PRUEBA RÁPIDA DE SEGURIDAD DB ===');
-
-// 1. Leer perfiles con email
 const { data: p, error: e1 } = await supabase
-  .from('profiles').select('id, email, username').limit(5);
-console.log(' Perfiles (email visible?):', p?.map(x => ({ user: x.username, email: x.email })), e1);
+  .from('profiles').select('id, username').limit(5);
+console.log('perfiles:', p, e1);
 
-// 2. Leer posts encriptados ajenos
 const { data: ep, error: e2 } = await supabase
   .from('posts').select('id, encrypted_content, is_encrypted')
   .eq('is_encrypted', true).limit(5);
-console.log(' Posts encriptados:', ep, e2);
+console.log('posts encriptados:', ep, e2);
 
-// 3. Leer conversaciones ajenas
 const { data: cv, error: e3 } = await supabase
   .from('conversations').select('*').limit(5);
-console.log(' Conversaciones ajenas:', cv, e3);
+console.log('conversaciones:', cv, e3);
 
-// 4. Leer notificaciones ajenas
 const { data: n, error: e4 } = await supabase
   .from('notifications').select('*').limit(10);
-console.log(' Notificaciones ajenas:', n, e4);
+console.log('notificaciones:', n, e4);
 
-// 5. Leer mensajes ajenos
 const { data: m, error: e5 } = await supabase
   .from('messages').select('*').limit(5);
-console.log(' Mensajes ajenos:', m, e5);
+console.log('mensajes:', m, e5);
 
-// 6. Intentar publicar como otro usuario
-const { data: ins, error: e6 } = await supabase
-  .from('posts').insert({ user_id: '00000000-0000-0000-0000-000000000000', content: 'Hackeado!' });
-console.log(' Insert post como otro:', e6?.message || ' SE INSERTO!');
-
-console.log('=== FIN ===');
+const { error: e6 } = await supabase
+  .from('posts').insert({ user_id: '00000000-0000-0000-0000-000000000000', content: 'test' });
+console.log('insert como otro:', e6?.message || '❌ SE INSERTÓ');
 ```
 
 ---
 
-## Nivel 1: Lectura de datos ajenos
+## Nivel 1: lectura de datos ajenos
 
-### 1.1 Leer perfiles que no deberías ver
+### 1.1 Perfiles y email
+
 ```js
-// Intenta leer perfiles con datos sensibles (email)
 const { data, error } = await supabase
-  .from('profiles')
-  .select('id, email, username, bio, avatar_url')
-  .limit(5);
-console.log(' Perfiles:', data, error);
-//  Debe devolver SOLO perfiles públicos, sin email
-//  Si ves emails de otros usuarios  RLS en profiles SELECT está mal!
+  .from('profiles').select('id, email, username, bio, avatar_url').limit(5);
+console.log('perfiles:', data, error);
+// ✅ Debe fallar: profiles.email no existe (migración 069).
+//    Lo público se lee de profiles_public.
 ```
 
-### 1.2 Leer posts encriptados sin permiso
+### 1.2 Posts encriptados sin permiso
+
 ```js
-// Busca posts encriptados que no te pertenecen
 const { data, error } = await supabase
   .from('posts')
   .select('id, content, encrypted_content, is_encrypted, allowed_users')
-  .eq('is_encrypted', true)
-  .limit(5);
-console.log(' Posts encriptados:', data, error);
-//  Debe devolver NULL o solo los que tienes permiso
-//  Si ves `encrypted_content` de posts que no son tuyos  RLS mal!
+  .eq('is_encrypted', true).limit(5);
+console.log('encriptados:', data, error);
+// ✅ Solo los tuyos o aquellos en los que estás en allowed_users
 ```
 
-### 1.3 Leer likes de otros usuarios
+### 1.3 Interacciones de otros
+
 ```js
-// Intenta ver todos los likes (no solo los tuyos)
 const { data, error } = await supabase
-  .from('likes')
-  .select('*, profiles!inner(username)')
-  .limit(10);
-console.log(' Todos los likes:', data, error);
-//  Debe devolver solo likes públicos o propios
+  .from('likes').select('*, profiles!inner(username)').limit(10);
+console.log('likes:', data, error);
+// ✅ anon no puede leer likes/follows/reposts (migración 055)
 ```
 
-### 1.4 Leer conversaciones de chat ajenas
+### 1.4 Conversaciones ajenas
+
 ```js
-// Intenta ver todas las conversaciones de chat
-const { data, error } = await supabase
-  .from('conversations')
-  .select('*')
-  .limit(5);
-console.log(' Conversaciones ajenas:', data, error);
-//  Debe devolver 0 filas (solo ves las tuyas por RLS)
+const { data, error } = await supabase.from('conversations').select('*').limit(5);
+console.log('conversaciones:', data, error);
+// ✅ 0 filas: solo ves las tuyas
 ```
 
-### 1.5 Leer mensajes de chat sin ser participante
+### 1.5 Mensajes sin ser participante
+
 ```js
-// Escoge un conversation_id de la prueba anterior (si hay)
-// O usa un UUID cualquiera
-const { data, error } = await supabase
-  .from('messages')
-  .select('*')
-  .limit(5);
-console.log(' Mensajes ajenos:', data, error);
-//  Debe devolver 0 filas (solo ves los de tus conversaciones)
+const { data, error } = await supabase.from('messages').select('*').limit(5);
+console.log('mensajes:', data, error);
+// ✅ 0 filas: solo los de tus conversaciones
 ```
 
 ---
 
-## Nivel 2: Escritura no autorizada
+## Nivel 2: escritura no autorizada
 
 ### 2.1 Publicar como otro usuario
+
 ```js
-// Intenta crear un post con user_id de otro usuario
 const { data, error } = await supabase
   .from('posts')
-  .insert({
-    user_id: '00000000-0000-0000-0000-000000000000', // UUID falso
-    content: 'Hackeado! '
-  });
-console.log(' Post como otro:', data, error);
-//  Debe fallar con RLS: "new row violates row-level security"
+  .insert({ user_id: '00000000-0000-0000-0000-000000000000', content: 'test' });
+console.log('post como otro:', data, error);
+// ✅ RLS: "new row violates row-level security"
 ```
 
-### 2.2 Dar like en nombre de otro
+### 2.2 Like con datos falsos
+
 ```js
-// Intenta insertar un like con tu user_id pero a un post que no existe
 const { data, error } = await supabase
   .from('likes')
   .insert({
     user_id: (await supabase.auth.getSession()).data.session?.user?.id || 'anon',
-    post_id: '00000000-0000-0000-0000-000000000000' // post falso
+    post_id: '00000000-0000-0000-0000-000000000000',
   });
-console.log(' Like falso:', data, error);
-//  Debe fallar por FK o RLS
+console.log('like falso:', data, error);
+// ✅ Falla por FK o por RLS
 ```
 
-### 2.3 Seguir a alguien sin permiso (si es privado)
+### 2.3 Seguir a un perfil privado sin solicitud
+
 ```js
-// Busca un usuario privado primero
 const { data: privUser } = await supabase
-  .from('profiles')
-  .select('id, username')
-  .eq('is_private', true)
-  .limit(1);
-console.log('Usuario privado encontrado:', privUser);
+  .from('profiles_public').select('id, username').eq('is_private', true).limit(1);
 
 if (privUser?.[0]) {
-  // Intenta seguir directamente (sin solicitud)
-  const { data, error } = await supabase
-    .from('follows')
-    .insert({
-      follower_id: (await supabase.auth.getSession()).data.session?.user?.id,
-      following_id: privUser[0].id,
-      status: 'accepted'  //  debería ser 'pending' si es privado
-    });
-  console.log(' Follow directo a privado:', data, error);
-  //  Debe ser forzado a 'pending' por RLS o fallar
-}
-```
-
-### 2.4 Bloquear a un usuario (sin ser admin)
-```js
-// Intenta bloquear a un usuario
-const { data: targetUser } = await supabase
-  .from('profiles')
-  .select('id, username')
-  .limit(1);
-console.log('Usuario objetivo:', targetUser);
-
-if (targetUser?.[0]) {
-  const { data, error } = await supabase
-    .from('blocks')
-    .insert({
-      blocker_id: (await supabase.auth.getSession()).data.session?.user?.id,
-      blocked_id: targetUser[0].id
-    });
-  console.log(' Bloquear usuario:', data, error);
+  const { data, error } = await supabase.from('follows').insert({
+    follower_id: (await supabase.auth.getSession()).data.session?.user?.id,
+    following_id: privUser[0].id,
+    status: 'accepted',
+  });
+  console.log('follow directo a privado:', data, error);
+  // ✅ Debe quedar en 'pending' o fallar
 }
 ```
 
 ---
 
-## Nivel 3: Modificación/Eliminación de datos ajenos
+## Nivel 3: modificar o borrar datos ajenos
 
-### 3.1 Editar perfil de otro usuario
+### 3.1 Editar el perfil de otro
+
 ```js
-// Intenta actualizar el bio de otro usuario
-const { data: otherUser } = await supabase
-  .from('profiles')
-  .select('id, username')
-  .limit(1);
+const { data: other } = await supabase
+  .from('profiles_public').select('id, username').limit(1);
 
-if (otherUser?.[0]) {
+if (other?.[0]) {
   const { data, error } = await supabase
-    .from('profiles')
-    .update({ bio: 'Editado por hacker ' })
-    .eq('id', otherUser[0].id);
-  console.log(' Editar perfil ajeno:', data, error);
-  //  Debe fallar: "new row violates row-level security for profiles"
+    .from('profiles').update({ bio: 'test' }).eq('id', other[0].id);
+  console.log('update perfil ajeno:', data, error);
+  // ✅ RLS violation
 }
 ```
 
-### 3.2 Eliminar post de otro usuario
+### 3.2 Borrar un post ajeno
+
 ```js
-// Busca un post de otro usuario
 const { data: otherPost } = await supabase
-  .from('posts')
-  .select('id, user_id, profiles!inner(username)')
-  .limit(1);
+  .from('posts').select('id, user_id').limit(1);
 
 if (otherPost?.[0]) {
   const { data, error } = await supabase
-    .from('posts')
-    .delete()
-    .eq('id', otherPost[0].id);
-  console.log(' Eliminar post ajeno:', data, error);
-  //  Debe fallar a menos que el post sea tuyo
+    .from('posts').delete().eq('id', otherPost[0].id);
+  console.log('delete post ajeno:', data, error);
+  // ✅ 0 filas o error
 }
 ```
 
-### 3.3 Eliminar comentario de otro usuario
+### 3.3 Borrar un comentario ajeno
+
 ```js
 const { data: otherComment } = await supabase
-  .from('comments')
-  .select('id, user_id')
-  .limit(1);
+  .from('comments').select('id, user_id').limit(1);
 
 if (otherComment?.[0]) {
   const { data, error } = await supabase
-    .from('comments')
-    .delete()
-    .eq('id', otherComment[0].id);
-  console.log(' Eliminar comentario ajeno:', data, error);
-  //  Solo debe funcionar si eres el dueño del post donde está el comentario
+    .from('comments').delete().eq('id', otherComment[0].id);
+  console.log('delete comentario ajeno:', data, error);
+  // ✅ Solo funciona si eres el autor o el dueño del post
 }
 ```
 
-### 3.4 Desbloquear un bloqueo que no te pertenece
+### 3.4 Desbloquear un bloqueo ajeno
+
 ```js
-// Intenta eliminar un bloque del que no eres blocker
-const { data: anyBlock } = await supabase
-  .from('blocks')
-  .select('*')
-  .limit(1);
+const { data: anyBlock } = await supabase.from('blocks').select('*').limit(1);
 
 if (anyBlock?.[0]) {
-  // Intentar eliminar el bloque aunque no seas el blocker
   const { data, error } = await supabase
-    .from('blocks')
-    .delete()
-    .eq('id', anyBlock[0].id);
-  console.log(' Desbloquear ajeno:', data, error);
-  //  Debe fallar: solo el blocker puede desbloquear
+    .from('blocks').delete().eq('id', anyBlock[0].id);
+  console.log('desbloquear ajeno:', data, error);
+  // ✅ Solo el blocker puede desbloquear
 }
 ```
 
 ---
 
-## Nivel 4: Auth/Privacidad
+## Nivel 4: notificaciones, llamadas y votos
 
-### 4.1 Verificar que no puedes leer notifications de otros
 ```js
-const { data, error } = await supabase
-  .from('notifications')
-  .select('*')
-  .limit(10);
-console.log(' Notificaciones ajenas:', data, error);
-//  Debe devolver 0 o solo las tuyas
-```
-
-### 4.2 Verificar llamadas de otros
-```js
-const { data, error } = await supabase
-  .from('calls')
-  .select('*')
-  .limit(10);
-console.log(' Llamadas ajenas:', data, error);
-//  Debe devolver 0 o solo las de tus conversaciones
-```
-
-### 4.3 Verificar votos de encuestas
-```js
-const { data, error } = await supabase
-  .from('poll_votes')
-  .select('*')
-  .limit(10);
-console.log(' Votos de encuestas:', data, error);
-//  Debe devolver solo tus votos
+for (const table of ['notifications', 'calls', 'poll_votes']) {
+  const { data, error } = await supabase.from(table).select('*').limit(10);
+  console.log(table, data, error);
+  // ✅ 0 filas o solo las tuyas
+}
 ```
 
 ---
 
-## Nivel 5: Login por username (migración 074)
+## Nivel 5: login por username (migración 074)
 
-> Aplicar `src/assets/services/migrations/074_username_login.sql` antes de estas pruebas.
-> Objetivo: el login por username funciona **solo** con la contraseña correcta y la DB
-> **nunca** devuelve emails de terceros.
->
-> **Estado de la última corrida (`node scripts/test-security-full.mjs`, sin 074 aplicada):**
-> `1d` falla porque `login_email_by_username` aún no existe y `1e` falla porque
-> `email_exists` sigue apuntando a `profiles.email` (eliminada en 069). Ambas quedan
-> verdes al aplicar 074.
+Objetivo: el login por username funciona **solo** con la contraseña correcta y la
+base de datos **nunca** devuelve emails de terceros.
 
-### 5.1 `profiles.email` ya no existe
+### 5.1 `profiles.email` no existe
+
 ```js
-const { data, error } = await supabase
-  .from('profiles')
-  .select('id, email')
-  .limit(1);
+const { data, error } = await supabase.from('profiles').select('id, email').limit(1);
 console.log('profiles.email:', data, error);
-// ✅ Debe fallar: "column profiles.email does not exist"
+// ✅ "column profiles.email does not exist"
 ```
 
-### 5.2 `auth.users` inaccesible para el cliente
+### 5.2 `auth.users` inaccesible
+
 ```js
-const { data, error } = await supabase
-  .from('users')
-  .select('id, email')
-  .limit(1);
+const { data, error } = await supabase.from('users').select('id, email').limit(1);
 console.log('auth.users:', data, error);
-// ✅ Debe fallar (tabla en schema auth, sin grants a anon/authenticated)
+// ✅ Falla: esquema auth sin grants a anon/authenticated
 ```
 
-### 5.3 RPC viejo eliminado (anti-enumeración)
+### 5.3 El RPC antiguo ya no existe
+
 ```js
-const { data, error } = await supabase.rpc('get_email_by_username', {
-  uname: 'cualquiera',
-});
+const { data, error } = await supabase.rpc('get_email_by_username', { uname: 'cualquiera' });
 console.log('get_email_by_username:', data, error);
-// ✅ Debe fallar con 404: la función ya no existe (migración 074)
+// ✅ 404: eliminado en 074
 ```
 
-### 5.4 Username inexistente → NULL, sin error
+### 5.4 Username inexistente → `null`, sin error
+
 ```js
 const { data, error } = await supabase.rpc('login_email_by_username', {
-  uname: 'usuario_que_no_existe_xyz',
-  pwd: 'cualquier_cosa',
+  uname: 'usuario_que_no_existe_xyz', pwd: 'cualquier_cosa',
 });
-console.log('Username inexistente:', data, error);
-// ✅ data = null y SIN error: no se puede saber si el username existe
+console.log(data, error);
+// ✅ data = null y sin error: no se puede saber si el username existe
 ```
 
-### 5.5 Username real + contraseña incorrecta → NULL, sin error
+### 5.5 Username real + contraseña incorrecta → `null`
+
 ```js
 const { data, error } = await supabase.rpc('login_email_by_username', {
-  uname: 'TU_USERNAME_REAL',
-  pwd: 'clave_incorrecta_123',
+  uname: 'TU_USERNAME', pwd: 'clave_incorrecta_123',
 });
-console.log('Clave incorrecta:', data, error);
-// ✅ data = null y SIN error: no se filtra el email
+console.log(data, error);
+// ✅ null: no se filtra el email
 ```
 
-### 5.6 Credenciales correctas → email de la PROPIA cuenta
+### 5.6 Credenciales correctas → email de la propia cuenta
+
 ```js
 const { data, error } = await supabase.rpc('login_email_by_username', {
-  uname: 'TU_USERNAME_REAL',
-  pwd: 'TU_PASSWORD_REAL',
+  uname: 'TU_USERNAME', pwd: 'TU_PASSWORD',
 });
-console.log('Login correcto:', data, error);
-// ✅ Devuelve SOLO el email de esa cuenta (el tuyo) y resetea el throttle.
-// ⚠️ No pegues capturas con tu email real.
+console.log(data, error);
+// ✅ Solo el email de esa cuenta y resetea el throttle.
+// ⚠️ No compartas capturas con tu email real.
 ```
 
 ### 5.7 Throttle anti fuerza bruta
+
 ```js
-// ⚠️ Usa un username de PRUEBA (no el tuyo): 8 fallos bloquean 15 min el par
-// (username + tu IP) e incluso la contraseña correcta devolverá null.
+// ⚠️ Usa un username de PRUEBA: 8 fallos bloquean 15 min el par (username + IP)
 for (let i = 0; i < 8; i++) {
   await supabase.rpc('login_email_by_username', {
-    uname: 'usuario_de_prueba_throttle',
-    pwd: 'mala_' + i,
+    uname: 'usuario_de_prueba_throttle', pwd: 'mala_' + i,
   });
 }
 const { data, error } = await supabase.rpc('login_email_by_username', {
-  uname: 'usuario_de_prueba_throttle',
-  pwd: 'otra_mala',
+  uname: 'usuario_de_prueba_throttle', pwd: 'otra_mala',
 });
-console.log('Throttle:', data, error);
-// ✅ data = null: el límite está activo (8 intentos / 15 min)
+console.log('throttle:', data, error);
+// ✅ null: el límite está activo
 ```
 
-### 5.8 `email_exists` sigue funcionando sin leer emails
+### 5.8 `email_exists` sin filtrar emails
+
 ```js
-const { data, error } = await supabase.rpc('email_exists', {
-  addr: 'nadie@example.com',
-});
-console.log('email_exists:', data, error);
-// ✅ data = false (boolean) y sin error. Nunca devuelve el email.
+const { data, error } = await supabase.rpc('email_exists', { addr: 'nadie@example.com' });
+console.log(data, error);
+// ✅ false (boolean) y sin error; nunca devuelve el email
 ```
 
 ---
 
-## Resultados de la auditoría (12 tests)
+## Atajos desde el SQL Editor
 
-| # | Tabla | Operación | Resultado | Estado |
-|---|---|---|---|---|
-| 1 | `profiles` | SELECT email ajeno | **10/10 emails visibles** | REQUIERE MIGRACIÓN 051 |
-| 2 | `posts` | SELECT encrypted_content ajeno | **2 posts visibles** | REQUIERE MIGRACIÓN 051 |
-| 3 | `conversations` | SELECT ajenas | `[]` (vacío) | |
-| 4 | `notifications` | SELECT ajenas | `[]` (vacío) | |
-| 5 | `messages` | SELECT sin ser participante | `[]` (vacío) | |
-| 6 | `posts` | INSERT con user_id ajeno | `error: RLS violation` | |
-| 7 | `profiles` | UPDATE perfil ajeno | `0 filas` | |
-| 8 | `posts` | DELETE post ajeno | `0 filas` | |
-| 9 | `likes` | INSERT con user_id ajeno | `error: RLS violation` | |
-| 10 | `comments` | DELETE comment ajeno | `0 filas` | |
-| 11 | `poll_votes` | SELECT ajenos | `[]` (vacío) | |
-| 12 | `calls` | SELECT ajenas | `[]` (vacío) | |
-
-**Resultado: 10/12 pasaron, 2/12 requieren la migración 051**
-
-### Login por username (migración 074)
-
-| # | RPC / Tabla | Operación | Resultado | Estado |
-|---|---|---|---|---|
-| 13 | `profiles` | SELECT `email` | error: columna inexistente (069) | |
-| 14 | `login_email_by_username` | username inexistente | `null` sin error | ⏳ requiere 074 |
-| 15 | `login_email_by_username` | username real + clave mala | `null` sin error | ⏳ requiere 074 |
-| 16 | `login_email_by_username` | credenciales correctas | email de la propia cuenta | ⏳ requiere 074 |
-| 17 | `login_email_by_username` | 8 fallos seguidos | `null` (throttle 15 min) | ⏳ requiere 074 |
-| 18 | `get_email_by_username` | RPC eliminado | error 404 | ⏳ requiere 074 |
-
-### Migración 051 — Para aplicar en SQL Editor de Supabase:
-
-El archivo `src/assets/services/migrations/051_rls_email_encrypted_posts.sql` contiene:
+Las consultas del SQL Editor corren como `postgres`, así que sirven para **inspeccionar
+la configuración**, no para simular un usuario anónimo (para eso, la consola con la
+anon key).
 
 ```sql
--- 1. Crea vista profiles_public (sin email)
-CREATE OR REPLACE VIEW public.profiles_public AS ...
-
--- 2. Filtra posts encriptados por RLS (solo autor/allowed_users)
-DROP POLICY IF EXISTS "Anyone can view posts" ON posts;
-CREATE POLICY "Anyone can view non-encrypted posts" ON posts ...
-CREATE POLICY "Authors and allowed users can view encrypted posts" ON posts ...
-
--- 3. Crea vista posts_public (sin encrypted_content)
-CREATE OR REPLACE VIEW public.posts_public AS ...
-
--- 4. Función helper get_encrypted_post(id) para usuarios autorizados
-CREATE OR REPLACE FUNCTION public.get_encrypted_post(post_id uuid) ...
-```
-
-> **IMPORTANTE**: Después de aplicar la migración, el frontend debe
-> actualizarse para consultar `profiles_public` en vez de `profiles`
-> cuando solo necesite datos públicos. Si no se actualiza, el SELECT
-> a `profiles` seguirá devolviendo email NULL para otros usuarios,
-> pero la query podría fallar si RLS bloquea el acceso a la tabla.
-> La migración 051 incluye las políticas necesarias para que los
-> SELECTs actuales sigan funcionando.
-
----
-
-## Bonus: SQL directo desde Supabase SQL Editor
-
-Si quieres probar desde el **SQL Editor** de Supabase directamente (no desde el navegador), puedes ejecutar estas consultas para verificar las políticas RLS activas:
-
-### Ver todas las políticas RLS
-```sql
-SELECT
-  schemaname,
-  tablename,
-  policyname,
-  permissive,
-  roles,
-  cmd,
-  qual,
-  with_check
+-- políticas activas
+SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
 FROM pg_policies
 WHERE schemaname = 'public'
 ORDER BY tablename, policyname;
-```
 
-### Verificar el RLS está habilitado en cada tabla
-```sql
-SELECT
-  relname AS table_name,
-  relrowsecurity AS rls_enabled,
-  relforcerowsecurity AS rls_forced
+-- RLS habilitado y forzado por tabla
+SELECT relname AS table_name, relrowsecurity AS rls_enabled, relforcerowsecurity AS rls_forced
 FROM pg_class
-WHERE relkind = 'r'
-  AND relnamespace = 'public'::regnamespace
+WHERE relkind = 'r' AND relnamespace = 'public'::regnamespace
 ORDER BY relname;
+
+-- grants por columna de profiles (email no debe aparecer en SELECT/UPDATE)
+SELECT grantee, privilege_type, column_name
+FROM information_schema.column_privileges
+WHERE table_name = 'profiles' AND column_name = 'email';
 ```
 
-### Simular una consulta como usuario anónimo
-```sql
--- Como anónimo (sin sesión)
-SELECT * FROM profiles LIMIT 5;
-
--- Como anónimo intentando leer emails
-SELECT id, email, username FROM profiles LIMIT 5;
-```
-
----
-
-> **Nota**: Siempre debes empezar con `const { supabase } = await import('/src/assets/services/supabaseclient.js');`
-> al inicio de cada sesión de DevTools. `supabase` solo vive en el scope de esa línea,
-> así que cada script individual que pegues después debe asumir que `supabase` ya fue cargado.
+El historial de vulnerabilidades encontradas y su corrección está en
+[AUDITORIA-SEGURIDAD.md](./AUDITORIA-SEGURIDAD.md).

@@ -1,90 +1,84 @@
-# FastChange
+# Closedoor
 
-Plataforma de red social desarrollada con React y Supabase: perfiles, publicaciones multimedia, interacciones sociales, contenido encriptado, encuestas, chat y comunidades.
-
----
-
-12 de agosto
-
-## Indice
-
-1. [Descripcion](#descripcion)
-2. [Tecnologias](#tecnologias)
-3. [Estructura del proyecto](#estructura-del-proyecto)
-4. [Requisitos](#requisitos)
-5. [Instalacion](#instalacion)
-6. [Variables de entorno](#variables-de-entorno)
-7. [Scripts disponibles](#scripts-disponibles)
-8. [Funcionalidades](#funcionalidades)
-9. [Base de datos](#base-de-datos)
-10. [Sistema de encriptacion](#sistema-de-encriptacion)
-11. [Internacionalizacion](#internacionalizacion)
-12. [Documentacion](#documentacion)
-13. [Notas para desarrolladores](#notas-para-desarrolladores)
+Red social desarrollada con React y Supabase: perfiles, publicaciones multimedia,
+interacciones sociales, contenido cifrado, encuestas, chat en tiempo real,
+comunidades y música en el perfil. La misma base de código se sirve como **web**
+(Vercel) y como **app de escritorio** (Electron), y comparte un **servidor CDN**
+propio para los archivos subidos.
 
 ---
 
-## Descripcion
+## Índice
 
-FastChange es una aplicacion web tipo red social que permite a los usuarios crear perfiles, publicar contenido multimedia, interactuar mediante likes, comentarios y reposts, seguir a otros usuarios y participar en comunidades. Incluye encriptacion de publicaciones (AES-256-GCM), encuestas, publicaciones programadas, chat en tiempo real y un sistema completo de notificaciones.
+1. [Tecnologías](#tecnologías)
+2. [Estructura del proyecto](#estructura-del-proyecto)
+3. [Requisitos](#requisitos)
+4. [Instalación](#instalación)
+5. [Variables de entorno](#variables-de-entorno)
+6. [Scripts disponibles](#scripts-disponibles)
+7. [Funcionalidades](#funcionalidades)
+8. [Base de datos](#base-de-datos)
+9. [Sistema de encriptación](#sistema-de-encriptación)
+10. [Internacionalización](#internacionalización)
+11. [Documentación](#documentación)
+12. [Notas de desarrollo](#notas-de-desarrollo)
 
 ---
 
-## Tecnologias
+## Tecnologías
 
 **Frontend**
 
-- React 19 con JSX
-- React Router v7 (enrutamiento)
+- React 19 + React Router v7
 - Vite 8 (bundler y servidor de desarrollo)
-- React Icons (iconografia)
-- React Toastify (notificaciones toast)
+- React Icons, React Toastify
 
 **Backend y servicios**
 
-- Supabase (autenticacion, PostgreSQL, suscripciones en tiempo real, RPC)
-- Web Crypto API (encriptacion AES-256-GCM)
+- Supabase: autenticación, PostgreSQL, Realtime y RPC
+- Web Crypto API: encriptación AES-256-GCM
+- Vercel Functions (`api/`) y `server.js` para desarrollo/self-hosted
+- Servidor CDN propio en Go (`cdn-server/`) para almacenamiento de archivos
+- Electron (`desktop/`) para la app de escritorio
+- Innertube (YouTube) resuelto en el propio backend para el audio de la canción del perfil
 
 **Herramientas de desarrollo**
 
-- ESLint (analisis estatico)
-- Babel con React Compiler (compilacion optimizada)
+- ESLint
+- Babel con React Compiler
 
 ---
 
 ## Estructura del proyecto
 
 ```
-FastChange/
+Closedoor/
   index.html
   package.json
   vite.config.js
   eslint.config.js
-  server.js               -- API local (dev / self-hosted) + streaming de musica (innertube)
-  README.md
-  docs/                   -- Documentacion (indice en docs/README.md)
-    database/             -- Referencia de Supabase y migraciones
-    security/             -- Auditorias y pruebas de seguridad
-    deployment/           -- Deploy en Vercel y tuneles ngrok
+  vercel.json              -- rewrites, headers y maxDuration de las funciones
+  server.js                -- API local (dev / self-hosted) + streaming de música
   src/
-    main.jsx              -- Punto de entrada de la aplicacion
-    App.jsx               -- Configuracion de rutas y layout principal
-    context/              -- Proveedores de contexto (auth, notificaciones, llamadas, etc.)
-    hooks/                -- Hooks personalizados (useAuth, usePageTitle, etc.)
+    main.jsx               -- Punto de entrada
+    App.jsx                -- Rutas y layout principal
+    context/               -- Contextos (auth, notificaciones, llamadas, música...)
+    hooks/                 -- Hooks (useAuth, usePageTitle...) y utilidades documentadas
     assets/
-      Pages/              -- Paginas (Home, profile, Explore, Chat, Comunidades, etc.)
+      Pages/               -- Páginas (Home, profile, Explore, Chat, Comunidades...)
       Resources/
-        Components/       -- Componentes reutilizables (PostCard, Header, modales, etc.)
-        Styles/           -- Hojas de estilo globales
-      services/           -- Servicios (Supabase, posts, usuarios, chat, encriptacion, i18n)
-        i18n/locales/     -- Traducciones (en, es, ja, pt, ru)
-        migrations/       -- Migraciones SQL de Supabase
-  api/                    -- Funciones serverless (Vercel) y helpers
-  desktop/                -- App de escritorio (Electron) con servidor de musica local: desktop/README.md
-  plugins/                -- Plugins de Vite (OG tags, CSP, preload, etc.)
-  scripts/                -- Scripts de utilidad y diagnostico
-  cdn-server/             -- Servidor CDN de archivos (Go)
-  public/                 -- Archivos estaticos
+        Components/        -- Componentes reutilizables (PostCard, Header, modales...)
+        Styles/            -- Hojas de estilo
+      services/            -- Servicios (Supabase, posts, usuarios, chat, i18n...)
+        i18n/locales/      -- Traducciones (en, es, ja, pt, ru)
+        migrations/        -- Migraciones SQL de Supabase
+  api/                     -- Funciones serverless (OG tags, sitemap, música, imagen)
+  desktop/                 -- App de escritorio (Electron) + servidor de música local
+  plugins/                 -- Plugins de Vite (CSP, OG tags, API de música en dev...)
+  scripts/                 -- Scripts de utilidad, tests y generación de assets
+  cdn-server/              -- Servidor CDN de archivos (Go)
+  public/                  -- Archivos estáticos
+  docs/                    -- Documentación (índice en docs/README.md)
 ```
 
 ---
@@ -92,197 +86,214 @@ FastChange/
 ## Requisitos
 
 - Node.js 18 o superior
-- npm, pnpm o yarn
+- npm (también funciona con pnpm o yarn)
 - Una cuenta en [Supabase](https://app.supabase.com)
+- Opcional: Go 1.21+ para compilar el CDN y Wine/runner macOS para los instaladores
+  de escritorio (ver [docs/deployment/ELECTRON_BUILD.md](./docs/deployment/ELECTRON_BUILD.md))
 
 ---
 
-## Instalacion
-
-1. Clonar el repositorio:
+## Instalación
 
 ```bash
-git clone https://github.com/<usuario>/FastChange.git
-cd FastChange
-```
-
-2. Instalar dependencias:
-
-```bash
+git clone https://github.com/Frantt21/Closedoor.git
+cd Closedoor
 npm install
 ```
 
-3. Crear el archivo `.env.local` en la raiz con las variables de entorno (ver [Variables de entorno](#variables-de-entorno)).
-
-4. Iniciar el servidor de desarrollo:
-
-```bash
-npm run dev
-```
-
-5. Abrir la aplicacion en `http://localhost:5173`.
+1. Crea el archivo `.env.local` en la raíz (ver [Variables de entorno](#variables-de-entorno)).
+2. Aplica las migraciones SQL en Supabase (ver [Base de datos](#base-de-datos)).
+3. Arranca el servidor de desarrollo con `npm run dev` y abre `http://localhost:5173`.
 
 ---
 
 ## Variables de entorno
 
-El archivo `.env.local` debe contener al menos:
+`.env.local` necesita al menos:
 
 ```
 VITE_SUPABASE_URL=https://<proyecto>.supabase.co
 VITE_SUPABASE_ANON_KEY=<clave_anon>
 ```
 
-| Variable | Descripcion |
+| Variable | Descripción |
 |---|---|
 | `VITE_SUPABASE_URL` | URL del proyecto de Supabase |
-| `VITE_SUPABASE_DATA_API_URL` | URL alternativa del Data API de Supabase |
-| `VITE_SUPABASE_ANON_KEY` | Clave anonima/publica de Supabase |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Clave publicable (nomenclatura alternativa) |
-| `VITE_SUPABASE_PUBLIC_KEY` | Clave publica (nomenclatura alternativa) |
+| `VITE_SUPABASE_DATA_API_URL` | URL alternativa del Data API |
+| `VITE_SUPABASE_ANON_KEY` | Clave anónima/publicable de Supabase |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Nomenclatura alternativa de la clave pública |
+| `VITE_SUPABASE_PUBLIC_KEY` | Nomenclatura alternativa de la clave pública |
 
 ---
 
 ## Scripts disponibles
 
-| Comando | Descripcion |
+| Comando | Descripción |
 |---|---|
-| `npm run dev` | Servidor de desarrollo con HMR (incluye la API de música, ver `plugins/musicDevApiPlugin.js`) |
-| `npm run build` | Build de produccion |
-| `npm run lint` | Analisis estatico con ESLint |
+| `npm run dev` | Servidor de desarrollo con HMR (incluye la API de música local) |
+| `npm run build` | Build de producción (el `prebuild` regenera el changelog traducido) |
 | `npm run preview` | Vista previa de la build |
-| `npm run start` | Servidor de produccion (server.js: API + streaming) |
-| `npm run desktop:install` | Instala electron + electron-builder en `desktop/` (una vez) |
-| `npm run desktop` | Abre la app de escritorio (carga la web publicada + servidor de musica local) |
-| `npm run desktop:dev` | La misma app apuntando a `http://localhost:5173` |
-| `npm run desktop:dist` | Instaladores de escritorio (`desktop:dist:win` / `:mac` / `:linux`), salida en `desktop/dist/` |
+| `npm run start` | Servidor de producción (`server.js`: estáticos + API + música) |
+| `npm run lint` | Análisis estático con ESLint |
+| `npm run validate-locales` | Comprueba que los 5 idiomas tengan las mismas claves |
+| `npm run translate-changelog` | Regenera el changelog traducido (`src/assets/data/changelog.js`) |
+| `npm run music-api` | Levanta solo el servidor de música (`MUSIC_PORT` / `MUSIC_HOST`) |
+| `npm run desktop:install` | Instala Electron y electron-builder dentro de `desktop/` (una vez) |
+| `npm run desktop` | Abre la app de escritorio contra la web publicada |
+| `FORANLY_WEB_URL=http://localhost:5173 npm run desktop` | La misma app apuntando al dev server |
+| `npm --prefix desktop run build:linux` | Instaladores de Linux (también `build:win` y `build:mac`) en `desktop/dist/` |
+| `npm run desktop:icons` | Regenera los iconos de la app desde `public/mini_icon.png` |
 
 ---
 
 ## Funcionalidades
 
-### Autenticacion y perfiles
+### Autenticación y perfiles
 
-- Registro e inicio de sesion (correo o nombre de usuario)
-- Perfil con avatar, banner, biografia, pronombres e intereses
-- Color de acento personalizado
+- Registro e inicio de sesión (email o nombre de usuario) con CAPTCHA Turnstile
+- Whitelist de proveedores de email en registro y login
+- Perfil con avatar, banner, biografía, pronombres e intereses
+- Color de acento y fondo de perfil personalizables
 - Perfiles privados con solicitudes de seguimiento
-- Vistas de perfil rastreadas
+- Actividad compartida desde la app de escritorio (canción, juego o programa abierto)
 
 ### Publicaciones
 
-- Texto, imagenes (hasta 4), videos e incrustaciones (YouTube, Vimeo)
-- Edicion, eliminacion y fijado (hasta 3)
-- Programacion para fecha futura
-- Control de permisos de comentarios
-- Likes, comentarios anidados, reposts y guardados
-- Conteo de vistas
-- Menciones con @ y autocompletado
-- Hashtags con tendencias
+- Texto, imágenes (hasta 4), vídeos e incrustaciones (YouTube, Vimeo)
+- Edición, eliminación y fijado (hasta 3)
+- Programación para fecha futura y control de permisos de comentarios
+- Likes, dislikes, comentarios anidados, reposts y guardados
+- Menciones con `@` y hashtags con tendencias
 
 ### Encuestas
 
-- Hasta 10 opciones, voto unico por usuario
-- Fecha de expiracion opcional
-- Notificacion al autor al recibir votos
+- Hasta 10 opciones, un voto por usuario y fecha de expiración opcional
 
-### Encriptacion de contenido
+### Contenido cifrado
 
-- Ofuscacion visual con codificacion palindromica alfanumerica
-- Encriptacion real con AES-256-GCM (Web Crypto API)
+- Ofuscación visual (codificación palindrómica) + encriptación AES-256-GCM
 - Control de acceso por lista de usuarios permitidos
 
-### Interaccion social
+### Interacción social
 
 - Seguidores, solicitudes para perfiles privados y bloqueos
-- Notificaciones en tiempo real (likes, comentarios, reposts, menciones, etc.)
-- Chat con mensajes cifrados, reacciones, respuestas, llamadas y canciones compartidas
+- Notificaciones en tiempo real
+- Chat con mensajes cifrados, reacciones, respuestas, llamadas (LiveKit) y canciones compartidas
 - Comunidades
 
-### Exploracion
+### Exploración
 
-- Perfiles sugeridos
-- Palabras y hashtags en tendencia
-- Busqueda de publicaciones por contenido
+- Perfiles sugeridos, palabras y hashtags en tendencia, búsqueda de publicaciones
+
+### Música
+
+- Canción del perfil con metadatos (YouTube Music vía innertube, con iTunes como respaldo)
+- Reproductor con cola, mini-reproductor y canciones compartidas en el chat
+- Detalle de la resolución del audio: [docs/deployment/MUSIC_STREAMING.md](./docs/deployment/MUSIC_STREAMING.md)
 
 ---
 
 ## Base de datos
 
-Las migraciones SQL estan en `src/assets/services/migrations/` y deben aplicarse en orden numerico en el SQL Editor de Supabase.
+Las migraciones SQL están en `src/assets/services/migrations/` y deben aplicarse
+**en orden numérico** desde el SQL Editor de Supabase.
 
-La referencia completa (configuracion, esquema, politicas RLS, funciones y triggers) esta en [docs/database/SUPABASE_REFERENCE.md](./docs/database/SUPABASE_REFERENCE.md).
+La referencia completa (configuración, esquema, políticas RLS, funciones y triggers)
+está en [docs/database/SUPABASE_REFERENCE.md](./docs/database/SUPABASE_REFERENCE.md).
 
 ### Tablas principales
 
-| Tabla | Descripcion |
+| Tabla | Descripción |
 |---|---|
-| `profiles` | Perfiles de usuario y configuracion de privacidad |
-| `posts` | Publicaciones, metadatos de encriptacion, encuestas y programacion |
-| `likes`, `comments`, `comment_likes`, `reposts`, `saved_posts` | Interacciones |
-| `follows` | Relaciones de seguimiento (accepted, pending) |
+| `profiles` | Perfiles de usuario y configuración de privacidad |
+| `posts` | Publicaciones, metadatos de encriptación, encuestas y programación |
+| `likes`, `dislikes`, `comments`, `comment_likes`, `reposts`, `saved_posts` | Interacciones |
+| `follows` | Relaciones de seguimiento (`accepted`, `pending`) |
 | `blocks` | Bloqueos entre usuarios |
 | `notifications` | Notificaciones en tiempo real |
 | `hashtags`, `post_hashtags` | Hashtags y tendencias |
 | `poll_votes` | Votos de encuestas |
+| `conversations`, `messages`, `chat_participants` | Chat |
+| `communities`, `community_members` | Comunidades |
 
 ### Seguridad (RLS)
 
-Todas las tablas usan Row Level Security. Las politicas garantizan que:
+Todas las tablas usan Row Level Security, con grants explícitos por columna en
+`profiles` (el email vive en `auth.users` y solo se lee vía RPC). En resumen:
 
-- Los usuarios solo modifican sus propios datos
-- Los perfiles privados son visibles solo para seguidores aceptados
-- Las publicaciones encriptadas solo se leen con autorizacion
-- Los usuarios bloqueados no ven contenido ni interactuan
+- Los usuarios solo leen y modifican lo que les corresponde
+- Los perfiles privados solo son visibles para seguidores aceptados
+- Las publicaciones cifradas solo se leen con autorización
+- Los usuarios bloqueados no ven contenido ni interactúan
+
+Detalle de las vulnerabilidades encontradas y corregidas:
+[docs/security/AUDITORIA-SEGURIDAD.md](./docs/security/AUDITORIA-SEGURIDAD.md).
 
 ---
 
-## Sistema de encriptacion
+## Sistema de encriptación
 
 El sistema opera en dos capas:
 
-1. **Ofuscacion visual**: cada caracter se codifica como un palindromo numerico (p. ej. "a" se convierte en "2112").
-2. **Encriptacion real**: AES-256-GCM con la Web Crypto API; la clave se deriva del ID del autor y los IDs de los usuarios permitidos mediante PBKDF2 (100.000 iteraciones, SHA-256).
+1. **Ofuscación visual**: cada carácter se codifica como un palíndromo numérico
+   (p. ej. `a` → `2112`).
+2. **Encriptación real**: AES-256-GCM con la Web Crypto API. La clave se deriva con
+   PBKDF2 (100 000 iteraciones, SHA-256) del **ID del autor** y del **conjunto
+   ordenado de IDs de los usuarios permitidos**.
 
-La clave no depende del ID de la publicacion, lo que permite encriptar antes de crear el registro.
-
-Documentacion detallada: [src/hooks/AlphabetEncryption.md](./src/hooks/AlphabetEncryption.md).
-
----
-
-## Internacionalizacion
-
-El sistema i18n esta en `src/assets/services/i18n/`. Idiomas soportados: ingles (en), espanol (es), japones (ja), portugues (pt) y ruso (ru).
-
-Para agregar un idioma:
-
-1. Crear `src/assets/services/i18n/locales/<codigo>.json` basandose en uno existente.
-2. Registrar el archivo en `I18nContext.jsx`.
+La clave no depende del ID de la publicación, lo que permite cifrar antes de crear
+el registro. Documentación detallada:
+[src/hooks/AlphabetEncryption.md](./src/hooks/AlphabetEncryption.md).
 
 ---
 
-## Documentacion
+## Internacionalización
+
+El sistema i18n vive en `src/assets/services/i18n/` y admite inglés (`en`), español
+(`es`), japonés (`ja`), portugués (`pt`) y ruso (`ru`).
+
+Para añadir un idioma:
+
+1. Copia `src/assets/services/i18n/locales/en.json` a `<código>.json` y traduce.
+2. Regístralo en `I18nContext.jsx`.
+3. Verifica con `npm run validate-locales`.
+
+---
+
+## Documentación
 
 | Tema | Documento |
 |---|---|
-| Indice general | [docs/README.md](./docs/README.md) |
-| Base de datos | [docs/database/SUPABASE_REFERENCE.md](./docs/database/SUPABASE_REFERENCE.md) |
+| Índice general | [docs/README.md](./docs/README.md) |
+| Base de datos y RLS | [docs/database/SUPABASE_REFERENCE.md](./docs/database/SUPABASE_REFERENCE.md) |
 | Seguridad | [docs/security/AUDITORIA-SEGURIDAD.md](./docs/security/AUDITORIA-SEGURIDAD.md) |
+| Pruebas de RLS | [docs/security/DB_SECURITY_TEST.md](./docs/security/DB_SECURITY_TEST.md) |
+| Streaming de música | [docs/deployment/MUSIC_STREAMING.md](./docs/deployment/MUSIC_STREAMING.md) |
+| App de escritorio | [desktop/README.md](./desktop/README.md) · [docs/deployment/ELECTRON_BUILD.md](./docs/deployment/ELECTRON_BUILD.md) |
 | Deploy en Vercel | [docs/deployment/VERCEL_DEPLOYMENT.md](./docs/deployment/VERCEL_DEPLOYMENT.md) |
-| Tuneles ngrok | [docs/deployment/NGROK_SETUP.md](./docs/deployment/NGROK_SETUP.md) |
-
-> Nota: `docs/INFRAESTRUCTURA.md` contiene credenciales de servidores y no se sube a git.
+| OG tags en local (ngrok) | [docs/deployment/NGROK_SETUP.md](./docs/deployment/NGROK_SETUP.md) |
+| Encriptación de publicaciones | [src/hooks/AlphabetEncryption.md](./src/hooks/AlphabetEncryption.md) |
 
 ---
 
-## Notas para desarrolladores
+## Notas de desarrollo
 
-- El proyecto usa React Compiler (via `babel-plugin-react-compiler`) para optimizaciones automaticas.
-- El cliente de Supabase normaliza automaticamente la URL del proyecto.
-- El cache local usa prefijos `fc_` con expiracion por TTL.
-- "Cancion del perfil": la busqueda de metadatos usa **YouTube Music via innertube** (`/api/music/ytsearch`), que filtra las subidas de YouTube (UGC), podcasts y colecciones y deja solo canciones/videos musicales del catalogo; si no responde o no da resultados, iTunes (directo) o Deezer (via `/api/music-search`). Los resultados de YouTube no traen preview de 30 s: al fijar o enviar la cancion se pide uno a iTunes como respaldo del reproductor (`withPreviewFallback` en `musicService.js`). El audio completo lo resuelve **innertube** dentro de la propia app (`api/_innertube.js` + `/api/music/stream`). No hay servidor externo ni binarios (yt-dlp/ffmpeg): la misma logica corre en Vercel (`api/*.js`), en `npm run dev` (montada por `plugins/musicDevApiPlugin.js`, asi que no hace falta `npm start` para oir la cancion) y en `npm start`.
-- **App de escritorio: la cancion completa sale de la IP del usuario (2026-10-16)**: YouTube solo entrega el stream completo a conexiones con buena reputacion; desde un datacenter (Vercel, un VPS) la resolucion termina en "Sign in to confirm you're not a bot" y los PO tokens no lo arreglan. Consecuencia en el NAVEGADOR: la card cae al preview de 30 s, y al arrancar la reproduccion se ofrece la app (`src/assets/Resources/Components/DesktopAppPrompt.jsx`): descargar / ✗ (cierra solo esta vez) / "No volver a mostrar" (persiste en `fc_desktop_prompt_dismissed`). La app (`desktop/`, Electron + `electron-builder`) carga la web PUBLICADA en una `BrowserWindow` —un solo codigo: cada deploy llega al instante, sin republicar el binario— y levanta en paralelo el MISMO servidor de musica del repo (`scripts/music-api-server.mjs`, ahora con `startMusicServer()` exportado; los mismos handlers que produccion) escuchando solo en `127.0.0.1:5990`: el audio sale por la conexion del usuario y la URL firmada coincide. El preload publica `window.foranlyDesktop = { version, platform, musicApiUrl, musicReady }` y `src/assets/services/desktopApp.js` decide con eso la base de `/api/music/*` (loopback en la app, mismo origen en el navegador) y si toca ofrecer la descarga. Detalles atados: el puerto es FIJO porque la CSP (`plugins/cspPlugin.js`: connect-src + media-src) solo autoriza `127.0.0.1:5990`, y el servidor responde `Access-Control-Allow-Private-Network: true` para el preflight de red local de Chromium (ademas de `--disable-features=LocalNetworkAccessChecks` como red de seguridad en `desktop/main.js`). `/download` (`src/assets/Pages/Download.jsx`) lee los instaladores de `src/assets/data/desktopApp.js`: mientras `DESKTOP_DOWNLOAD_BASE` este vacio, cada tarjeta se muestra como "Proximamente" en vez de enlazar a un archivo inexistente. Comprobado sin pantalla: `npm run desktop:install` + `FORANLY_WEB_URL="data:text/html,hola" FORANLY_DEBUG=1 npx electron . --ozone-platform=headless` arranca el servidor local y la web ve el puente, y contra `127.0.0.1:5990` el stream responde 206 con la pista entera (`playable: true`, ~1 MB por cancion). Sin firma de codigo, Windows/macOS avisan la primera vez que se abre el instalador. Guia de build y lanzamiento paso a paso: `docs/deployment/ELECTRON_BUILD.md`.
-- Test del resolver de streams (offline, sin red): `node scripts/test-innertube-resolver.mjs`.
-- **Stream de YouTube: limites medidos y como se sortean (2026-10-10)**: las URLs **audio-only** (adaptive: 140, 599, ...) llevan `rqh=1` y el CDN solo entrega un tramo que empieza en el offset 0 y cuyo tamano **varia** (medido 0,3-1 MiB segun IP y momento; no se recarga reutilizando la misma URL, y pedir un offset >= 1 MiB da 403 aunque sea la primera peticion de una URL recien resuelta). Ademas el `<audio>` de Chrome pide la continuacion (`Range: bytes=1048576-`) **en paralelo** al arrancar, asi que un 403 ahi tumba el pipeline entero (medido con navegador real: `PIPELINE_ERROR_READ` a los ~1,5 s, con 64 s ya en buffer). Por eso: (1) el proxy pide siempre bloques **acotados** de 1 MiB (`upstreamRangeHeader`); (2) el resolver prefiere el mejor audio-only cuya pista ENTERA quepa en ese tramo (140 -> 139 -> 599); (3) si ninguno cabe, o si el CDN responde 403 al primer bloque, se sirve el formato **MUXED itag 18** (`pickMuxedFormat` + `markStreamFallback`): verificado contra el CDN que sus URLs sirven CUALQUIER offset (3, 5 y 12 MB de un archivo de 13 MB) mientras las audio-only daban 403. Coste del muxed: baja tambien el video (3-13 MB por cancion, audio AAC ~128 kbps); el audio-only, cuando entra, pesa menos pero suena peor (32-50 kbps). La idea es del proyecto **Scrup** (ytdownloader): el audio-only va "gated", el muxed no. Solo si la pista no tiene muxed con URL se devuelve `playable:false` y la card usa el preview de 30 s. Levantar el tope para el audio-only exigiria un **PO token** (servicio extra, p. ej. `bgutil-ytdlp-pot-provider`).
-- **Stream en produccion (Vercel): presupuesto de tiempo y no depender del health (2026-10-10)**: en serverless se pago caro creer que el resolver tenia todo el tiempo del mundo. Sintoma: `[music] stream health check failed: signal timed out`, `504` en `/api/music/stream` y, tras un rato, la card cayendo al preview de 30 s. Arreglos: (1) `resolveTrackAudio` trabaja con **presupuesto** (`RESOLVE_BUDGET_MS` = 25 s) y cada paso tiene timeout de 7 s (`REQUEST_TIMEOUT_MS`), asi el handler responde **el suyo** un 504 legible en segundos (`isResolveTimeout`) en vez de morir con el 504 opaco de la plataforma tras ~60 s; el audio del CDN se pide con 12 s (`AUDIO_TIMEOUT_MS`). (2) El pre-warm al montar la card **ya no se puerta** detras de `/api/music/health`: una instancia fria hacia que se saltara justo en la primera reproduccion, dejando la resolucion completa dentro del reloj del stream. (3) El `<audio>` **reintenta una vez** la misma URL (`&r=N`, que el backend ignora) antes de caer al preview: el 504 de una peticion fria no significa que la cancion no se pueda servir. (4) `vercel.json` declara `maxDuration` (60 s stream, 30 s resolve) ademas del `export const config` de cada funcion (verificado en produccion que Vercel los respeta). (5) El pre-warm se pide a `/api/music/stream?...&prewarm=1`, **la misma funcion** que sirve el audio: en Vercel cada archivo de `api/` es una funcion distinta con memoria propia, asi que calentar desde `/api/music/resolve` no compartia la cache y el stream pagaba la resolucion completa dentro de su reloj. Diagnostico en produccion: `curl 'https://app.foranly.space/api/music/stream?artist=…&title=…&prewarm=1'` responde el formato resuelto si la funcion alcanza YouTube, o un 504 JSON en segundos con el motivo.
-- **Musica desde host propio (2026-10-10): si las funciones de Vercel no arrancan**: las 5 funciones de `api/` sin tocar desde julio-agosto responden, pero **cualquier funcion nueva o modificada se cuelga** (probado con `/api/diag-plain`, `/api/diag-flat` y `/api/music/diag-nested`, ya borradas: triviales, sin imports, y `maxDuration` se respeta pero el handler nunca corre) → el pipeline de funciones de ese proyecto esta roto. **Y una funcion GANA al rewrite**: medido en produccion el 2026-10-16 con el rewrite de musica ya desplegado, `/api/music/health` seguia colgado 12 s (lo agarraba `api/music/health.js`) mientras `/api/music/nonexistent` y `/api/music/stream/extra` los servia el host propio en 0,3-0,5 s. Por eso los handlers llevan `_` delante (`api/music/_health.js`, `_resolve.js`, `_stream.js`, `_ytsearch.js`): con `_` Vercel no crea funcion en esa ruta, no hay colision, y `/api/music/(.*)` llega al host. Encima, sin funcion no hace falta `maxDuration` en `vercel.json`. Alternativa sin funciones: `npm run music-api` levanta `scripts/music-api-server.mjs` (`MUSIC_PORT`/`MUSIC_HOST`), que sirve `/api/music/{health,resolve,stream,ytsearch}` + `/api/music-search` con los MISMOS handlers (`api/_musicHttp.js` importa `api/music/*.js`; tambien lo usa el plugin de dev), y en `vercel.json` se reescribe el trafico a ese host igual que `/api/image-proxy` y `/cdn/*` (que ya funcionan): `{ "source": "/api/music/(.*)", "destination": "http://HOST:PUERTO/api/music/$1" }`. El cliente NO cambia (mismas URLs, mismo origen). Al no ser una funcion no hay tope de reloj, asi que desaparecen los 504 por tiempo; a cambio, el audio pasa por ese host y depende de que este encendido. **Que subir a ese host**: 9 archivos, 76 KB, sin `node_modules` (el arbol de musica no importa ningun paquete npm) y sin ninguna variable de entorno: `music-server.js` (puente de 1 linea en la raiz; **debe acabar en `.js`**, porque el script de arranque del panel usa `node` solo si el MAIN FILE termina en `.js` y si no cae en `ts-node --esm`, que aqui revienta: ver el aviso de ts-node mas abajo) y `scripts/music-api-server.mjs` (el servidor real, tambien `npm run music-api` / `npm run music-server`; puerto/host por `MUSIC_PORT`/`MUSIC_HOST` — y si no hay ninguno, usa `SERVER_PORT`, el puerto que Pterodactyl ya asigna al contenedor: sin eso el proceso se queda en 5990 y la URL publica del panel da `connection refused`; no lleva argumentos posicionales), `api/_musicHttp.js`, `api/_music.js`, `api/_innertube.js` y `api/music/{_health,_resolve,_stream,_ytsearch}.js`, conservando esas rutas relativas (el `_` es solo para Vercel; en el host da igual cómo se llamen mientras `_musicHttp.js` y los handlers sean del mismo par de versiones) y con un `package.json` que tenga `"type": "module"` (los `.js` de `api/` son ESM). Requiere Node 18+ (`fetch` global y `Readable.fromWeb`). **Arrancarlo con `node`, NO con ts-node** (el panel lo hace solo si el MAIN FILE acaba en `.js`: pon `music-server.js` y deja ADDITIONAL ARGUMENTS vacio — ahi no va el lanzador): este proyecto es JS puro (sin `typescript` ni `tsconfig.json`) y `ts-node@10.9.2` revienta al leer su config (`TypeError: Cannot read properties of undefined (reading 'fileExists')`) porque npm le instala como peer `typescript@7`, que ya no expone `ts.sys`; reproducido en limpio incluso con un archivo de una linea. Si el panel obliga a ts-node, la salida es fijar el compilador viejo (`npm i -D typescript@5`, verificado que entonces si arranca).
+- **React Compiler**: el proyecto compila con `babel-plugin-react-compiler`, así que
+  las optimizaciones de memorización son automáticas; evita añadir `useMemo`/`useCallback`
+  manuales por sistema.
+- **Cliente de Supabase**: normaliza la URL del proyecto y cifra la sesión con
+  `secureStorage` (ver [docs/security/AUDITORIA-SEGURIDAD.md](./docs/security/AUDITORIA-SEGURIDAD.md)).
+- **Caché local**: prefijos `fc_` con expiración por TTL.
+- **Música**: el audio se resuelve con innertube en el backend del propio repo y se
+  sirve como `/api/music/stream` same-origin. En el navegador YouTube solo entrega la
+  pista completa a IPs con buena reputación, por lo que en producción el tráfico se
+  envía a un host propio y, si aun así solo llega el preview, la app de escritorio
+  (que resuelve el audio desde la IP del usuario) es el camino para oírla entera.
+  Detalles y mediciones: [docs/deployment/MUSIC_STREAMING.md](./docs/deployment/MUSIC_STREAMING.md).
+- **Tests de la resolución de streams** (offline, sin red):
+  `node scripts/test-innertube-resolver.mjs`.
+- **Tests de seguridad** (necesitan Supabase): `node scripts/test-security-full.mjs`
+  (o `scripts/test-db-security.mjs` para el informe por tabla) y
+  `npm run validate-locales` para las traducciones.
+- **App de escritorio**: carga la web **publicada**, así que la web se despliega
+  primero. Guía completa en [docs/deployment/ELECTRON_BUILD.md](./docs/deployment/ELECTRON_BUILD.md).
