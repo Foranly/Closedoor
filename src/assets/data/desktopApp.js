@@ -1,19 +1,5 @@
 /**
  * desktopApp.js (datos) — versión y enlaces de descarga de la app de escritorio.
- *
- * ÚNICO sitio donde se cambian las URLs de los instaladores: los lee la página
- * /download (Pages/Download.jsx) y el aviso del reproductor
- * (Components/DesktopAppPrompt.jsx). Mantener el número de versión sincronizado
- * con desktop/package.json.
- *
- * Los binarios se publican como assets del Release de GitHub:
- *   https://github.com/Frantt21/Closedoor/releases/tag/v0.1.0
- *
- * Los nombres los genera electron-builder (ver `build.*.artifactName` en
- * desktop/package.json):
- *   Windows  → Closedoor-0.1.0.exe
- *   macOS    → Closedoor-0.1.0-arm64.dmg · Closedoor-0.1.0-x64.dmg
- *   Linux    → Closedoor-0.1.0-x86_64.AppImage · Closedoor-0.1.0-amd64.deb
  */
 
 export const DESKTOP_VERSION = '0.1.1';
