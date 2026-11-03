@@ -300,10 +300,6 @@
   overflow: hidden;
 }
 
-.download-compare-card--desktop {
-  border: 1px solid var(--overlay-border-hover, rgba(255, 255, 255, 0.25));
-}
-
 .download-compare-head {
   display: flex;
   align-items: center;
