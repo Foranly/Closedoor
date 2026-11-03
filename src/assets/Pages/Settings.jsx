@@ -404,6 +404,8 @@ export default function Settings() {
   // ── Zoom de la ventana (solo tiene sentido en la app de escritorio) ──
   const zoomAvailable = isWindowZoomAvailable();
   const [zoomPercent, setZoomPercent] = useState(100);
+  const [languageExpanded, setLanguageExpanded] = useState(false);
+  const [appearanceExpanded, setAppearanceExpanded] = useState(false);
   const [accentExpanded, setAccentExpanded] = useState(false);
   const [cardsExpanded, setCardsExpanded] = useState(false);
   const [statsExpanded, setStatsExpanded] = useState(false);
@@ -999,17 +1001,31 @@ export default function Settings() {
 
           {activeCategory === 'system' && (
             <>
-              {/* ── Apariencia ── */}
+              {/* ── Idioma y hora (plegable: las opciones viven dentro) ── */}
               <div className="settings-row">
                 <div className="settings-row-header">
-                  <span className="settings-section-icon"><FaBrush /></span>
+                  <span className="settings-section-icon"><FaGlobe /></span>
                   <div>
-                    <h2 className="settings-section-title">{t('settings.appearance')}</h2>
-                    <p className="settings-section-desc">{t('settings.appearance_desc')}</p>
+                    <h2 className="settings-section-title">{t('settings.language_time')}</h2>
+                    <p className="settings-section-desc">{t('settings.language_time_desc')}</p>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  className="settings-stats-expand-btn"
+                  onClick={() => setLanguageExpanded((s) => !s)}
+                  aria-expanded={languageExpanded}
+                >
+                  <span className={`settings-stats-expand-arrow ${languageExpanded ? 'settings-stats-expand-arrow--open' : ''}`}>
+                    <FaChevronRight />
+                  </span>
+                  <span>{languageExpanded ? t('settings.options_hide') : t('settings.options_show')}</span>
+                </button>
               </div>
 
+              {languageExpanded && (
+              <div className="settings-accent-list">
               {/* Idioma */}
               <div className="settings-row">
                 <div className="settings-row-header">
@@ -1086,9 +1102,36 @@ export default function Settings() {
                   </button>
                 </div>
               </div>
+              </div>
+              )}
 
               <div className="settings-row-divider" />
 
+              {/* ── Apariencia (plegable: las opciones viven dentro) ── */}
+              <div className="settings-row">
+                <div className="settings-row-header">
+                  <span className="settings-section-icon"><FaBrush /></span>
+                  <div>
+                    <h2 className="settings-section-title">{t('settings.appearance')}</h2>
+                    <p className="settings-section-desc">{t('settings.appearance_desc')}</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="settings-stats-expand-btn"
+                  onClick={() => setAppearanceExpanded((s) => !s)}
+                  aria-expanded={appearanceExpanded}
+                >
+                  <span className={`settings-stats-expand-arrow ${appearanceExpanded ? 'settings-stats-expand-arrow--open' : ''}`}>
+                    <FaChevronRight />
+                  </span>
+                  <span>{appearanceExpanded ? t('settings.options_hide') : t('settings.options_show')}</span>
+                </button>
+              </div>
+
+              {appearanceExpanded && (
+              <div className="settings-accent-list">
               {/* Tema */}
               <div className="settings-row">
                 <div className="settings-row-header">
@@ -1203,6 +1246,8 @@ export default function Settings() {
                   </span>
                 </button>
               </div>
+              </div>
+              )}
 
               <div className="settings-row-divider" />
 
