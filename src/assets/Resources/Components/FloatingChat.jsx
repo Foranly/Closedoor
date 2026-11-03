@@ -1,7 +1,8 @@
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FaCommentDots, FaTimes, FaChevronLeft, FaPaperPlane, FaExpand, FaSpinner, FaComments, FaReply } from 'react-icons/fa';
+import { FaCommentDots, FaTimes, FaChevronLeft, FaPaperPlane, FaExpand, FaSpinner, FaComments, FaReply, FaPen } from 'react-icons/fa';
+import CreatePostModal from './CreatePostModal';
 import { useAuth } from '../../../hooks/useAuth';
 import { useI18n } from '../../services/i18n/useI18n';
 import { NotificationContext } from '../../../context/NotificationContext';
@@ -67,6 +68,7 @@ export default function FloatingChat() {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState('list'); // 'list' | 'thread'
   const [activeId, setActiveId] = useState(null);
+  const [showPost, setShowPost] = useState(false);
   const [convs, setConvs] = useState(() => readCachedConvs(user?.id));
   const [listLoaded, setListLoaded] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -92,6 +94,15 @@ export default function FloatingChat() {
   const hidden = !userId || HIDDEN_ROUTES.some((r) => route === r || route.startsWith(`${r}/`));
 
   const activeConv = useMemo(() => convs.find((c) => c.id === activeId) || null, [convs, activeId]);
+  const hiddenForPost = String(pathname || '').toLowerCase();
+  const hiddenOnCreate = HIDDEN_ROUTES.some(
+    (r) => hiddenForPost === r || hiddenForPost.startsWith(`${r}/`)
+  );
+
+  const hiddenInPostWorld =
+    route === '/' || route === '/home' || route.startsWith('/profile') || route.startsWith('/c/');
+  const isCreateVisible =
+    userId && !hiddenOnCreate && !hiddenInPostWorld;
   const recent = useMemo(() => convs.slice(0, 3), [convs]);
 
   // ── Al tener usuario (login/restauración de sesión), hidratar los recientes
@@ -402,7 +413,7 @@ export default function FloatingChat() {
         <div className="fc-panel" role="dialog" aria-label={t('chat.title') || 'Chat'}>
           <div
             className="fc-panel-header"
-            style={{ '--fc-user-accent': activeConv?.otherUser?.accent_color || undefined }}
+            style={{ '--fc-user-accent': open && activeConv?.otherUser?.accent_color || undefined }}
           >
             {view === 'thread' ? (
               <>
@@ -578,18 +589,31 @@ export default function FloatingChat() {
         </div>
       )}
 
-      <button
-        type="button"
-        className="fc-dock-launcher"
-        onClick={toggleOpen}
-        title={open ? (t('chat.dock_close') || 'Close') : (t('chat.title') || 'Chat')}
-        aria-expanded={open}
-      >
-        {open ? <FaTimes /> : <FaCommentDots />}
-        {!open && unreadTotal > 0 && (
-          <span className="fc-dock-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>
+      <div className="fc-dock-row">
+        {isCreateVisible && (
+          <button
+            type="button"
+            className="fc-dock-create"
+            onClick={() => setShowPost(true)}
+            title={t('chat.dock_create_post') || 'New post'}
+          >
+            <FaPen />
+          </button>
         )}
-      </button>
+        <button
+          type="button"
+          className="fc-dock-launcher"
+          onClick={toggleOpen}
+          title={open ? (t('chat.dock_close') || 'Close') : (t('chat.title') || 'Chat')}
+          aria-expanded={open}
+        >
+          {open ? <FaTimes /> : <FaCommentDots />}
+          {!open && unreadTotal > 0 && (
+            <span className="fc-dock-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>
+          )}
+        </button>
+      </div>
+      {showPost && <CreatePostModal isOpen={showPost} onClose={() => setShowPost(false)} userId={userId} />}
     </div>,
     document.body
   );

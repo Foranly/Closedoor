@@ -85,6 +85,7 @@
   "chat.delete_message": "Удалить навсегда",
   "chat.dock_back": "Назад",
   "chat.dock_close": "Закрыть",
+"chat.dock_create_post": "Новый пост",
   "chat.dock_open_full": "Открыть в чате",
   "chat.dock_send": "Отправить",
   "chat.edit_hint": "Обновите сообщение и сохраните изменения.",

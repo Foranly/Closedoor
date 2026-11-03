@@ -85,6 +85,7 @@
   "chat.delete_message": "完全に削除",
   "chat.dock_back": "戻る",
   "chat.dock_close": "閉じる",
+"chat.dock_create_post": "新しい投稿",
   "chat.dock_open_full": "チャットで開く",
   "chat.dock_send": "送信",
   "chat.edit_hint": "メッセージを更新して変更を保存します。",

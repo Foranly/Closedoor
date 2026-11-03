@@ -287,7 +287,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 100%;
+  width: auto;
   padding: 9px 10px;
   border-radius: var(--radius-sm, 6px);
   border: 1px dashed var(--color-border, #2a2a2a);

@@ -85,6 +85,7 @@
   "chat.delete_message": "Excluir permanentemente",
   "chat.dock_back": "Voltar",
   "chat.dock_close": "Fechar",
+"chat.dock_create_post": "Novo post",
   "chat.dock_open_full": "Abrir no Chat",
   "chat.dock_send": "Enviar mensagem",
   "chat.edit_hint": "Atualize sua mensagem e salve as alterações.",

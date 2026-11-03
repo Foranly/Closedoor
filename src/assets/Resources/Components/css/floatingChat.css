@@ -14,7 +14,33 @@
     gap: 10px;
 }
 
+.fc-dock-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 /* ── Lanzador ── */
+.fc-dock-create {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    border: none;
+    background: var(--color-surface, #1a1a1a);
+    color: var(--color-text, #ffffff);
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+
+
+
+
+
 .fc-dock-launcher {
     position: relative;
     display: flex;
@@ -531,3 +557,21 @@
         height: 66vh;
     }
 }
+
+.fc-dock-create {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    border: none;
+    background: var(--color-surface, #1a1a1a);
+    color: var(--color-text, #ffffff);
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+
+
