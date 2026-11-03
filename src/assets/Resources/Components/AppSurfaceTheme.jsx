@@ -19,6 +19,11 @@ import { useI18n } from '../../services/i18n/useI18n';
  * Si el usuario NO tiene glass/color de superficie activo, se quitan las
  * vars y el sidebar usa su fallback CSS translúcido (color-mix + blur),
  * así el blur se mantiene siempre.
+ *
+ * Además publica en <html> la receta glass cuando el toggle "Tarjetas
+ * transparentes" (showCardsGlass) está activo, para que html.fc-cards-glass
+ * (global.css) pinte las cards del resto del app exactamente como las del
+ * perfil en modo translúcido.
  */
 const SURFACE_VARS = [
   '--accent-surface-rgba',
@@ -29,7 +34,7 @@ const SURFACE_VARS = [
 
 export default function AppSurfaceTheme() {
   const { profile } = useAuth();
-  const { showAccent } = useI18n();
+  const { showAccent, showCardsGlass } = useI18n();
   // Re-aplicar al navegar: si el nodo .sidebar se recreó (remount del Header),
   // las vars del glass se re-aplican al nodo nuevo (el efecto es barato).
   const location = useLocation();
@@ -37,42 +42,58 @@ export default function AppSurfaceTheme() {
   useEffect(() => {
     const el = document.querySelector('.sidebar');
     const root = document.documentElement;
-    if (!el) return;
-    // También en <html>: titlebar y la cabecera sticky de Home deben usar las
-    // mismas superficies (color/glass/blur) que la sidebar, y no son sus hijas.
-    const targets = [el, root];
+    // Sin sidebar todavía (primer render de App, login) se aplican igualmente
+    // en <html>: salir aquí dejaba a las cards sin vars hasta navegar.
+    const nodes = el ? [el, root] : [root];
 
     const surfColor = profile?.accent_surface_color;
-    const surfGlass = profile?.accent_surface_glass === true;
-    const active = showAccent && (surfGlass || surfColor);
+    const profileGlass = profile?.accent_surface_glass === true;
 
-    if (active) {
-      // Mismas reglas que RightPanel/ProfileSidebar (glass mode o color custom)
-      for (const node of targets) {
-        node.style.setProperty(
-          '--accent-surface-rgba',
-          surfGlass ? 'rgba(255, 255, 255, 0.04)' : (surfColor || 'var(--color-surface, #1a1a1a)')
-        );
-        node.style.setProperty(
-          '--accent-surface-rgba-hover',
-          surfGlass ? 'rgba(255, 255, 255, 0.07)' : (surfColor ? `color-mix(in srgb, ${surfColor} 85%, #000)` : 'var(--color-surface-hover, #252525)')
-        );
-        node.style.setProperty('--accent-surface-blur', surfGlass ? 'blur(20px)' : 'none');
-        node.style.setProperty('--accent-surface-border', 'none');
-      }
-    } else {
-      // Sin glass: quitar vars → el fallback CSS del sidebar (translúcido) aplica
-      for (const node of targets) {
-        SURFACE_VARS.forEach((v) => node.style.removeProperty(v));
-      }
+    // Receta del perfil en modo glass (== .profile-page .post-card)
+    const GLASS = {
+      rgba: 'rgba(255, 255, 255, 0.04)',
+      hover: 'rgba(255, 255, 255, 0.07)',
+      blur: 'blur(20px)',
+    };
+    // Superficie que define el perfil (glass o color custom + toggle de acentos)
+    const accentSurface = showAccent && (profileGlass || surfColor);
+    const profileVars = profileGlass
+      ? GLASS
+      : surfColor
+        ? {
+            rgba: surfColor,
+            hover: `color-mix(in srgb, ${surfColor} 85%, #000)`,
+            blur: 'none',
+          }
+        : null;
+
+    // "Tarjetas transparentes" (Ajustes) fuerza la receta glass del perfil en
+    // las cards de todo el app, sea cual sea el modo de superficie del perfil.
+    // Se publica en <html> (las cards la heredan); el sidebar conserva su
+    // propio tratamiento para no cambiar el look del shell.
+    const rootVars = showCardsGlass ? GLASS : (accentSurface ? profileVars : null);
+    const sidebarVars = accentSurface ? profileVars : null;
+
+    const applyVars = (node, vars) => {
+      node.style.setProperty('--accent-surface-rgba', vars.rgba);
+      node.style.setProperty('--accent-surface-rgba-hover', vars.hover);
+      node.style.setProperty('--accent-surface-blur', vars.blur);
+      node.style.setProperty('--accent-surface-border', 'none');
+    };
+    const clearVars = (node) => {
+      SURFACE_VARS.forEach((v) => node.style.removeProperty(v));
+    };
+
+    // Sin vars → el fallback CSS (color de superficie del tema) aplica.
+    if (rootVars) applyVars(root, rootVars); else clearVars(root);
+    if (el) {
+      if (sidebarVars) applyVars(el, sidebarVars); else clearVars(el);
     }
 
     return () => {
-      for (const node of targets) {
-        SURFACE_VARS.forEach((v) => node.style.removeProperty(v));
-      }
+      nodes.forEach(clearVars);
     };
-  }, [profile, showAccent, location.pathname]);
+  }, [profile, showAccent, showCardsGlass, location.pathname]);
 
   return null;
 }

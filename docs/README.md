@@ -21,6 +21,7 @@ en orden numérico.
 |---|---|
 | [security/AUDITORIA-SEGURIDAD.md](./security/AUDITORIA-SEGURIDAD.md) | Auditoría y endurecimiento: vulnerabilidades corregidas, CSP, RPCs, CI y modelo de permisos |
 | [security/DB_SECURITY_TEST.md](./security/DB_SECURITY_TEST.md) | Pruebas manuales de RLS desde DevTools (lectura, escritura y modificación no autorizada) |
+| [security/E2E_CHAT.md](./security/E2E_CHAT.md) | Diseño del cifrado E2E del chat: clave por conversación, envoltura ECDH por dispositivo, claves en IndexedDB y plan por fases |
 
 ## Música
 

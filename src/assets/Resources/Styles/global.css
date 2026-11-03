@@ -578,8 +578,16 @@ body:has(.sidebar--collapsed) .app-layout--chat {
 /* ==========================================
    Cards translúcidas en todo el app
    Toggle "Tarjetas transparentes" (showCardsGlass → html.fc-cards-glass).
-   Mantiene el vidrio translúcido (tinte + blur) pero fuerza el texto y los
-   iconos a negro para que se lean sobre el fondo claro que deja ver.
+
+   Usa EXACTAMENTE la misma receta que las cards del perfil en modo glass
+   (ver .profile-page .post-card en postCard.css y .profile-sidebar-card):
+   blanco al 4% (7% en hover) + backdrop-blur(20px) + sin borde. Nada de
+   forzar el texto a negro: el color de texto lo sigue poniendo el tema.
+
+   Las vars --accent-surface-* las publica AppSurfaceTheme en <html> cuando
+   el toggle está activo (también se usan en el sidebar y la titlebar). En la
+   página de perfil, las vars inline del perfil ganan sobre las heredadas, así
+   que allí las cards conservan el tratamiento configurado por su dueño.
    ========================================== */
 html.fc-cards-glass :is(
     .post-card,
@@ -597,31 +605,19 @@ html.fc-cards-glass :is(
     .community-feed-controls,
     .community-join-prompt
 ) {
-    background-color: var(--accent-surface-rgba, color-mix(in srgb, #ffffff 55%, transparent));
-    backdrop-filter: var(--accent-surface-blur, blur(16px));
-    -webkit-backdrop-filter: var(--accent-surface-blur, blur(16px));
-    --color-text: #000000;
-    --color-text-secondary: #000000;
-    --color-text-muted: #000000;
+    /* background-color (no el shorthand): .chat-messages puede llevar una
+       imagen de fondo inline (wallpaper del chat) y no debe perderse. */
+    background-color: var(--accent-surface-rgba, rgba(255, 255, 255, 0.04));
+    backdrop-filter: var(--accent-surface-blur, blur(20px));
+    -webkit-backdrop-filter: var(--accent-surface-blur, blur(20px));
+    border: var(--accent-surface-border, none);
+    isolation: isolate;
+    transition: background 0.2s ease, backdrop-filter 0.2s ease, border 0.2s ease;
 }
 
 html.fc-cards-glass :is(
     .post-card:hover,
     .notification-item:hover
 ) {
-    background-color: var(--accent-surface-rgba-hover, color-mix(in srgb, #ffffff 65%, transparent));
-}
-
-/* Los botones conservan el color de texto del tema (la navegación de Ajustes
-   usa los mismos colores que el resto del texto de la card). */
-html.fc-cards-glass :is(button, [role="button"]):not(.settings-nav-btn) {
-    --color-text: #ffffff;
-    --color-text-secondary: #9ca3af;
-    --color-text-muted: #6b7280;
-}
-
-[data-theme="light"].fc-cards-glass :is(button, [role="button"]):not(.settings-nav-btn) {
-    --color-text: #1a1a1a;
-    --color-text-secondary: #6b7280;
-    --color-text-muted: #9ca3af;
+    background-color: var(--accent-surface-rgba-hover, rgba(255, 255, 255, 0.07));
 }

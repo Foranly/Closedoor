@@ -1,6 +1,6 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import es from './locales/es.json';
-import { getItem, setItem } from '../secureStorage';
+import { getItem, setItem, waitForKeyReady } from '../secureStorage';
 
 const LOCALE_KEY = 'fc_locale';
 const ACCENT_KEY = 'fc_show_accent';
@@ -401,6 +401,44 @@ export function I18nProvider({ children }) {
     try {
       setItem(THEME_KEY, newTheme);
     } catch {}
+  }, []);
+
+  // secureStorage descifra con una master key que se carga de forma asíncrona
+  // desde IndexedDB. Los useState de arriba leen de forma SÍNCRONA en el primer
+  // render, así que en un arranque en frío (recargar el app) la lectura todavía
+  // no puede descifrar y devuelve null → el app arrancaba con los valores por
+  // defecto y el fondo de perfil global o las cards translúcidas solo aparecían
+  // al entrar en Ajustes (que re-sincroniza las prefs desde profiles).
+  // En cuanto la key está lista se releen las preferencias guardadas.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    waitForKeyReady().then(() => {
+      if (cancelled || hydratedRef.current) return;
+      hydratedRef.current = true;
+      setLocale(getSavedLocale());
+      setShowAccent(getSavedShowAccent());
+      setShowAccentProfile(getSavedShowAccentProfile());
+      setShowAccentExplore(getSavedShowAccentExplore());
+      setAccentVisibility(getSavedAccentVisibility());
+      setShowInterests(getSavedShowInterests());
+      setShowProfileStats(getSavedShowProfileStats());
+      setShowToastNotifications(getSavedShowToastNotifications());
+      setShowGlobalBg(getSavedShowGlobalBg());
+      setShowCardsGlass(getSavedShowCardsGlass());
+      setShowPushNotifications(getSavedShowPushNotifications());
+      setShowLikes(getSavedShowLikes());
+      setFilterEncrypted(getSavedFilterEncrypted());
+      setAllowMention(getSavedAllowMention());
+      // Después de filterEncrypted: depende de él para su valor por defecto
+      setAllowEncryptedAdd(getSavedAllowEncryptedAdd());
+      setHour24(getSavedHour24());
+      setShowBadges(getSavedShowBadges());
+      setTheme(getSavedTheme());
+    });
+    return () => { cancelled = true; };
+    // Solo una vez, al montar: los setters son estables (useCallback sin deps).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Aplicar tema al html element
