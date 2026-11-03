@@ -607,7 +607,6 @@ html.fc-cards-glass:not(.fc-chat-default) :is(
     .chat-list,
     .chat-messages,
     .right-panel-card,
-    .sidebar--chat,
     .community-header,
     .community-composer,
     .community-feed-controls,
@@ -628,6 +627,27 @@ html.fc-cards-glass:not(.fc-chat-default) :is(
     .notification-item:hover
 ) {
     background-color: var(--accent-surface-rgba-hover, rgba(255, 255, 255, 0.07));
+}
+
+/* Sidebar flotante de /chat: mismo vidrio que las cards (el sidebar no va en la
+   lista compartida porque tiene sus propias reglas de base). Se desactiva con
+   "Chat con estilos por defecto" y con "Sidebar con estilos por defecto". */
+html.fc-cards-glass:not(.fc-chat-default):not(.fc-sidebar-default) .sidebar--chat {
+    background-color: var(--accent-surface-rgba, rgba(255, 255, 255, 0.04));
+    backdrop-filter: var(--accent-surface-blur, blur(20px));
+    -webkit-backdrop-filter: var(--accent-surface-blur, blur(20px));
+    border: var(--accent-surface-border, none);
+    isolation: isolate;
+}
+
+/* Ajustes → "Sidebar con estilos por defecto": se neutralizan las vars que
+   hereda de <html> ("Tarjetas transparentes" y superficie del perfil), así
+   vuelven a aplicar los fallbacks base de .sidebar en cualquier ruta. */
+html.fc-sidebar-default .sidebar {
+    --accent-surface-rgba: initial;
+    --accent-surface-rgba-hover: initial;
+    --accent-surface-blur: initial;
+    --accent-surface-border: initial;
 }
 
 /* Color de texto: el mismo que eligió el dueño del perfil (profile_text_color

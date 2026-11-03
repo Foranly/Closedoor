@@ -311,6 +311,13 @@
   outline: none;
 }
 
+/* Toggle deshabilitado (p. ej. "Chat con estilos por defecto" mientras
+   "Tarjetas transparentes" está apagado) */
+.settings-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .settings-toggle input[type="checkbox"] {
   position: absolute;
   opacity: 0;

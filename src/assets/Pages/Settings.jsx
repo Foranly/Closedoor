@@ -15,7 +15,7 @@ import ProgramLogo from '../Resources/Components/ProgramLogo';
 import { getActivitySettings, readActivityHistory, clearActivityHistory, persistActivity, persistProgramActivity, programFromProfile } from '../services/activityService';
 import { supabase } from '../services/supabaseclient';
 import { getNicknames, getCachedNicknames, cacheNicknames, setNickname, removeNickname } from '../services/chatService';
-import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop } from 'react-icons/fa';
+import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop, FaBars } from 'react-icons/fa';
 import { MdLogout } from 'react-icons/md';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
@@ -392,7 +392,7 @@ function AccountSettings({ t }) {
 /* ── Main Settings Component ── */
 
 export default function Settings() {
-  const { locale, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass, setShowCardsGlass, chatDefaultStyle, setChatDefaultStyle, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, theme, setTheme, t } = useI18n();
+  const { locale, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass, setShowCardsGlass, chatDefaultStyle, setChatDefaultStyle, sidebarDefaultStyle, setSidebarDefaultStyle, sidebarDefaultColors, setSidebarDefaultColors, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, theme, setTheme, t } = useI18n();
   usePageTitle(t('settings.title'));
   const { user, profile, profileLoading, refreshProfile, logout, linkDiscord, isDiscordLinked } = useAuth();
   const navigate = useNavigate();
@@ -783,13 +783,15 @@ export default function Settings() {
       { col: 'show_global_bg', setter: setShowGlobalBg },
       { col: 'show_cards_glass', setter: setShowCardsGlass },
       { col: 'chat_default_style', setter: setChatDefaultStyle },
+      { col: 'sidebar_default_style', setter: setSidebarDefaultStyle },
+      { col: 'sidebar_default_colors', setter: setSidebarDefaultColors },
     ];
     for (const { col, setter } of mappings) {
       if (profile[col] !== undefined && profile[col] !== null) {
         setter(profile[col]);
       }
     }
-  }, [profile, profileSynced, setShowAccentProfile, setShowAccentExplore, setAccentVisibility, setShowProfileStats, setShowLikes, setAllowMention, setAllowEncryptedAdd, setFilterEncrypted, setShowGlobalBg, setShowCardsGlass, setChatDefaultStyle]);
+  }, [profile, profileSynced, setShowAccentProfile, setShowAccentExplore, setAccentVisibility, setShowProfileStats, setShowLikes, setAllowMention, setAllowEncryptedAdd, setFilterEncrypted, setShowGlobalBg, setShowCardsGlass, setChatDefaultStyle, setSidebarDefaultStyle, setSidebarDefaultColors]);
 
   const handlePrivacyChange = async (value) => {
     if (!user?.id || privacyUpdating || value === isPrivate) return;
@@ -1231,15 +1233,78 @@ export default function Settings() {
                     <p className="settings-section-desc">{t('settings.chat_default_style_desc')}</p>
                   </div>
                 </div>
+                {/* Solo tiene sentido con "Tarjetas transparentes" activo: sin
+                    vidrio no hay estilos que desactivar en el chat. */}
                 <button
                   type="button"
-                  className={`settings-toggle ${chatDefaultStyle ? 'settings-toggle--active' : ''}`}
+                  className={`settings-toggle ${chatDefaultStyle && showCardsGlass ? 'settings-toggle--active' : ''}`}
+                  disabled={!showCardsGlass}
+                  title={!showCardsGlass ? t('settings.chat_default_style_disabled') : undefined}
                   onClick={() => {
+                    if (!showCardsGlass) return;
                     const next = !chatDefaultStyle;
                     setChatDefaultStyle(next);
                     syncProfilePref('chat_default_style', next);
                   }}
-                  aria-pressed={chatDefaultStyle}
+                  aria-pressed={chatDefaultStyle && showCardsGlass}
+                >
+                  <span className="settings-toggle-track">
+                    <span className="settings-toggle-thumb" />
+                  </span>
+                </button>
+              </div>
+
+              <div className="settings-row-divider" />
+
+              {/* Sidebar con estilos por defecto (apaga y bloquea la opción de
+                  colores por defecto del sidebar) */}
+              <div className="settings-row">
+                <div className="settings-row-header">
+                  <span className="settings-section-icon"><FaBars /></span>
+                  <div>
+                    <h2 className="settings-section-title">{t('settings.sidebar_default_style')}</h2>
+                    <p className="settings-section-desc">{t('settings.sidebar_default_style_desc')}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={`settings-toggle ${sidebarDefaultStyle ? 'settings-toggle--active' : ''}`}
+                  onClick={() => {
+                    const next = !sidebarDefaultStyle;
+                    setSidebarDefaultStyle(next);
+                    syncProfilePref('sidebar_default_style', next);
+                  }}
+                  aria-pressed={sidebarDefaultStyle}
+                >
+                  <span className="settings-toggle-track">
+                    <span className="settings-toggle-thumb" />
+                  </span>
+                </button>
+              </div>
+
+              <div className="settings-row-divider" />
+
+              {/* Sidebar con colores por defecto (solo acento; mantiene el vidrio) */}
+              <div className="settings-row">
+                <div className="settings-row-header">
+                  <span className="settings-section-icon"><FaPalette /></span>
+                  <div>
+                    <h2 className="settings-section-title">{t('settings.sidebar_default_colors')}</h2>
+                    <p className="settings-section-desc">{t('settings.sidebar_default_colors_desc')}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={`settings-toggle ${sidebarDefaultColors && !sidebarDefaultStyle ? 'settings-toggle--active' : ''}`}
+                  disabled={sidebarDefaultStyle}
+                  title={sidebarDefaultStyle ? t('settings.sidebar_default_colors_disabled') : undefined}
+                  onClick={() => {
+                    if (sidebarDefaultStyle) return;
+                    const next = !sidebarDefaultColors;
+                    setSidebarDefaultColors(next);
+                    syncProfilePref('sidebar_default_colors', next);
+                  }}
+                  aria-pressed={sidebarDefaultColors && !sidebarDefaultStyle}
                 >
                   <span className="settings-toggle-track">
                     <span className="settings-toggle-thumb" />
