@@ -796,6 +796,8 @@
   "settings.show_global_bg_desc": "Mostra seu fundo de perfil como papel de parede em todas as páginas (só você vê).",
   "settings.show_cards_glass": "Cards transparentes",
   "settings.show_cards_glass_desc": "Aplica o mesmo efeito translúcido do perfil aos cards de posts, configurações, notificações e outros cards do app.",
+  "settings.chat_default_style": "Chat com estilos padrão",
+  "settings.chat_default_style_desc": "O chat ignora o vidro, a cor de superfície e a cor do texto do perfil. Mantém o tema claro/escuro.",
   "settings.show_interests": "Mostrar interesses",
   "settings.show_interests_desc": "Mostra ou oculta o card de interesses nos perfis.",
   "settings.show_likes": "Mostrar minhas curtidas",

@@ -392,7 +392,7 @@ function AccountSettings({ t }) {
 /* ── Main Settings Component ── */
 
 export default function Settings() {
-  const { locale, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass, setShowCardsGlass, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, theme, setTheme, t } = useI18n();
+  const { locale, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass, setShowCardsGlass, chatDefaultStyle, setChatDefaultStyle, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, theme, setTheme, t } = useI18n();
   usePageTitle(t('settings.title'));
   const { user, profile, profileLoading, refreshProfile, logout, linkDiscord, isDiscordLinked } = useAuth();
   const navigate = useNavigate();
@@ -780,13 +780,14 @@ export default function Settings() {
       { col: 'locale', setter: setLocale },
       { col: 'show_global_bg', setter: setShowGlobalBg },
       { col: 'show_cards_glass', setter: setShowCardsGlass },
+      { col: 'chat_default_style', setter: setChatDefaultStyle },
     ];
     for (const { col, setter } of mappings) {
       if (profile[col] !== undefined && profile[col] !== null) {
         setter(profile[col]);
       }
     }
-  }, [profile, profileSynced, setShowAccentProfile, setShowAccentExplore, setAccentVisibility, setShowProfileStats, setShowLikes, setAllowMention, setAllowEncryptedAdd, setFilterEncrypted, setShowGlobalBg, setShowCardsGlass]);
+  }, [profile, profileSynced, setShowAccentProfile, setShowAccentExplore, setAccentVisibility, setShowProfileStats, setShowLikes, setAllowMention, setAllowEncryptedAdd, setFilterEncrypted, setShowGlobalBg, setShowCardsGlass, setChatDefaultStyle]);
 
   const handlePrivacyChange = async (value) => {
     if (!user?.id || privacyUpdating || value === isPrivate) return;
@@ -1168,6 +1169,34 @@ export default function Settings() {
                     syncProfilePref('show_cards_glass', next);
                   }}
                   aria-pressed={showCardsGlass}
+                >
+                  <span className="settings-toggle-track">
+                    <span className="settings-toggle-thumb" />
+                  </span>
+                </button>
+              </div>
+
+              <div className="settings-row-divider" />
+
+              {/* Chat con estilos por defecto (ignora vidrio, superficie y
+                  color de texto del perfil, mantiene el tema claro/oscuro) */}
+              <div className="settings-row">
+                <div className="settings-row-header">
+                  <span className="settings-section-icon"><FaComment /></span>
+                  <div>
+                    <h2 className="settings-section-title">{t('settings.chat_default_style')}</h2>
+                    <p className="settings-section-desc">{t('settings.chat_default_style_desc')}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={`settings-toggle ${chatDefaultStyle ? 'settings-toggle--active' : ''}`}
+                  onClick={() => {
+                    const next = !chatDefaultStyle;
+                    setChatDefaultStyle(next);
+                    syncProfilePref('chat_default_style', next);
+                  }}
+                  aria-pressed={chatDefaultStyle}
                 >
                   <span className="settings-toggle-track">
                     <span className="settings-toggle-thumb" />

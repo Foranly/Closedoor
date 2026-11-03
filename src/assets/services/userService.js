@@ -85,6 +85,7 @@ export const PROFILE_PUBLIC_COLUMNS = [
   'user_status_updated_at',
   'show_global_bg',
   'show_cards_glass',
+  'chat_default_style',
   'song',
   // Actividad local (migración 079): la escribe la app de escritorio y se muestra
   // debajo de "Mi canción" (Components/ActivityCard). Los dos ajustes de

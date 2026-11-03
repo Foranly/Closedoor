@@ -588,8 +588,16 @@ body:has(.sidebar--collapsed) .app-layout--chat {
    el toggle está activo (también se usan en el sidebar y la titlebar). En la
    página de perfil, las vars inline del perfil ganan sobre las heredadas, así
    que allí las cards conservan el tratamiento configurado por su dueño.
+
+   .sidebar--chat sí entra aquí (en /chat el sidebar flota como una card y
+   debe seguir viéndose translúcido), pero NO en la regla de color de texto:
+   sus iconos/links son chrome del app y no cambian de color al navegar.
+
+   :not(.fc-chat-default) — Ajustes → "Chat con estilos por defecto": en /chat
+   se desactivan estas reglas (y AppSurfaceTheme deja de publicar las vars), así
+   la página vuelve a su aspecto original conservando el tema claro/oscuro.
    ========================================== */
-html.fc-cards-glass :is(
+html.fc-cards-glass:not(.fc-chat-default) :is(
     .post-card,
     .settings-card,
     .notification-item,
@@ -615,9 +623,54 @@ html.fc-cards-glass :is(
     transition: background 0.2s ease, backdrop-filter 0.2s ease, border 0.2s ease;
 }
 
-html.fc-cards-glass :is(
+html.fc-cards-glass:not(.fc-chat-default) :is(
     .post-card:hover,
     .notification-item:hover
 ) {
     background-color: var(--accent-surface-rgba-hover, rgba(255, 255, 255, 0.07));
+}
+
+/* Color de texto: el mismo que eligió el dueño del perfil (profile_text_color
+   del modal de edición). html.fc-cards-text solo se marca cuando hay un color
+   concreto; en "Automático" las cards heredan el texto del tema, igual que el
+   perfil. Se mapea a las mismas vars que usa .profile-page .post-card para no
+   divergir de su resultado. Explore y comunidades quedan fuera de esta lista
+   a propósito: allí las cards mantienen el color de texto por defecto.
+
+   :not(.profile-page *) — dentro de un perfil mandan sus propias vars inline
+   (las del dueño del perfil que se está viendo, sea el tuyo o el de otro
+   usuario). Sin esta exclusión el color del cliente ganaba por especificidad
+   al aplicarse en la card en vez de heredarse de .profile-page.
+   :not(.community-page *) / :not(.comunidades-page *) — las comunidades (feed
+   y listado) usan el texto por defecto del tema, aunque sus cards sí lleven
+   el vidrio y, en el detalle, el .post-card del feed. */
+html.fc-cards-glass.fc-cards-text:not(.fc-chat-default) :is(
+    .post-card,
+    .settings-card,
+    .notification-item,
+    .profile-card,
+    .profile-blocked-card,
+    .chat-list,
+    .chat-messages,
+    .right-panel-card
+):not(.profile-page *):not(.community-page *):not(.comunidades-page *) {
+    --accent-surface-text-color: var(--fc-cards-text);
+    --accent-surface-text-secondary: var(--fc-cards-text);
+    --accent-surface-text-muted: var(--fc-cards-text);
+    --color-text: var(--fc-cards-text);
+    --color-text-secondary: var(--fc-cards-text);
+    --color-text-muted: var(--fc-cards-text);
+}
+
+/* Iconos del sidebar: mismo color de texto que el perfil, en todas las rutas.
+   La clase la marca AppSurfaceTheme y la quita en /profile* y /c/:slug, donde
+   el color lo manda el perfil/comunidad que se está viendo.
+   Solo los iconos: las etiquetas de los enlaces siguen con el color del tema. */
+html.fc-sidebar-text .sidebar-icon {
+    color: var(--fc-cards-text);
+}
+
+/* Mismo color para el logo del app (span enmascarado, ver header.css) */
+html.fc-sidebar-text .sidebar-brand-logo {
+    --sidebar-logo-color: var(--fc-cards-text);
 }

@@ -23,6 +23,9 @@ import { useI18n } from '../../services/i18n/useI18n';
  *  - Se excluyen las rutas de perfil (/profile y /profile/:user): ahí ya se
  *    pinta el fondo del perfil correspondiente (propio o ajeno) y no debe
  *    duplicarse.
+ *  - Se excluye también el detalle de comunidad (/c/:slug): usa su propio
+ *    banner y el wallpaper detrás ensuciaba la página. El listado
+ *    (/Communities) sí lo muestra.
  */
 export default function GlobalProfileBg() {
   const location = useLocation();
@@ -35,6 +38,9 @@ export default function GlobalProfileBg() {
 
   // Rutas de perfil: el fondo ya lo pinta la propia página
   if (path === '/profile' || path.startsWith('/profile/')) return null;
+
+  // Detalle de comunidad: tiene su propio banner, el fondo global no debe verse
+  if (path.startsWith('/c/')) return null;
 
   const bgUrl = profile?.profile_background_url;
   if (!bgUrl) return null;

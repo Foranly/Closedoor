@@ -34,7 +34,7 @@ const SURFACE_VARS = [
 
 export default function AppSurfaceTheme() {
   const { profile } = useAuth();
-  const { showAccent, showCardsGlass } = useI18n();
+  const { showAccent, showCardsGlass, chatDefaultStyle } = useI18n();
   // Re-aplicar al navegar: si el nodo .sidebar se recreó (remount del Header),
   // las vars del glass se re-aplican al nodo nuevo (el efecto es barato).
   const location = useLocation();
@@ -42,6 +42,12 @@ export default function AppSurfaceTheme() {
   useEffect(() => {
     const el = document.querySelector('.sidebar');
     const root = document.documentElement;
+    // Ajuste "Chat con estilos por defecto": /chat ignora vidrio, superficie y
+    // color de texto del perfil (mantiene el tema claro/oscuro). Se marca en
+    // <html> para que global.css desactive también las reglas de cards.
+    const path = location.pathname.toLowerCase();
+    const chatDefault = chatDefaultStyle && path === '/chat';
+    root.classList.toggle('fc-chat-default', chatDefault);
     // Sin sidebar todavía (primer render de App, login) se aplican igualmente
     // en <html>: salir aquí dejaba a las cards sin vars hasta navegar.
     const nodes = el ? [el, root] : [root];
@@ -71,8 +77,10 @@ export default function AppSurfaceTheme() {
     // las cards de todo el app, sea cual sea el modo de superficie del perfil.
     // Se publica en <html> (las cards la heredan); el sidebar conserva su
     // propio tratamiento para no cambiar el look del shell.
-    const rootVars = showCardsGlass ? GLASS : (accentSurface ? profileVars : null);
-    const sidebarVars = accentSurface ? profileVars : null;
+    const rootVars = chatDefault
+      ? null
+      : showCardsGlass ? GLASS : (accentSurface ? profileVars : null);
+    const sidebarVars = !chatDefault && accentSurface ? profileVars : null;
 
     const applyVars = (node, vars) => {
       node.style.setProperty('--accent-surface-rgba', vars.rgba);
@@ -90,10 +98,35 @@ export default function AppSurfaceTheme() {
       if (sidebarVars) applyVars(el, sidebarVars); else clearVars(el);
     }
 
+    // Color de texto de las cards: el mismo que el dueño eligió para su perfil
+    // (profile_text_color, en el modal de edición). Si está en "Automático"
+    // (sin valor) no se marca la clase y las cards usan el texto del tema,
+    // igual que el perfil.
+    const textColor = chatDefault ? null : (profile?.profile_text_color || null);
+    if (textColor) {
+      root.style.setProperty('--fc-cards-text', textColor);
+      root.classList.add('fc-cards-text');
+    } else {
+      root.style.removeProperty('--fc-cards-text');
+      root.classList.remove('fc-cards-text');
+    }
+
+    // Iconos del sidebar: se pintan con ese mismo color en todas las rutas,
+    // salvo en las pantallas donde manda el color de otra cosa (perfil que se
+    // está viendo y detalle de comunidad).
+    const sidebarTextAllowed = Boolean(textColor)
+      && !path.startsWith('/profile')
+      && !path.startsWith('/c/');
+    root.classList.toggle('fc-sidebar-text', sidebarTextAllowed);
+
     return () => {
       nodes.forEach(clearVars);
+      root.style.removeProperty('--fc-cards-text');
+      root.classList.remove('fc-cards-text');
+      root.classList.remove('fc-sidebar-text');
+      root.classList.remove('fc-chat-default');
     };
-  }, [profile, showAccent, showCardsGlass, location.pathname]);
+  }, [profile, showAccent, showCardsGlass, chatDefaultStyle, location.pathname]);
 
   return null;
 }

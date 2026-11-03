@@ -198,18 +198,24 @@
     object-fit: cover;
 }
 
-/* Sidebar brand logo (sin bordes redondos, mantiene posición al expandir/colapsar) */
+/* Sidebar brand logo (sin bordes redondos, mantiene posición al expandir/colapsar).
+   Se pinta con una máscara del SVG + background-color: así hereda el color
+   (tema, o el texto del perfil vía html.fc-sidebar-text) sin perder el alpha. */
 .sidebar-brand-logo {
     width: 36px;
     height: 36px;
     flex-shrink: 0;
-    object-fit: contain;
+    display: block;
     margin-left: 4px;
+    background-color: var(--sidebar-logo-color, #ffffff);
+    mask: url("/logo.svg") center / contain no-repeat;
+    -webkit-mask: url("/logo.svg") center / contain no-repeat;
+    transition: background-color 0.2s ease;
 }
 
-/* Light theme: invert logo to black */
+/* Light theme: logo en negro */
 [data-theme="light"] .sidebar-brand-logo {
-    filter: invert(1);
+    --sidebar-logo-color: #000000;
 }
 
 .user_nick {

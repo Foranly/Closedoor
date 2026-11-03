@@ -130,10 +130,12 @@ function Header() {
     >
       <div className="sidebar-brand">
         <Link to="/" className="minicard_profile" style={{ textDecoration: 'none' }}>
-          <img
+          {/* Mask en vez de <img>: así el logo se puede teñir con el color de
+              texto del perfil (background-color + mask del propio SVG). */}
+          <span
             className="sidebar-brand-logo"
-            src="/logo.svg"
-            alt="Closedoor"
+            role="img"
+            aria-label="Closedoor"
           />
           <div className="user_nick">
             <p>Closedoor</p>

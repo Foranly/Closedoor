@@ -798,6 +798,8 @@
   "settings.show_global_bg_desc": "Show your profile background as a fullscreen wallpaper on every page (only visible to you).",
   "settings.show_cards_glass": "Transparent cards",
   "settings.show_cards_glass_desc": "Applies the same translucent profile effect to post, settings, notification and other cards across the app.",
+  "settings.chat_default_style": "Chat with default styles",
+  "settings.chat_default_style_desc": "Chat ignores the profile glass, surface color and text color. Light/dark theme is kept.",
   "settings.show_interests": "Show interests",
   "settings.show_interests_desc": "Show or hide the interests card on profiles.",
   "settings.show_likes": "Show my likes",

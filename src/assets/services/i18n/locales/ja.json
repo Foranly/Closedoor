@@ -796,6 +796,8 @@
   "settings.show_global_bg_desc": "すべてのページでプロフィール背景を全画面の壁紙として表示します（自分にのみ表示）。",
   "settings.show_cards_glass": "カードを透明に",
   "settings.show_cards_glass_desc": "プロフィールと同じ半透明効果を、投稿・設定・通知などアプリ内のカードに適用します。",
+  "settings.chat_default_style": "チャットを既定のスタイルに",
+  "settings.chat_default_style_desc": "チャットではプロフィールのガラス効果・表面色・文字色を使用しません。ライト/ダークテーマは維持されます。",
   "settings.show_interests": "興味を表示",
   "settings.show_interests_desc": "プロフィールの興味カードを表示/非表示にします。",
   "settings.show_likes": "いいねを表示",

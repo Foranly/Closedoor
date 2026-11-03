@@ -13,6 +13,7 @@ const SHOW_PROFILE_STATS_KEY = 'fc_show_profile_stats';
 const SHOW_TOAST_NOTIFS_KEY = 'fc_show_toast_notifications';
 const SHOW_GLOBAL_BG_KEY = 'fc_show_global_bg';
 const SHOW_CARDS_GLASS_KEY = 'fc_show_cards_glass';
+const CHAT_DEFAULT_STYLE_KEY = 'fc_chat_default_style';
 const SHOW_PUSH_NOTIFS_KEY = 'fc_show_push_notifications';
 const SHOW_LIKES_KEY = 'fc_show_likes';
 const FILTER_ENCRYPTED_KEY = 'fc_filter_encrypted';
@@ -135,6 +136,15 @@ function getSavedShowCardsGlass() {
   } catch { return false; }
 }
 
+// /chat con sus estilos originales (sin vidrio, color de superficie ni color de
+// texto del perfil), manteniendo el tema claro/oscuro.
+function getSavedChatDefaultStyle() {
+  try {
+    const val = getItem(CHAT_DEFAULT_STYLE_KEY);
+    return val === null ? false : val === 'true';
+  } catch { return false; }
+}
+
 function getSavedShowToastNotifications() {
   try {
     const val = getItem(SHOW_TOAST_NOTIFS_KEY);
@@ -221,6 +231,8 @@ export const I18nContext = createContext({
   setShowGlobalBg: () => {},
   showCardsGlass: false,
   setShowCardsGlass: () => {},
+  chatDefaultStyle: false,
+  setChatDefaultStyle: () => {},
   showPushNotifications: false,
   setShowPushNotifications: () => {},
   showLikes: false,
@@ -251,6 +263,7 @@ export function I18nProvider({ children }) {
   const [showToastNotifications, setShowToastNotificationsState] = useState(getSavedShowToastNotifications);
   const [showGlobalBg, setShowGlobalBgState] = useState(getSavedShowGlobalBg);
   const [showCardsGlass, setShowCardsGlassState] = useState(getSavedShowCardsGlass);
+  const [chatDefaultStyle, setChatDefaultStyleState] = useState(getSavedChatDefaultStyle);
   const [showPushNotifications, setShowPushNotificationsState] = useState(getSavedShowPushNotifications);
   const [showLikes, setShowLikesState] = useState(getSavedShowLikes);
   const [filterEncrypted, setFilterEncryptedState] = useState(getSavedFilterEncrypted);
@@ -347,6 +360,13 @@ export function I18nProvider({ children }) {
     } catch {}
   }, []);
 
+  const setChatDefaultStyle = useCallback((value) => {
+    setChatDefaultStyleState(value);
+    try {
+      setItem(CHAT_DEFAULT_STYLE_KEY, String(value));
+    } catch {}
+  }, []);
+
   const setShowPushNotifications = useCallback((value) => {
     setShowPushNotificationsState(value);
     try {
@@ -426,6 +446,7 @@ export function I18nProvider({ children }) {
       setShowToastNotifications(getSavedShowToastNotifications());
       setShowGlobalBg(getSavedShowGlobalBg());
       setShowCardsGlass(getSavedShowCardsGlass());
+      setChatDefaultStyle(getSavedChatDefaultStyle());
       setShowPushNotifications(getSavedShowPushNotifications());
       setShowLikes(getSavedShowLikes());
       setFilterEncrypted(getSavedFilterEncrypted());
@@ -464,7 +485,7 @@ export function I18nProvider({ children }) {
   }, [translations]);
 
   return (
-    <I18nContext.Provider      value={{ locale, t, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showInterests, setShowInterests, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass, setShowCardsGlass, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, theme, setTheme }}>
+    <I18nContext.Provider      value={{ locale, t, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showInterests, setShowInterests, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass, setShowCardsGlass, chatDefaultStyle, setChatDefaultStyle, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, theme, setTheme }}>
       {children}
     </I18nContext.Provider>
   );
