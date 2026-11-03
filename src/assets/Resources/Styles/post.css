@@ -33,8 +33,15 @@
     -webkit-backdrop-filter: none;
 }
 
-html.fc-desktop .posts-section--home .posts-section-header {
+.profile-page .posts-section .posts-section-header {
+    position: sticky;
     top: 0;
+    z-index: 20;
+    padding: 10px 0;
+    margin: -10px 0 2px;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 .posts-section-action {
@@ -166,8 +173,6 @@ html.fc-desktop .posts-section--home .posts-section-header {
     background: color-mix(in srgb, var(--accent-color, #ffffff) 85%, #000);
     color: var(--accent-text-color, #000000);
 }
-
-
 
 .posts-section-tab:hover {
     background: var(--color-surface-hover, #252525);
