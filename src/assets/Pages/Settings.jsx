@@ -999,7 +999,35 @@ export default function Settings() {
 
         {/* ── Right Panel: Active Category Content ── */}
         <div className="settings-panel">
-          {activeCategory === 'account' && <AccountSettings t={t} />}
+          {activeCategory === 'account' && (
+            <>
+              <AccountSettings t={t} />
+
+              <div className="settings-row-divider" />
+
+              {/* ── Cerrar sesión ── */}
+              <div className="settings-row">
+                <div className="settings-row-header">
+                  <span className="settings-section-icon"><MdLogout /></span>
+                  <div>
+                    <h2 className="settings-section-title">{t('settings.logout')}</h2>
+                    <p className="settings-section-desc">{t('settings.logout_desc')}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="settings-danger-btn"
+                  onClick={async () => {
+                    await logout();
+                    navigate('/');
+                  }}
+                >
+                  <MdLogout style={{ marginRight: 6 }} />
+                  {t('settings.logout_btn')}
+                </button>
+              </div>
+            </>
+          )}
 
           {activeCategory === 'system' && (
             <>
@@ -1360,30 +1388,6 @@ export default function Settings() {
                 >
                   <FaTrashAlt style={{ marginRight: 6 }} />
                   {t('settings.cache_clear')}
-                </button>
-              </div>
-
-              <div className="settings-row-divider" />
-
-              {/* ── Cerrar sesión ── */}
-              <div className="settings-row">
-                <div className="settings-row-header">
-                  <span className="settings-section-icon"><MdLogout /></span>
-                  <div>
-                    <h2 className="settings-section-title">{t('settings.logout')}</h2>
-                    <p className="settings-section-desc">{t('settings.logout_desc')}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="settings-danger-btn"
-                  onClick={async () => {
-                    await logout();
-                    navigate('/');
-                  }}
-                >
-                  <MdLogout style={{ marginRight: 6 }} />
-                  {t('settings.logout_btn')}
                 </button>
               </div>
             </>

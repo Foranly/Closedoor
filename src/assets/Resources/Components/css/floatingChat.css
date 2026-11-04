@@ -617,27 +617,19 @@
     transform: scale(1.05);
 }
 
-/* ── Móvil: por encima de la barra inferior ── */
+/* ── Móvil/tablet: el chat flotante no se muestra (la app tiene /chat). Solo
+   queda el botón de crear post, que fuera de home/perfil es el único acceso.
+   Se deja por encima de la barra inferior. ── */
 @media (max-width: 1024px) {
     .fc-dock {
         right: 16px;
         bottom: 76px;
     }
 
-    .fc-panel {
-        width: min(360px, calc(100vw - 24px));
-        height: min(520px, 68vh);
-    }
-}
-
-@media (max-width: 480px) {
-    .fc-dock {
-        right: 14px;
-    }
-
-    .fc-panel {
-        width: calc(100vw - 20px);
-        height: 66vh;
+    .fc-panel,
+    .fc-dock-launcher,
+    .fc-dock-recents {
+        display: none;
     }
 }
 
