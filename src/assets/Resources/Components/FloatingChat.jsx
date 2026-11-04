@@ -70,6 +70,8 @@ export default function FloatingChat() {
   const notif = useContext(NotificationContext);
 
   const [open, setOpen] = useState(false);
+  // Recientes: solo se muestran en home y tras el primer clic en el lanzador.
+  const [showRecents, setShowRecents] = useState(false);
   const [view, setView] = useState('list'); // 'list' | 'thread'
   const [activeId, setActiveId] = useState(null);
   const [showPost, setShowPost] = useState(false);
@@ -138,6 +140,9 @@ export default function FloatingChat() {
   const isCreateVisible =
     userId && !hiddenOnCreate && !hiddenInPostWorld;
   const recent = useMemo(() => convs.slice(0, 3), [convs]);
+  // Solo en home (y con el panel cerrado) se ofrece el aviatorio de recientes.
+  const isHomeRoute = route === '/' || route === '/home';
+  const recentsVisible = !open && showRecents && isHomeRoute && recent.length > 0;
 
   // ── Al tener usuario (login/restauración de sesión), hidratar los recientes
   // desde el caché de sesión. Se hace en microtask para no encadenar renders
@@ -204,6 +209,7 @@ export default function FloatingChat() {
 
   const openThread = useCallback((conv) => {
     if (!conv?.id) return;
+    setShowRecents(false);
     setOpen(true);
     setView('thread');
     setActiveId(conv.id);
@@ -213,16 +219,35 @@ export default function FloatingChat() {
   }, [loadThread]);
 
   // ── Abrir/cerrar panel (el fetch de la lista lo dispara el efecto de arriba) ──
+  // En home el primer clic despliega los chats recientes y el segundo abre el
+  // panel; fuera de home el lanzador abre el panel directamente.
   const toggleOpen = useCallback(() => {
     if (open) {
       setOpen(false);
       return;
     }
+    const canShowRecents = isHomeRoute && recent.length > 0;
+    if (canShowRecents && !showRecents) {
+      setShowRecents(true);
+      return;
+    }
+    setShowRecents(false);
     setView('list');
     setActiveId(null);
     setOpen(true);
     notif.refreshChatUnread?.();
-  }, [open, notif]);
+  }, [open, notif, isHomeRoute, recent.length, showRecents]);
+
+  // Al salir de home se recogen los recientes (microtask: sin setState síncrono
+  // dentro del efecto).
+  useEffect(() => {
+    if (isHomeRoute || !showRecents) return undefined;
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) setShowRecents(false);
+    });
+    return () => { cancelled = true; };
+  }, [isHomeRoute, showRecents]);
 
   // ── UseLayoutEffect para inyectar los estilos de respaldo de las cards de
   // chat, de forma que estén disponibles antes de que la app inyecte las de
@@ -693,42 +718,40 @@ export default function FloatingChat() {
       )}
 
       {/* ── Lanzador + chats recientes ── */}
-      {!open && recent.length > 0 && (
-        <div className="fc-dock-recents">
-          {recent.map((conv) => (
-            <button
-              type="button"
-              key={conv.id}
-              className="fc-dock-recent"
-              style={{ '--fc-user-accent': conv.otherUser?.accent_color || undefined }}
-              onClick={() => openThread(conv)}
-              title={peerName(conv)}
-            >
-              <Avatar
-                src={conv.otherUser?.avatar_url}
-                alt={peerName(conv)}
-                className="fc-dock-recent-avatar"
-                userId={conv.otherUser?.id}
-              />
-              {conv.unreadCount > 0 && (
-                <span className="fc-dock-recent-badge">{conv.unreadCount > 9 ? '9+' : conv.unreadCount}</span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="fc-dock-row">
-        {isCreateVisible && (
+      <div className={`fc-dock-recents${recentsVisible ? '' : ' fc-dock-recents--hidden'}`} aria-hidden={!recentsVisible}>
+        {recent.map((conv) => (
           <button
             type="button"
-            className="fc-dock-create"
-            onClick={() => setShowPost(true)}
-            title={t('chat.dock_create_post') || 'New post'}
+            key={conv.id}
+            className="fc-dock-recent"
+            style={{ '--fc-user-accent': conv.otherUser?.accent_color || undefined }}
+            onClick={() => openThread(conv)}
+            title={peerName(conv)}
           >
-            <FaPen />
+            <Avatar
+              src={conv.otherUser?.avatar_url}
+              alt={peerName(conv)}
+              className="fc-dock-recent-avatar"
+              userId={conv.otherUser?.id}
+            />
+            {conv.unreadCount > 0 && (
+              <span className="fc-dock-recent-badge">{conv.unreadCount > 9 ? '9+' : conv.unreadCount}</span>
+            )}
           </button>
-        )}
+        ))}
+      </div>
+
+      <div className="fc-dock-row">
+        <button
+          type="button"
+          className={`fc-dock-create${isCreateVisible ? '' : ' fc-dock-create--hidden'}`}
+          onClick={() => setShowPost(true)}
+          title={t('chat.dock_create_post') || 'New post'}
+          aria-hidden={!isCreateVisible}
+          tabIndex={isCreateVisible ? 0 : -1}
+        >
+          <FaPen />
+        </button>
         <button
           type="button"
           className="fc-dock-launcher"

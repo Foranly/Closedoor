@@ -20,7 +20,7 @@
     gap: 10px;
 }
 
-/* ── Lanzador ── */
+/* ── Botón de crear post + Lanzador ── */
 .fc-dock-create {
     position: relative;
     display: flex;
@@ -34,15 +34,33 @@
     color: var(--color-text, #ffffff);
     cursor: pointer;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-    transition: transform 0.15s ease, background 0.15s ease;
+    /* Entra deslizándose desde la derecha (sale de detrás del lanzador). */
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    visibility: visible;
+    transition:
+        transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.2s ease,
+        visibility 0s linear 0s,
+        background 0.15s ease;
 }
 
-
-
-
+/* Oculto: vuelve hacia la derecha (viceversa) y se desvanece. */
+.fc-dock-create--hidden {
+    opacity: 0;
+    transform: translateX(96px) scale(0.85);
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        transform 0.28s cubic-bezier(0.4, 0, 1, 1),
+        opacity 0.2s ease,
+        visibility 0s linear 0.28s,
+        background 0.15s ease;
+}
 
 .fc-dock-launcher {
     position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -82,10 +100,37 @@
 
 /* ── Avatares de chats recientes (apilados sobre el lanzador) ── */
 .fc-dock-recents {
+    /* Fuera del flujo: si ocupara hueco en la columna del dock, al abrirse el
+       panel lo empujaría hacia arriba (quedaba "flotando" más alto). */
+    position: absolute;
+    right: 0;
+    /* Justo encima de la fila del lanzador: 54px de alto + 10px del gap. */
+    bottom: 64px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    /* Entra desde abajo hacia arriba: la pila de recientes es vertical. */
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transform-origin: center bottom;
+    visibility: visible;
+    transition:
+        transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.22s ease,
+        visibility 0s linear 0s;
+}
+
+/* Oculto: baja de nuevo (viceversa) y se desvanece. */
+.fc-dock-recents--hidden {
+    opacity: 0;
+    transform: translateY(28px) scale(0.94);
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        transform 0.26s cubic-bezier(0.4, 0, 1, 1),
+        opacity 0.2s ease,
+        visibility 0s linear 0.26s;
 }
 
 .fc-dock-recent {
@@ -594,22 +639,6 @@
         width: calc(100vw - 20px);
         height: 66vh;
     }
-}
-
-.fc-dock-create {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 42px;
-    height: 42px;
-    border-radius: 14px;
-    border: none;
-    background: var(--color-surface, #1a1a1a);
-    color: var(--color-text, #ffffff);
-    cursor: pointer;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-    transition: transform 0.15s ease, background 0.15s ease;
 }
 
 
