@@ -29,7 +29,7 @@ import { getFollowing } from '../services/followService';
 import { isBlocked, blockUser, unblockUser, unfollowBothWays, getCachedBlockStatus, cacheBlockStatus } from '../services/blockService';
 import FollowButton from '../Resources/Components/FollowButton';
 import ModalShell from '../Resources/Components/ModalShell';
-import { FaComment, FaSearch, FaArrowLeft, FaPlus, FaTimes, FaUserPlus, FaUsers, FaTrash, FaPalette, FaBan, FaThumbtack, FaCopy, FaEdit, FaCheck, FaSmile, FaReply, FaImage, FaMusic, FaUser, FaPhone, FaLock, FaSpinner, FaEllipsisH, FaArrowDown, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
+import { FaComment, FaSearch, FaArrowLeft, FaPlus, FaTimes, FaUserPlus, FaUsers, FaTrash, FaPalette, FaBan, FaThumbtack, FaCopy, FaEdit, FaCheck, FaSmile, FaReply, FaImage, FaMusic, FaUser, FaPhone, FaLock, FaSpinner,  FaEllipsisH, FaArrowDown, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt } from 'react-icons/fa';
 import Avatar from '../Resources/Components/Avatar';
 import Badge from '../Resources/Components/Badge';
 import Tooltip from '../Resources/Components/Tooltip';
@@ -67,6 +67,7 @@ import { getItem, setItem, removeItem, getSessionItem, setSessionItem, removeSes
 import { useUserStatus } from '../services/useUserStatus';
 import { useRegisterMultipleUserStatus, UserStatusContext } from '../../context/UserStatusContext';
 import { useCall } from '../../context/CallContext';
+import { getCallsForConversations, subscribeToCalls } from '../services/callService';
 
 // ── Helper: corrige estados obsoletos usando user_status_updated_at ──
 const STALE_STATUS_MS = 60 * 1000;
@@ -76,6 +77,40 @@ function computeEffectiveStatus(user) {
   if (!user.user_status_updated_at) return user.user_status;
   const ageMs = Date.now() - new Date(user.user_status_updated_at).getTime();
   return ageMs > STALE_STATUS_MS ? 'disconnected' : user.user_status;
+}
+
+// ── Historial de llamadas ──
+// Solo las terminadas cuentan como historial: la que está en curso ya tiene su
+// propio overlay (CallOverlay) y no debe duplicarse en el hilo.
+const CALL_HISTORY_STATUSES = ['ended', 'missed', 'declined'];
+
+/** Duración "m:ss" de una llamada (vacío si nunca llegó a empezar). */
+function formatCallDuration(call) {
+  if (!call?.started_at || !call?.ended_at) return '';
+  const secs = Math.max(0, Math.round((new Date(call.ended_at) - new Date(call.started_at)) / 1000));
+  if (secs < 1) return '';
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+}
+
+/** Texto del evento: perdida / rechazada / saliente / entrante. */
+function callEventLabel(call, userId, t) {
+  if (call.status === 'missed') return t('chat.call_missed');
+  if (call.status === 'declined') return t('chat.call_declined');
+  return call.caller_id === userId ? t('chat.call_log_outgoing') : t('chat.call_log_incoming');
+}
+
+/** Evento de llamada dentro del hilo: fila centrada, sin burbuja. */
+function ChatCallEvent({ call, userId, t, locale }) {
+  const missed = call.status === 'missed' || call.status === 'declined';
+  const duration = formatCallDuration(call);
+  return (
+    <div className={`chat-call-event${missed ? ' chat-call-event--missed' : ''}`}>
+      <span className="chat-call-event-icon"><FaPhoneAlt /></span>
+      <span className="chat-call-event-label">{callEventLabel(call, userId, t)}</span>
+      {duration && <span className="chat-call-event-duration">{duration}</span>}
+      <span className="chat-call-event-time">{getTimeAgo(t, locale, call.created_at)}</span>
+    </div>
+  );
 }
 
 export default function Chat() {
@@ -95,6 +130,8 @@ export default function Chat() {
   // ── State ──
   const [conversations, setConversations] = useState([]);
   const [convsLoading, setConvsLoading] = useState(true);
+  // Historial de llamadas de todas mis conversaciones (lista + hilo activo).
+  const [callHistory, setCallHistory] = useState([]);
   const [activeConvId, setActiveConvId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [msgsLoading, setMsgsLoading] = useState(false);
@@ -106,6 +143,8 @@ export default function Chat() {
   useEffect(() => { sendingRef.current = sending; }, [sending]);
   // New conversation
   const [searchQuery, setSearchQuery] = useState('');
+  // Vista del panel izquierdo: lista de chats o historial de llamadas.
+  const [listView, setListView] = useState('chats'); // 'chats' | 'calls'
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followers, setFollowers] = useState([]);
   const [followersLoading, setFollowersLoading] = useState(false);
@@ -686,6 +725,47 @@ export default function Chat() {
     const unsub = subscribeToConversations(user.id, loadConvs);
     return () => unsub?.unsubscribe();
   }, [user?.id, loadConvs]);
+
+  // ── Historial de llamadas de mis conversaciones ──
+  // Una consulta por conjunto de conversaciones (la clave evita refetch en
+  // cada render) y actualizaciones en vivo por Realtime.
+  // Ordenada para que el orden de la lista (que cambia con cada mensaje) no
+  // provoque refetch del historial de llamadas.
+  const convIdsKey = React.useMemo(
+    () => conversations.map((c) => c.id).sort().join(','),
+    [conversations]
+  );
+
+  useEffect(() => {
+    if (!user?.id || !convIdsKey) return undefined;
+    const ids = convIdsKey.split(',');
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await getCallsForConversations(ids);
+        if (!cancelled) setCallHistory(rows);
+      } catch (err) {
+        // Sin historial si la consulta falla: el chat sigue funcionando igual.
+        console.warn('Error loading call history:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, convIdsKey]);
+
+  // Realtime: guarda o actualiza la fila cuando la llamada cambia de estado
+  // (ringing → active → ended/missed/declined). Canal propio ('-history') para
+  // no compartir topic con el CallContext global.
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    const channel = subscribeToCalls(user.id, (call, eventType) => {
+      setCallHistory((prev) => {
+        const rest = prev.filter((c) => c.id !== call.id);
+        if (eventType === 'DELETE') return rest;
+        return [call, ...rest].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      });
+    }, '-history');
+    return () => { channel?.unsubscribe?.(); };
+  }, [user?.id]);
 
   // ── Nickname channel ref: evita recrear la suscripción en re-renders ──
   const nicknameChannelRef = useRef(null);
@@ -2667,6 +2747,60 @@ export default function Chat() {
 
   // ── Reversed messages for column-reverse render (newest first in DOM) ──
   const reversedMessages = React.useMemo(() => [...dedupedMessages].reverse(), [dedupedMessages]);
+
+  // ── Llamadas indexadas por conversación (lista de chats + hilo) ──
+  const callsByConv = React.useMemo(() => {
+    const map = {};
+    for (const call of callHistory) {
+      (map[call.conversation_id] ||= []).push(call);
+    }
+    return map;
+  }, [callHistory]);
+
+  const latestCallByConv = React.useMemo(() => {
+    const map = {};
+    for (const call of callHistory) {
+      const current = map[call.conversation_id];
+      if (!current || new Date(call.created_at) > new Date(current.created_at)) {
+        map[call.conversation_id] = call;
+      }
+    }
+    return map;
+  }, [callHistory]);
+
+  // ── Conversaciones indexadas por id (para el historial de llamadas) ──
+  const convsById = React.useMemo(() => {
+    const map = {};
+    for (const conv of conversations) map[conv.id] = conv;
+    return map;
+  }, [conversations]);
+
+  // ── Historial de llamadas para la vista "Llamadas" del panel izquierdo ──
+  const callList = React.useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return callHistory
+      .filter((call) => CALL_HISTORY_STATUSES.includes(call.status))
+      // Solo conversaciones presentes en la lista: si no, el clic no tendría destino.
+      .filter((call) => convsById[call.conversation_id])
+      .filter((call) => {
+        if (!q) return true;
+        const peer = convsById[call.conversation_id]?.otherUser;
+        return getDisplayName(peer).toLowerCase().includes(q);
+      });
+  }, [callHistory, convsById, searchQuery, getDisplayName]);
+
+  // ── Timeline del hilo: mensajes + eventos de llamada intercalados por fecha.
+  // Igual que reversedMessages, más nuevo primero (el contenedor es
+  // column-reverse). ──
+  const reversedTimeline = React.useMemo(() => {
+    const calls = (callsByConv[activeConvId] || []).filter((c) => CALL_HISTORY_STATUSES.includes(c.status));
+    const items = [
+      ...reversedMessages.map((msg) => ({ kind: 'msg', at: msg.created_at, msg })),
+      ...calls.map((call) => ({ kind: 'call', at: call.created_at, call })),
+    ];
+    items.sort((a, b) => new Date(b.at) - new Date(a.at));
+    return items;
+  }, [reversedMessages, callsByConv, activeConvId]);
   // ── Navigate to profile from header ──
   const goToProfile = useCallback(() => {
     if (otherUser?.username) {
@@ -2736,7 +2870,20 @@ export default function Chat() {
   const renderConversationListContent = () => (
     <>
       <div className="chat-list-header">
-        <h2 className="chat-list-title">{t('chat.title')}</h2>
+        <h2 className="chat-list-title">{listView === 'calls' ? t('chat.call_history') : t('chat.title')}</h2>
+        <Tooltip
+          text={listView === 'calls' ? t('chat.title') : t('chat.call_history')}
+          placement="bottom"
+        >
+          <button
+            className={`chat-list-new-btn chat-list-view-btn${listView === 'calls' ? ' chat-list-view-btn--active' : ''}`}
+            onClick={() => setListView((v) => (v === 'calls' ? 'chats' : 'calls'))}
+            aria-pressed={listView === 'calls'}
+            aria-label={t('chat.call_history')}
+          >
+            {listView === 'calls' ? <FaComment /> : <FaPhoneAlt />}
+          </button>
+        </Tooltip>
         <Tooltip text={t('chat.new')} placement="bottom">
           <button className="chat-list-new-btn" onClick={openFollowersModal}>
             <FaPlus />
@@ -2763,9 +2910,53 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Conversations */}
+      {/* Conversaciones o historial de llamadas */}
       <div className="chat-list-items">
-        {convsLoading ? (
+        {listView === 'calls' ? (
+          callList.length === 0 ? (
+            <div className="chat-list-empty">
+              <div className="chat-list-empty-icon"><FaPhoneAlt /></div>
+              <p>{t('chat.calls_empty')}</p>
+            </div>
+          ) : (
+            callList.map((call) => {
+              const conv = convsById[call.conversation_id];
+              const peer = conv?.otherUser;
+              const missed = call.status === 'missed' || call.status === 'declined';
+              const duration = formatCallDuration(call);
+              return (
+                <button
+                  key={call.id}
+                  className="chat-list-item chat-call-item"
+                  onClick={() => selectConversation(call.conversation_id)}
+                  title={getDisplayName(peer)}
+                >
+                  <Avatar
+                    src={peer?.avatar_url}
+                    alt={peer?.username || '?'}
+                    className="chat-list-item-avatar"
+                    status={otherUserStatuses?.[peer?.id] ?? computeEffectiveStatus(peer)}
+                  />
+                  <div className="chat-list-item-info">
+                    <div className="chat-list-item-top">
+                      <span className="chat-list-item-name">{getDisplayName(peer)}</span>
+                      <span className="chat-list-item-time">
+                        {getTimeAgo(t, locale, call.created_at)}
+                      </span>
+                    </div>
+                    <div className="chat-list-item-bottom">
+                      <span className={`chat-list-item-preview chat-call-item-preview${missed ? ' chat-call-item-preview--missed' : ''}`}>
+                        <FaPhoneAlt className="chat-list-item-preview-icon" />{' '}
+                        {callEventLabel(call, user.id, t)}
+                        {duration && <span className="chat-call-item-duration">· {duration}</span>}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )
+        ) : convsLoading ? (
           <div className="chat-list-loading">
             {[1,2,3,4,5].map((i) => (
               <div key={i} className="chat-list-skeleton-item">
@@ -2803,11 +2994,15 @@ export default function Chat() {
                   {(() => {
                     const o = localConvOverridesRef.current[conv.id];
                     const previewAt = o?.at ?? conv.last_message_at;
+                    // Si la última llamada es posterior al último mensaje, manda ella.
+                    const lastCall = latestCallByConv[conv.id];
+                    const callLatest = lastCall && (!previewAt || new Date(lastCall.created_at) > new Date(previewAt));
+                    const at = callLatest ? lastCall.created_at : previewAt;
                     return (
                       <>
-                        {previewAt && (
+                        {at && (
                           <span className="chat-list-item-time">
-                            {getTimeAgo(t, locale, previewAt)}
+                            {getTimeAgo(t, locale, at)}
                           </span>
                         )}
                       </>
@@ -2818,6 +3013,18 @@ export default function Chat() {
                   <span className="chat-list-item-preview">
                     {(() => {
                       const o = localConvOverridesRef.current[conv.id];
+                      const previewAt = o?.at ?? conv.last_message_at;
+                      const lastCall = latestCallByConv[conv.id];
+                      const callLatest = lastCall && (!previewAt || new Date(lastCall.created_at) > new Date(previewAt));
+                      if (callLatest) {
+                        const missed = lastCall.status === 'missed' || lastCall.status === 'declined';
+                        return (
+                          <>
+                            <FaPhoneAlt className={`chat-list-item-preview-icon${missed ? ' chat-list-item-preview-icon--missed' : ''}`} />{' '}
+                            {callEventLabel(lastCall, user.id, t)}
+                          </>
+                        );
+                      }
                       const previewText = o?.text ?? conv.last_message_text;
                       if (!previewText) return '';
                       if (IMG_RE.test(previewText) || /(giphy|tenor|klipy)\.com|(\.|\/)gif/i.test(previewText)) {
@@ -3037,13 +3244,26 @@ export default function Chat() {
               );
             })}
           </div>
-        ) : dedupedMessages.length === 0 ? (
+        ) : reversedTimeline.length === 0 ? (
           <div className="chat-messages-empty">
             <FaComment className="chat-messages-empty-icon" />
             <p>{t('chat.no_messages')}</p>
           </div>
         ) : (
-          reversedMessages.map((msg) => {
+          reversedTimeline.map((item) => {
+            // Evento de llamada: fila centrada, fuera del flujo de burbujas.
+            if (item.kind === 'call') {
+              return (
+                <ChatCallEvent
+                  key={`call-${item.call.id}`}
+                  call={item.call}
+                  userId={user.id}
+                  t={t}
+                  locale={locale}
+                />
+              );
+            }
+            const msg = item.msg;
             const isOwn = msg.sender_id === user.id;
             const isEditing = editMsgId === msg.id;
             const groupInfo = messageGroupMap[msg.id] || {};

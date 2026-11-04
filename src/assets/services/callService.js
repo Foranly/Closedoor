@@ -82,14 +82,36 @@ export async function getCall(callId) {
 }
 
 /**
+ * Historial de llamadas de varias conversaciones: alimenta tanto el preview de
+ * la lista de chats como los eventos dentro de la conversación.
+ * @param {string[]} conversationIds
+ * @returns {Promise<object[]>} filas de calls, más recientes primero
+ */
+export async function getCallsForConversations(conversationIds) {
+  if (!conversationIds || conversationIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('calls')
+    .select('id, conversation_id, caller_id, callee_id, status, started_at, ended_at, created_at')
+    .in('conversation_id', conversationIds)
+    .order('created_at', { ascending: false })
+    .limit(300);
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
  * Suscribirse a eventos de llamadas del usuario (ring entrante + cambios de estado).
  * @param {string} userId
  * @param {(call: object, eventType: string) => void} onCall
+ * @param {string} [channelSuffix] — para abrir un segundo canal (p. ej. el
+ *   historial de /Chat) sin reutilizar el topic del CallContext global.
  * @returns {() => void} unsubscribe
  */
-export function subscribeToCalls(userId, onCall) {
+export function subscribeToCalls(userId, onCall, channelSuffix = '') {
   const channel = supabase
-    .channel(`calls-${userId}`)
+    .channel(`calls-${userId}${channelSuffix}`)
     .on(
       'postgres_changes',
       {
