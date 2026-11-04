@@ -100,7 +100,11 @@ export default function FloatingChat() {
   );
 
   const hiddenInPostWorld =
-    route === '/' || route === '/home' || route.startsWith('/c/');
+    route === '/' ||
+    route === '/home' ||
+    route.startsWith('/c/') ||
+    route === '/profile'; // no en tu propio perfil (/profile), pero sí en
+  // perfiles ajenos (/profile/usuario2), donde no hay otro botón de crear.
   const isCreateVisible =
     userId && !hiddenOnCreate && !hiddenInPostWorld;
   const recent = useMemo(() => convs.slice(0, 3), [convs]);
