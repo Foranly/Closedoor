@@ -100,7 +100,7 @@ export default function FloatingChat() {
   );
 
   const hiddenInPostWorld =
-    route === '/' || route === '/home' || route.startsWith('/profile') || route.startsWith('/c/');
+    route === '/' || route === '/home' || route.startsWith('/c/');
   const isCreateVisible =
     userId && !hiddenOnCreate && !hiddenInPostWorld;
   const recent = useMemo(() => convs.slice(0, 3), [convs]);
