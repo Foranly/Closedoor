@@ -37,6 +37,9 @@ export function UserStatusProvider({ children }) {
   const [statuses, setStatuses] = useState({});
   const registeredRef = useRef(new Set());
   const pollIntervalRef = useRef(null);
+  // Referencia al poll para poder pedir un refresco inmediato al registrar
+  // usuarios nuevos (sin esperar al tick de 3s).
+  const pollRef = useRef(null);
 
   // ── Funciones estables (nunca cambian) ──
   const register = useCallback((userIds) => {
@@ -49,6 +52,8 @@ export function UserStatusProvider({ children }) {
         changed = true;
       }
     }
+    // Usuarios nuevos sin estado cacheado: pedir sus estados ya.
+    if (changed) pollRef.current?.();
   }, []);
 
   const unregister = useCallback((userIds) => {
@@ -56,13 +61,11 @@ export function UserStatusProvider({ children }) {
     const ids = Array.isArray(userIds) ? userIds : [userIds];
     for (const id of ids) {
       if (id) {
+        // ⚠️ Solo se deja de refrescar con el polling; el último estado
+        // conocido SE MANTIENE en `statuses`. Antes se borraba y, al navegar
+        // (cada Avatar se desmonta y vuelve a montar), el punto de estado
+        // parpadeaba: desaparecía hasta el siguiente poll (hasta 3s).
         registeredRef.current.delete(id);
-        setStatuses(prev => {
-          if (!(id in prev)) return prev;
-          const next = { ...prev };
-          delete next[id];
-          return next;
-        });
       }
     }
   }, []);
@@ -100,6 +103,7 @@ export function UserStatusProvider({ children }) {
 
   // Intervalo continuo (no depende de registrationVersion)
   useEffect(() => {
+    pollRef.current = poll;
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
     // Poll inicial
