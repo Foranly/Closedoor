@@ -377,8 +377,9 @@
 .fc-msg-bubble {
     padding: 7px 10px;
     border-radius: 14px 14px 14px 4px;
-    background: var(--color-surface-hover, #252525);
-    color: var(--color-text, #ffffff);
+    /* Mismos colores que .chat-message--other .chat-message-bubble. */
+    background: var(--chat-bubble-other, var(--color-surface-hover, #252525));
+    color: var(--chat-bubble-other-text, var(--color-text, #ffffff));
     font-size: 0.8rem;
     line-height: 1.35;
     white-space: pre-wrap;
@@ -387,8 +388,9 @@
 
 .fc-msg--own .fc-msg-bubble {
     border-radius: 14px 14px 4px 14px;
-    background: var(--accent-color, #6b7280);
-    color: #ffffff;
+    /* Mismos colores que .chat-message--own .chat-message-bubble. */
+    background: var(--chat-bubble-own, #111111);
+    color: var(--chat-bubble-own-text, #ffffff);
 }
 
 /* Burbuja sin globo: el mensaje es solo una tarjeta (canción compartida o
@@ -398,6 +400,42 @@
     padding: 0;
     background: transparent;
     border-radius: 0;
+}
+
+/* Reacciones fuera de la burbuja, igual que en el chat completo. */
+.fc-msg-reactions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 3px;
+    position: relative;
+    top: -6px;
+    margin-bottom: -6px;
+    padding: 0 4px;
+    z-index: 1;
+}
+
+.fc-msg--own .fc-msg-reactions {
+    justify-content: flex-end;
+}
+
+.fc-msg-reaction {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: var(--color-surface, #1a1a1a);
+    border: 1px solid var(--color-border, #2a2a2a);
+    font-size: 0.82rem;
+    line-height: 1;
+}
+
+.fc-msg-reaction-count {
+    font-size: 0.68rem;
+    font-weight: 600;
+    opacity: 0.7;
+    margin-left: 1px;
 }
 
 /* Respuesta citada dentro de la burbuja */

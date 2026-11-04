@@ -14,7 +14,11 @@ import {
   subscribeToMessages,
   sendMessage,
   markAsRead,
+  getBubbleColors,
+  getCachedBubbleColors,
+  cacheBubbleColors,
 } from '../../services/chatService';
+import { getContrastFromHex } from '../../services/colorExtractor';
 import { detectMediaFromContent, getTimeAgo } from '../../services/helpers';
 import { supabase } from '../../services/supabaseclient';
 import { getPost } from '../../services/postService';
@@ -79,6 +83,10 @@ export default function FloatingChat() {
   const [sharedCommunities, setSharedCommunities] = useState({});
   // Posts compartidos, igual: se piden una vez por id y se cachean.
   const [sharedPosts, setSharedPosts] = useState({});
+  // Colores de burbuja personalizados (chat_bubble_settings), igual que el
+  // chat completo: { [conversation_id]: { own, other } }. Los de la BD van
+  // aquí; la caché se lee aparte para pintar al instante.
+  const [bubbleColorsDb, setBubbleColorsDb] = useState({});
   const listRef = useRef(null);
   const threadRef = useRef(null);
   const activeIdRef = useRef(null);
@@ -94,6 +102,28 @@ export default function FloatingChat() {
   const hidden = !userId || HIDDEN_ROUTES.some((r) => route === r || route.startsWith(`${r}/`));
 
   const activeConv = useMemo(() => convs.find((c) => c.id === activeId) || null, [convs, activeId]);
+
+  // Caché + BD: lo que haya en la BD manda, la caché rellena el primer pintado.
+  const bubbleColors = useMemo(
+    () => ({ ...(getCachedBubbleColors(userId) || {}), ...bubbleColorsDb }),
+    [userId, bubbleColorsDb]
+  );
+
+  // Variables CSS con los colores de burbuja del hilo abierto (mismos nombres
+  // que usa chat.css, así el panel pinta igual que el chat completo).
+  const threadBubbleVars = useMemo(() => {
+    const colors = bubbleColors[activeId] || {};
+    const style = {};
+    if (colors.own) {
+      style['--chat-bubble-own'] = colors.own;
+      style['--chat-bubble-own-text'] = getContrastFromHex(colors.own);
+    }
+    if (colors.other) {
+      style['--chat-bubble-other'] = colors.other;
+      style['--chat-bubble-other-text'] = getContrastFromHex(colors.other);
+    }
+    return style;
+  }, [bubbleColors, activeId]);
   const hiddenForPost = String(pathname || '').toLowerCase();
   const hiddenOnCreate = HIDDEN_ROUTES.some(
     (r) => hiddenForPost === r || hiddenForPost.startsWith(`${r}/`)
@@ -253,6 +283,70 @@ export default function FloatingChat() {
     };
   }, [open, view, activeId, userId]);
 
+  // ── Colores de burbuja del hilo abierto ──
+  // Se leen de chat_bubble_settings (misma tabla que Chat.jsx). Primero la
+  // caché para pintar al instante y luego la BD para refrescar.
+  useEffect(() => {
+    if (!userId || !open) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const map = await getBubbleColors(userId);
+        if (cancelled) return;
+        setBubbleColorsDb(map);
+      } catch {
+        // Sin conexión o RLS: se queda con lo cacheado.
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [userId, open]);
+
+  // ── Cambios de color en tiempo real ──
+  // Misma tabla que Chat.jsx (chat_bubble_settings): así el panel flotante
+  // refleja el color al instante, sin reiniciar la app ni reabrir el panel.
+  useEffect(() => {
+    if (!userId) return undefined;
+
+    const channel = supabase
+      .channel(`fc-bubble-colors-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_bubble_settings', filter: `user_id=eq.${userId}` },
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const { conversation_id, own_color, other_color } = payload.new || {};
+            if (!conversation_id) return;
+            setBubbleColorsDb((prev) => ({
+              ...prev,
+              [conversation_id]: { own: own_color || null, other: other_color || null },
+            }));
+          } else if (payload.eventType === 'DELETE') {
+            const conversationId = payload.old?.conversation_id;
+            if (!conversationId) return;
+            setBubbleColorsDb((prev) => {
+              const next = { ...prev };
+              delete next[conversationId];
+              return next;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try { supabase.removeChannel(channel); } catch { /* ya cerrado */ }
+    };
+  }, [userId]);
+
+  // Mantiene la caché al día con lo que llega de la BD (incluido realtime),
+  // sin perder las conversaciones que ya estaban cacheadas.
+  useEffect(() => {
+    if (!userId || !Object.keys(bubbleColorsDb).length) return;
+    cacheBubbleColors(userId, { ...(getCachedBubbleColors(userId) || {}), ...bubbleColorsDb });
+  }, [userId, bubbleColorsDb]);
+
   // ── Comunidades de las invitaciones del hilo abierto ──
   useEffect(() => {
     const missing = [...new Set(messages.map((m) => m.shared_community_id).filter(Boolean))]
@@ -352,6 +446,18 @@ export default function FloatingChat() {
     navigate(convId ? `/Chat?c=${encodeURIComponent(convId)}` : '/Chat');
   };
 
+  // Función inline que normaliza las reacciones de la BD (JSONB { [user_id]: emoji })
+  // al formato [{ type, user_ids }] que pinta la burbuja del panel flotante.
+  const fromDbReactions = (reactions) => {
+    if (!reactions || typeof reactions !== 'object') return {};
+    const grouped = {};
+    for (const [uid, emoji] of Object.entries(reactions)) {
+      if (!emoji) continue;
+      (grouped[emoji] ??= []).push(uid);
+    }
+    return grouped;
+  };
+
   // Texto corto para el preview de una respuesta citada (misma idea que
   // Chat.jsx: canción → título, imagen → "Image", resto → recorte).
   const previewOf = (msg) => {
@@ -407,6 +513,24 @@ export default function FloatingChat() {
         {imageUrl && <img className="fc-msg-img" src={imageUrl} alt="" loading="lazy" />}
         {text ? <span>{text}</span> : null}
       </>
+    );
+  };
+
+  // Reacciones fuera de la burbuja, igual que en el chat completo.
+  const renderReactions = (msg) => {
+    const reactions = fromDbReactions(msg.reactions);
+    if (Object.keys(reactions).length === 0) return null;
+    return (
+      <div className="fc-msg-reactions">
+        {Object.entries(reactions).map(([emoji, uids]) => (
+          <span key={emoji} className="fc-msg-reaction">
+            {emoji}
+            {uids.length > 1 && (
+              <span className="fc-msg-reaction-count">{uids.length}</span>
+            )}
+          </span>
+        ))}
+      </div>
     );
   };
 
@@ -510,7 +634,7 @@ export default function FloatingChat() {
             </div>
           ) : (
             <>
-              <div className="fc-thread" ref={threadRef}>
+              <div className="fc-thread" ref={threadRef} style={threadBubbleVars}>
                 {loadingThread && messages.length === 0 ? (
                   <div className="fc-list-state"><FaSpinner className="fc-spin" /></div>
                 ) : messages.length === 0 ? (
@@ -530,6 +654,7 @@ export default function FloatingChat() {
                         className={`fc-msg${own ? ' fc-msg--own' : ''}${msg._optimistic ? ' fc-msg--pending' : ''}`}
                       >
                         <div className={`fc-msg-bubble${isBare ? ' fc-msg-bubble--bare' : ''}`}>{renderMessageBody(msg)}</div>
+                        {renderReactions(msg)}
                         <span className="fc-msg-time">{getTimeAgo(t, locale, msg.created_at)}</span>
                       </div>
                     );
