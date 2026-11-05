@@ -8,6 +8,7 @@ import { getItem, setItem, removeItem } from '../../services/secureStorage';
 import SongCard from './SongCard';
 import ActivityCard from './ActivityCard';
 import './css/profileSidebar.css';
+import { IoStatsChart } from "react-icons/io5";
 
 // ── Stats cache ──
 const STATS_CACHE_PREFIX = 'fc_stats_';
@@ -207,10 +208,7 @@ export default function ProfileSidebar({ profile, isPrivate, canViewContent, sta
         />
       )}
 
-      {/* ── Actividad ahora (debajo de Mi canción) ──
-          Música / vídeo / juego en curso. Los mismos gates que la canción y las
-          stats: no se muestra a quien está bloqueado ni en un perfil privado que
-          no se puede ver. La card no pinta nada si no hay actividad. */}
+      {/* ── Actividad ahora ──*/}
       {!isBlocked && (isOwnProfile || canViewContent) && (
         <ActivityCard
           profile={profile}
@@ -265,7 +263,9 @@ export default function ProfileSidebar({ profile, isPrivate, canViewContent, sta
       {/* ── Stats ── */}
       {showStats && (
         <div className="profile-sidebar-card" style={surfaceStyle}>
-        <h3 className="profile-sidebar-title">{t('profile.stats_title')}</h3>
+        <h3 className="profile-sidebar-title">
+          <IoStatsChart className="profile-sidebar-title-icon" />
+          {t('profile.stats_title')}</h3>
         {isBlocked ? (
           <div className="profile-sidebar-private">
             <FaBan className="profile-sidebar-private-icon" />
