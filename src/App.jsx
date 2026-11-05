@@ -20,15 +20,7 @@ import DeployUpdatePrompt from './assets/Resources/Components/DeployUpdatePrompt
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// ── Lazy con reintentos (anti "cargando infinito") ──
-// React.lazy cachea la promesa: si el import de un chunk falla UNA vez
-// (deploy nuevo con la pestaña abierta → chunk viejo 404, o pestaña
-// restaurada sin red), el fallback queda infinito hasta reload manual.
-// Esta envoltura reintenta y se auto-recupera:
-//   1. 3 reintentos con backoff (blips de red / SW sirviendo HTML viejo)
-//   2. Si sigue fallando y hay conexión → UN solo location.reload() para
-//      tomar el build nuevo (sessionStorage evita bucles de recarga)
-//   3. Si estamos offline → espera al evento 'online' y recarga entonces
+// ── Lazy con reintentos ──
 const CHUNK_RELOAD_FLAG = 'fc_chunk_reload';
 function lazyPage(importer) {
   return lazy(async () => {
