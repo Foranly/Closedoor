@@ -8,14 +8,16 @@ import { clearAllAppCaches } from '../services/postService';
 import { getBlockedUsers, getCachedBlockedUsers, unblockUser, cacheBlockStatus, subscribeBlockChanges, clearBlockedListsCache } from '../services/blockService';
 import { useNavigate } from 'react-router-dom';
 import { getItem } from '../services/secureStorage';
-import { isWindowZoomAvailable, controlWindowZoom, isDesktopApp } from '../services/desktopApp';
+import { isWindowZoomAvailable, controlWindowZoom, isDesktopApp, getDesktopBridge } from '../services/desktopApp';
+import { getWebVersion, getBuildId, fetchDeployInfo, fetchLatestRelease, compareVersions, getDesktopVersion } from '../services/appInfo';
+import { DESKTOP_DOWNLOAD_PATH } from '../data/desktopApp';
 import { listOpenApps, isOpenAppsAvailable } from '../../hooks/useLocalActivity';
 import { APP_LOGO_CREDIT_URL } from '../services/appLogos';
 import ProgramLogo from '../Resources/Components/ProgramLogo';
 import { getActivitySettings, readActivityHistory, clearActivityHistory, persistActivity, persistProgramActivity, programFromProfile } from '../services/activityService';
 import { supabase } from '../services/supabaseclient';
 import { getNicknames, getCachedNicknames, cacheNicknames, setNickname, removeNickname } from '../services/chatService';
-import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop, FaBars } from 'react-icons/fa';
+import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop, FaBars, FaInfoCircle, FaSyncAlt, FaDownload } from 'react-icons/fa';
 import { MdLogout } from 'react-icons/md';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
@@ -90,7 +92,218 @@ const CATEGORIES = [
   { id: 'privacy', icon: FaEyeSlash, titleKey: 'settings.category_privacy', descKey: 'settings.category_privacy_desc' },
   { id: 'activity', icon: FaGamepad, titleKey: 'settings.category_activity', descKey: 'settings.category_activity_desc' },
   { id: 'notifications', icon: FaBell, titleKey: 'settings.category_notifications', descKey: 'settings.category_notifications_desc' },
+  { id: 'info', icon: FaInfoCircle, titleKey: 'settings.category_info', descKey: 'settings.category_info_desc' },
 ];
+
+/* ── Información: versión web, deploy actual y actualizaciones ──
+   En el navegador solo informa y ofrece el botón a /download. Dentro de la app
+   de escritorio añade las versiones del runtime (Electron/Chromium) y cambia
+   ese botón por "buscar actualizaciones": compara el build-id del bundle con el
+   que sirve /version.json (web) y la versión del binario con la última release
+   de GitHub. */
+function InfoSettings({ t }) {
+  const navigate = useNavigate();
+  const { locale } = useI18n();
+  const desktop = getDesktopBridge();
+  const isDesktop = !!desktop;
+
+  const [deploy, setDeploy] = useState(null);
+  const [deployLoading, setDeployLoading] = useState(true);
+  const [checking, setChecking] = useState(false);
+  // null = aún no se ha pulsado el botón; luego { web, app } con el resultado.
+  const [check, setCheck] = useState(null);
+
+  const loadedBuildId = getBuildId();
+  const webVersion = getWebVersion();
+
+  useEffect(() => {
+    let alive = true;
+    fetchDeployInfo()
+      .then((info) => { if (alive) setDeploy(info); })
+      .finally(() => { if (alive) setDeployLoading(false); });
+    return () => { alive = false; };
+  }, []);
+
+  const dateLocales = { en: 'en-US', ja: 'ja-JP', pt: 'pt-BR', ru: 'ru-RU', es: 'es-ES' };
+  const formatDateTime = (iso) => {
+    if (!iso) return '';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+    try {
+      return date.toLocaleString(dateLocales[locale] || 'es-ES', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return date.toLocaleString();
+    }
+  };
+
+  const deployedBuildId = loadedBuildId || deploy?.buildId || '';
+
+  const handleCheckUpdates = async () => {
+    setChecking(true);
+    setCheck({ web: null, app: null });
+
+    // 1) Web: ¿el servidor sirve otro build que el que está cargado?
+    const info = await fetchDeployInfo();
+    if (!info?.buildId || !loadedBuildId) {
+      setCheck((prev) => ({ ...prev, web: { status: 'unknown' } }));
+    } else if (info.buildId !== loadedBuildId) {
+      setCheck((prev) => ({ ...prev, web: { status: 'available', buildId: info.buildId } }));
+    } else {
+      setCheck((prev) => ({ ...prev, web: { status: 'current' } }));
+    }
+
+    // 2) App de escritorio: última release de GitHub vs versión del binario.
+    try {
+      const release = await fetchLatestRelease();
+      const localVersion = getDesktopVersion();
+      const isNewer = localVersion ? compareVersions(release.version, localVersion) > 0 : false;
+      setCheck((prev) => ({
+        ...prev,
+        app: {
+          status: isNewer ? 'available' : 'current',
+          version: release.version,
+          localVersion,
+          url: release.url,
+        },
+      }));
+    } catch {
+      setCheck((prev) => ({ ...prev, app: { status: 'error' } }));
+    }
+
+    setChecking(false);
+  };
+
+  return (
+    <>
+      <div className="settings-row">
+        <div className="settings-row-header">
+          <span className="settings-section-icon"><FaInfoCircle /></span>
+          <div>
+            <h2 className="settings-section-title">{t('settings.info_title')}</h2>
+            <p className="settings-section-desc">{t('settings.info_desc')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-info-list">
+        <div className="settings-info-row">
+          <span className="settings-info-label">{t('settings.info_web_version')}</span>
+          <span className="settings-info-value">{webVersion}</span>
+        </div>
+        <div className="settings-info-row">
+          <span className="settings-info-label">{t('settings.info_deploy')}</span>
+          <span className="settings-info-value settings-info-value--mono">
+            {deployLoading ? '…' : (deployedBuildId || t('settings.info_deploy_dev'))}
+          </span>
+        </div>
+        <div className="settings-info-row">
+          <span className="settings-info-label">{t('settings.info_deploy_date')}</span>
+          <span className="settings-info-value">
+            {deployLoading ? '…' : (formatDateTime(deploy?.builtAt) || '—')}
+          </span>
+        </div>
+        {isDesktop && (
+          <>
+            <div className="settings-info-row">
+              <span className="settings-info-label">{t('settings.info_desktop_version')}</span>
+              <span className="settings-info-value">{desktop.version || '—'}</span>
+            </div>
+            <div className="settings-info-row">
+              <span className="settings-info-label">{t('settings.info_electron')}</span>
+              <span className="settings-info-value">{desktop.electron || '—'}</span>
+            </div>
+            <div className="settings-info-row">
+              <span className="settings-info-label">{t('settings.info_chromium')}</span>
+              <span className="settings-info-value">{desktop.chrome || '—'}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="settings-info-actions">
+        {isDesktop ? (
+          <button
+            type="button"
+            className="settings-info-btn"
+            onClick={handleCheckUpdates}
+            disabled={checking}
+          >
+            <FaSyncAlt className={checking ? 'fc-spin' : undefined} />
+            {checking ? t('settings.info_checking') : t('settings.info_check_updates')}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="settings-info-btn"
+            onClick={() => navigate(DESKTOP_DOWNLOAD_PATH)}
+          >
+            <FaDownload />
+            {t('settings.info_download')}
+          </button>
+        )}
+      </div>
+
+      {check && (
+        <div className="settings-info-results">
+          {/* Web */}
+          <div className={`settings-info-result${check.web?.status === 'available' ? ' settings-info-result--new' : ''}`}>
+            <span className="settings-info-result-label">{t('settings.info_web_label')}</span>
+            <span className="settings-info-result-text">
+              {!check.web
+                ? t('settings.info_checking')
+                : check.web.status === 'current'
+                  ? t('settings.info_web_current')
+                  : check.web.status === 'available'
+                    ? t('settings.info_web_available')
+                    : check.web.status === 'unknown'
+                      ? t('settings.info_web_unknown')
+                      : t('settings.info_web_error')}
+            </span>
+            {check.web?.status === 'available' && (
+              <button
+                type="button"
+                className="settings-info-link-btn"
+                onClick={() => window.location.reload()}
+              >
+                {t('settings.info_reload')}
+              </button>
+            )}
+          </div>
+
+          {/* App de escritorio */}
+          <div className={`settings-info-result${check.app?.status === 'available' ? ' settings-info-result--new' : ''}`}>
+            <span className="settings-info-result-label">{t('settings.info_app_label')}</span>
+            <span className="settings-info-result-text">
+              {!check.app
+                ? t('settings.info_checking')
+                : check.app.status === 'current'
+                  ? t('settings.info_app_current', { version: check.app.localVersion || '—' })
+                  : check.app.status === 'available'
+                    ? t('settings.info_app_available', { version: check.app.version })
+                    : t('settings.info_app_error')}
+            </span>
+            {check.app?.status === 'available' && check.app.url && (
+              <a
+                className="settings-info-link-btn"
+                href={check.app.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t('settings.info_download_release')}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 /* ── Cuenta: nombre de usuario, correo y contraseña ──
    Los tres cambios exigen la contraseña ACTUAL: el servidor la verifica con
@@ -2306,6 +2519,8 @@ export default function Settings() {
               </div>
             </>
           )}
+
+          {activeCategory === 'info' && <InfoSettings t={t} />}
         </div>
       </div>
 
