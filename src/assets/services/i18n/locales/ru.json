@@ -565,6 +565,7 @@
   "post.share": "Поделиться в чате",
   "post.share_error": "Ошибка при публикации поста",
   "post.share_no_following": "Нет пользователей для публикации",
+  "post.share_private_forbidden": "Нельзя поделиться постом из приватного профиля",
   "post.share_send_to": "Отправить {n}",
   "post.shared_to_chat": "Пост опубликован! Открывается чат...",
   "post.show_more": "Показать больше",

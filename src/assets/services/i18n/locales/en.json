@@ -567,6 +567,7 @@
   "post.share": "Share to chat",
   "post.share_error": "Error sharing post",
   "post.share_no_following": "You don't follow anyone to share with",
+  "post.share_private_forbidden": "Cannot share a private profile's post",
   "post.share_send_to": "Send to {n}",
   "post.shared_to_chat": "Post shared! Opening chat...",
   "post.show_more": "Show more",
