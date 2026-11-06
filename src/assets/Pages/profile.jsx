@@ -1038,6 +1038,38 @@ function Profile() {
         }
     }, [activeProfile?.id, user?.id]);
 
+    // ── Publicación de posts programados (no hay evento de DB) ──
+    // Un post programado solo "se publica" porque los feeds incluyen las filas
+    // con scheduled_at <= now: la fila nunca cambia, así que no llega ningún
+    // evento de Realtime y además, en el perfil propio, no hay suscripción a
+    // posts. Se arma un timer local para el siguiente post programado y, al
+    // vencer, se refresca el contenido: sale de "Programados" y aparece en su
+    // tab normal.
+    useEffect(() => {
+        if (!isOwnProfile || !user?.id || scheduledPosts.length === 0) return;
+        const MAX_DELAY = 24 * 60 * 60 * 1000;
+        const nextTs = scheduledPosts
+            .map((p) => new Date(p.scheduled_at).getTime())
+            .filter((ts) => Number.isFinite(ts))
+            .sort((a, b) => a - b)[0];
+        if (!nextTs) return;
+        const delay = nextTs - Date.now();
+        const timer = setTimeout(() => {
+            if (delay > MAX_DELAY) {
+                // Espera más larga que el máximo de setTimeout: re-armar el timer
+                // cambiando la identidad de la lista (el efecto se ejecuta otra vez).
+                setScheduledPosts((prev) => [...prev]);
+                return;
+            }
+            // Quitar de la lista los que ya vencieron y recargar posts + programados.
+            setScheduledPosts((prev) =>
+                prev.filter((p) => new Date(p.scheduled_at).getTime() > Date.now())
+            );
+            handlePostCreated();
+        }, Math.max(0, Math.min(delay, MAX_DELAY)));
+        return () => clearTimeout(timer);
+    }, [isOwnProfile, user?.id, scheduledPosts, handlePostCreated]);
+
     const handlePostUpdate = useCallback((updatedPost) => {
         if (updatedPost._editing) {
             setEditingPost(updatedPost);
