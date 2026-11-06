@@ -565,6 +565,7 @@
   "post.share": "チャットで共有",
   "post.share_error": "投稿の共有中にエラーが発生しました",
   "post.share_no_following": "共有できるユーザーがいません",
+  "post.share_private_forbidden": "非公開プロフィールの投稿は共有できません",
   "post.share_send_to": "{n}に送信",
   "post.shared_to_chat": "投稿を共有しました！チャットを開いています...",
   "post.show_more": "もっと見る",
