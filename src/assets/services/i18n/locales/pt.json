@@ -826,6 +826,7 @@
   "settings.show_accent_profile_desc": "Ativa ou desativa sua cor de acento no seu perfil para os demais usuários.",
   "settings.show_badges": "Mostrar badges",
   "settings.show_badges_desc": "Mostra ou oculta as badges no seu perfil.",
+  "settings.needs_global_bg": "Ative \"Fundo de perfil em todo o app\" para usar esta opção.",
   "settings.show_global_bg": "Fundo de perfil em todo o app",
   "settings.show_global_bg_desc": "Mostra seu fundo de perfil como papel de parede em todas as páginas (só você vê).",
   "settings.show_cards_glass": "Cards transparentes",
