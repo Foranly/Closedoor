@@ -694,3 +694,15 @@ html.fc-sidebar-text .sidebar-icon {
 html.fc-sidebar-text .sidebar-brand-logo {
     --sidebar-logo-color: var(--fc-cards-text);
 }
+
+/* ==========================================
+   ◈ Rendimiento: capas pesadas promovidas a GPU
+   ========================================== */
+.post-card-lightbox,
+.post-card-sensitive-overlay,
+.fc-modal-drag-overlay,
+.chat-call-overlay,
+.chat-account-card-banner {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
