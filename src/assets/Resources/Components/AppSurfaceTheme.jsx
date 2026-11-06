@@ -139,8 +139,12 @@ export default function AppSurfaceTheme() {
     // está viendo y detalle de comunidad).
     // El sidebar con estilos por defecto también deja iconos y logo con el
     // color del tema (sin afectar al resto de cards, que conservan el suyo).
+    // Igual con "colores por defecto": si el sidebar ignora el acento y la
+    // superficie del perfil, tampoco debe heredar su color de texto — si no,
+    // los iconos quedan con un color que no contrasta con el fondo del tema.
     const sidebarTextAllowed = Boolean(textColor)
       && !sidebarDefaultStyle
+      && !sidebarDefaultColors
       && !path.startsWith('/profile')
       && !path.startsWith('/c/');
     root.classList.toggle('fc-sidebar-text', sidebarTextAllowed);

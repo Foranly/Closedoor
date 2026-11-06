@@ -1213,6 +1213,20 @@ export default function Settings() {
                     const next = !showGlobalBg;
                     setShowGlobalBg(next);
                     syncProfilePref('show_global_bg', next);
+                    // Sin el fondo del perfil, todo lo que lo decora (vidrio,
+                    // chat y sidebar "por defecto") deja de tener sentido: se
+                    // apaga también, en vez de quedarse como interruptores
+                    // activos que no hacen nada.
+                    if (!next) {
+                      setShowCardsGlass(false);
+                      syncProfilePref('show_cards_glass', false);
+                      setChatDefaultStyle(false);
+                      syncProfilePref('chat_default_style', false);
+                      setSidebarDefaultStyle(false);
+                      syncProfilePref('sidebar_default_style', false);
+                      setSidebarDefaultColors(false);
+                      syncProfilePref('sidebar_default_colors', false);
+                    }
                   }}
                   aria-pressed={showGlobalBg}
                 >
@@ -1235,13 +1249,23 @@ export default function Settings() {
                 </div>
                 <button
                   type="button"
-                  className={`settings-toggle ${showCardsGlass ? 'settings-toggle--active' : ''}`}
+                  className={`settings-toggle ${showCardsGlass && showGlobalBg ? 'settings-toggle--active' : ''}`}
+                  disabled={!showGlobalBg}
+                  title={!showGlobalBg ? t('settings.needs_global_bg') : undefined}
                   onClick={() => {
+                    if (!showGlobalBg) return;
                     const next = !showCardsGlass;
                     setShowCardsGlass(next);
                     syncProfilePref('show_cards_glass', next);
+                    // Al quitar el vidrio, el sidebar vuelve a su superficie
+                    // del tema: los "colores por defecto" dejan de aplicar y
+                    // se apagan para no reactivarse solos más adelante.
+                    if (!next) {
+                      setSidebarDefaultColors(false);
+                      syncProfilePref('sidebar_default_colors', false);
+                    }
                   }}
-                  aria-pressed={showCardsGlass}
+                  aria-pressed={showCardsGlass && showGlobalBg}
                 >
                   <span className="settings-toggle-track">
                     <span className="settings-toggle-thumb" />
@@ -1265,11 +1289,11 @@ export default function Settings() {
                     vidrio no hay estilos que desactivar en el chat. */}
                 <button
                   type="button"
-                  className={`settings-toggle ${chatDefaultStyle && showCardsGlass ? 'settings-toggle--active' : ''}`}
-                  disabled={!showCardsGlass}
-                  title={!showCardsGlass ? t('settings.chat_default_style_disabled') : undefined}
+                  className={`settings-toggle ${chatDefaultStyle && showCardsGlass && showGlobalBg ? 'settings-toggle--active' : ''}`}
+                  disabled={!showCardsGlass || !showGlobalBg}
+                  title={!showGlobalBg ? t('settings.needs_global_bg') : !showCardsGlass ? t('settings.chat_default_style_disabled') : undefined}
                   onClick={() => {
-                    if (!showCardsGlass) return;
+                    if (!showCardsGlass || !showGlobalBg) return;
                     const next = !chatDefaultStyle;
                     setChatDefaultStyle(next);
                     syncProfilePref('chat_default_style', next);
@@ -1296,13 +1320,16 @@ export default function Settings() {
                 </div>
                 <button
                   type="button"
-                  className={`settings-toggle ${sidebarDefaultStyle ? 'settings-toggle--active' : ''}`}
+                  className={`settings-toggle ${sidebarDefaultStyle && showGlobalBg ? 'settings-toggle--active' : ''}`}
+                  disabled={!showGlobalBg}
+                  title={!showGlobalBg ? t('settings.needs_global_bg') : undefined}
                   onClick={() => {
+                    if (!showGlobalBg) return;
                     const next = !sidebarDefaultStyle;
                     setSidebarDefaultStyle(next);
                     syncProfilePref('sidebar_default_style', next);
                   }}
-                  aria-pressed={sidebarDefaultStyle}
+                  aria-pressed={sidebarDefaultStyle && showGlobalBg}
                 >
                   <span className="settings-toggle-track">
                     <span className="settings-toggle-thumb" />
@@ -1323,16 +1350,22 @@ export default function Settings() {
                 </div>
                 <button
                   type="button"
-                  className={`settings-toggle ${sidebarDefaultColors && !sidebarDefaultStyle ? 'settings-toggle--active' : ''}`}
-                  disabled={sidebarDefaultStyle}
-                  title={sidebarDefaultStyle ? t('settings.sidebar_default_colors_disabled') : undefined}
+                  className={`settings-toggle ${sidebarDefaultColors && !sidebarDefaultStyle && showGlobalBg ? 'settings-toggle--active' : ''}`}
+                  disabled={!showGlobalBg || sidebarDefaultStyle}
+                  title={
+                    !showGlobalBg
+                      ? t('settings.needs_global_bg')
+                      : sidebarDefaultStyle
+                        ? t('settings.sidebar_default_colors_disabled')
+                        : undefined
+                  }
                   onClick={() => {
-                    if (sidebarDefaultStyle) return;
+                    if (!showGlobalBg || sidebarDefaultStyle) return;
                     const next = !sidebarDefaultColors;
                     setSidebarDefaultColors(next);
                     syncProfilePref('sidebar_default_colors', next);
                   }}
-                  aria-pressed={sidebarDefaultColors && !sidebarDefaultStyle}
+                  aria-pressed={sidebarDefaultColors && !sidebarDefaultStyle && showGlobalBg}
                 >
                   <span className="settings-toggle-track">
                     <span className="settings-toggle-thumb" />
