@@ -237,9 +237,10 @@
 
 /* Banner del perfil como fondo, colocado y velado igual que el de las cards de
    Explore (explore.css: cover + degradado 180deg). El color del texto y el
-   degradado los calcula el componente desde el color dominante del banner
-   (--chat-account-fg / --chat-account-scrim): banner claro ⇒ texto negro y
-   prácticamente sin velo; banner oscuro ⇒ texto blanco y pie oscurecido. */
+   degradado los calcula el componente a partir de la luminancia de cada mitad
+   del banner (--chat-account-fg / --chat-account-fg-right /
+   --chat-account-scrim): banner claro ⇒ texto negro y prácticamente sin velo;
+   banner oscuro ⇒ texto blanco y pie oscurecido. */
 .chat-account-card--banner {
     border-color: transparent;
     color: var(--chat-account-fg);
@@ -248,18 +249,14 @@
     overflow: hidden;
 }
 
+/* El banner se pinta nítido: la legibilidad la resuelven el color calculado por
+   mitades y, cuando el banner es uniforme, el velo del scrim. */
 .chat-account-card-banner {
-    --chat-account-blur: 7px;
     position: absolute;
-    /* Se sale de la card para que el blur no deje un borde translúcido dentro
-       de ella; la card lo recorta con su overflow: hidden. */
-    inset: calc(-1 * var(--chat-account-blur) * 2);
+    inset: 0;
     z-index: 0;
     overflow: hidden;
     pointer-events: none;
-    /* Desenfocado para que el nombre y la actividad se lean sobre cualquier
-       imagen sin tener que echar un velo encima. */
-    filter: blur(var(--chat-account-blur));
 }
 
 .chat-account-card-banner img {
