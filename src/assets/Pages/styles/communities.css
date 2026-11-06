@@ -46,7 +46,12 @@
   cursor: default;
 }
 
-/* Botón Crear al final de la página (mismo estilo que los botones de Explore) */
+.explore-filters-container{
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Botón Crear comunidad */
 .comunidades-create-bar {
   display: flex;
   justify-content: center;

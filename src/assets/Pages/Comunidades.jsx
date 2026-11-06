@@ -163,20 +163,35 @@ export default function Comunidades() {
       </div>
 
       {/* ── Fila de filtros (mismo patrón que Explore) ── */}
-      <div className="explore-filters">
-        {filters.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            className={`explore-filter-btn${activeFilter === f.key ? ' explore-filter-btn--active' : ''}`}
-            onClick={() => {
-              setActiveFilter(f.key);
-              load(search, f.key);
-            }}
-          >
-            {f.label}
-          </button>
-        ))}
+
+      <div className="explore-filters-container">
+        <div className="explore-filters">
+          {filters.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              className={`explore-filter-btn${activeFilter === f.key ? ' explore-filter-btn--active' : ''}`}
+              onClick={() => {
+                setActiveFilter(f.key);
+                load(search, f.key);
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="explore-filter-2">
+            <button
+              type="button"
+              className="explore-filter-btn explore-filter-btn--active comunidades-create-btn"
+              onClick={handleCreateClick}
+              disabled={!user?.id || checkingPerms}
+              title={user?.id ? '' : t('auth.login_btn')}
+            >
+              {checkingPerms ? <FaSpinner className="fc-spin" /> : <FaPlus />} {t('comunidades.create_btn')}
+            </button>
+        </div>
       </div>
 
       {loading ? (
@@ -282,19 +297,6 @@ export default function Comunidades() {
           })}
         </div>
       )}
-
-      {/* ── Botón Crear al final (como acción principal de la página) ── */}
-      <div className="comunidades-create-bar">
-        <button
-          type="button"
-          className="explore-filter-btn explore-filter-btn--active comunidades-create-btn"
-          onClick={handleCreateClick}
-          disabled={!user?.id || checkingPerms}
-          title={user?.id ? '' : t('auth.login_btn')}
-        >
-          {checkingPerms ? <FaSpinner className="fc-spin" /> : <FaPlus />} {t('comunidades.create_btn')}
-        </button>
-      </div>
 
       <CreateCommunityModal
         isOpen={showCreate}

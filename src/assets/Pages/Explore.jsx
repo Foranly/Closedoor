@@ -436,7 +436,7 @@ function Explore() {
                     disabled={safePage <= 1}
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                   >
-                    ← {t('common.previous') || 'Previous'}
+                    {t('common.previous') || 'Previous'}
                   </button>
                   <span className="explore-pagination-info">
                     {safePage} / {totalPages}
@@ -451,7 +451,7 @@ function Explore() {
                     disabled={safePage >= totalPages}
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   >
-                    {t('common.next') || 'Next'} →
+                    {t('common.next') || 'Next'}
                   </button>
                 </div>
               )}
