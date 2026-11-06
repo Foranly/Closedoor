@@ -266,7 +266,7 @@
   "comunidades.role_save": "Сохранить роль",
   "comunidades.roles": "Роли",
   "comunidades.rules": "Правила",
-  "comunidades.rules_hint": "Одно правило в строке",
+  "comunidades.rules_hint": "Правила перечисляются автоматически; нумеровать их не нужно.",
   "comunidades.rules_placeholder": "1. Будьте уважительны\n2. Без спама...",
   "comunidades.save_changes": "Сохранить изменения",
   "comunidades.search_placeholder": "Поиск сообществ...",
