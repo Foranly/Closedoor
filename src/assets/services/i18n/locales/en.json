@@ -828,6 +828,7 @@
   "settings.show_accent_profile_desc": "Show or hide your accent color on your profile for other users.",
   "settings.show_badges": "Show badges",
   "settings.show_badges_desc": "Show or hide badges (Admin, Mod, Verified, etc.) on your profile.",
+  "settings.needs_global_bg": "Turn on \"Profile background across the app\" to use this option.",
   "settings.show_global_bg": "Profile background across the app",
   "settings.show_global_bg_desc": "Show your profile background as a fullscreen wallpaper on every page (only visible to you).",
   "settings.show_cards_glass": "Transparent cards",
