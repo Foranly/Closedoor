@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module'
 import { defineConfig } from 'vite'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
@@ -9,8 +10,15 @@ import musicDevApiPlugin from './plugins/musicDevApiPlugin'
 import buildIdPlugin from './plugins/buildIdPlugin'
 import { cspPlugin } from './plugins/cspPlugin'
 
+// Versión de la web (Ajustes → Información). Sale de package.json para no
+// duplicar el número en el código; en dev y en build queda igual.
+const pkg = createRequire(import.meta.url)('./package.json')
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(pkg.version),
+  },
   server: {
     proxy: {
       '/cdn': {

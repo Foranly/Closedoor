@@ -508,11 +508,21 @@ export function I18nProvider({ children }) {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Las decoraciones que van montadas sobre el fondo del perfil (vidrio, chat y
+  // sidebar "por defecto") solo existen cuando ese fondo está activo. Se exponen
+  // ya apagadas si el fondo está off, así tampoco se pintan con valores
+  // guardados de una sesión anterior; el toggle de Ajustes es quien los borra
+  // de verdad (localStorage + perfil) al apagar el fondo.
+  const glassActive = showGlobalBg && showCardsGlass;
+  const chatDefaultActive = showGlobalBg && chatDefaultStyle;
+  const sidebarDefaultActive = showGlobalBg && sidebarDefaultStyle;
+  const sidebarColorsActive = showGlobalBg && sidebarDefaultColors;
+
   // Clase global: aplica el tratamiento translúcido de las cards del perfil a
   // las cards del resto de la app (posts, ajustes, notificaciones, chat...).
   useEffect(() => {
-    document.documentElement.classList.toggle('fc-cards-glass', showCardsGlass);
-  }, [showCardsGlass]);
+    document.documentElement.classList.toggle('fc-cards-glass', glassActive);
+  }, [glassActive]);
 
   const t = useCallback((key, params = {}) => {
     if (!translations) return key;
@@ -526,7 +536,7 @@ export function I18nProvider({ children }) {
   }, [translations]);
 
   return (
-    <I18nContext.Provider      value={{ locale, t, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showInterests, setShowInterests, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass, setShowCardsGlass, chatDefaultStyle, setChatDefaultStyle, sidebarDefaultStyle, setSidebarDefaultStyle, sidebarDefaultColors, setSidebarDefaultColors, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, theme, setTheme }}>
+    <I18nContext.Provider      value={{ locale, t, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showInterests, setShowInterests, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass: glassActive, setShowCardsGlass, chatDefaultStyle: chatDefaultActive, setChatDefaultStyle, sidebarDefaultStyle: sidebarDefaultActive, setSidebarDefaultStyle, sidebarDefaultColors: sidebarColorsActive, setSidebarDefaultColors, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, theme, setTheme }}>
       {children}
     </I18nContext.Provider>
   );

@@ -230,6 +230,10 @@ function bridgeInfo() {
   return {
     app: 'foranly-desktop',
     version: APP_VERSION,
+    // Versiones del runtime, para Ajustes → Información (y para diagnosticar
+    // incidencias de webview sin pedirle al usuario que abra DevTools).
+    electron: process.versions.electron || null,
+    chrome: process.versions.chrome || null,
     platform: process.platform,
     musicApiUrl: MUSIC_API_URL,
     musicReady,

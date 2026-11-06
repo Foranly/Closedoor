@@ -7,6 +7,8 @@
  *   window.foranlyDesktop = {
  *     app: 'foranly-desktop',
  *     version: '0.1.0',
+ *     electron: '29.4.6',                      // versions.electron
+ *     chrome: '122.0.6261.156',                // versions.chrome
  *     platform: 'linux' | 'win32' | 'darwin',
  *     musicApiUrl: 'http://127.0.0.1:5990',  // base de /api/music/*
  *     musicReady: true,                      // el servidor local respondió

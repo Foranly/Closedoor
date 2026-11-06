@@ -46,6 +46,20 @@
     -webkit-backdrop-filter: none;
 }
 
+/* Ajustes → "Sidebar con estilos por defecto": no basta con neutralizar la
+   superficie del perfil (AppSurfaceTheme), porque el fallback base de
+   .sidebar también es translúcido (.sidebar tiene blur). Aquí se quita el
+   cristal y queda el fondo sólido del tema, igual que .sidebar--solid. */
+html.fc-sidebar-default .sidebar {
+    background: var(--color-bg, #000000);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+html.fc-sidebar-default .sidebar--chat {
+    background: var(--color-surface, #1a1a1a);
+}
+
 /* ---- Estado colapsado ---- */
 .sidebar--collapsed {
     width: 76px;

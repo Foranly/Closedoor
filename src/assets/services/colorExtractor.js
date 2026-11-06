@@ -256,6 +256,172 @@ export function getContrastFromHex(hex) {
   return luminance > 0.3 ? '#000000' : '#ffffff';
 }
 
+// ── Contrast color por mitades (izquierda / derecha) ──
+//
+// Un banner puede ser negro por la izquierda y blanco por la derecha: con un
+// único color de contraste una mitad queda ilegible. Aquí se calcula la
+// luminancia media de cada mitad por separado. Si las dos son parecidas (cerca
+// del umbral) se usa UN solo color, para no partir el texto por un detalle.
+
+const SIDES_CACHE_PREFIX = 'fc_sides_';
+// Diferencia de luminancia por debajo de la cual se considera que el banner es
+// uniforme (una mitad no es "lo contrario" de la otra).
+const SIDES_UNIFORM_DELTA = 0.12;
+const SIDES_DARK_TEXT_THRESHOLD = 0.3; // mismo umbral que getContrastFromHex
+
+function getCachedSides(imageUrl) {
+  try {
+    const entry = getItem(SIDES_CACHE_PREFIX + imageUrl);
+    if (!entry || !entry.left || !entry.right || !entry.ts) return null;
+    if (entry.v !== CACHE_VERSION) return null;
+    return { left: entry.left, right: entry.right };
+  } catch {
+    return null;
+  }
+}
+
+function setCachedSides(imageUrl, sides) {
+  try {
+    setItem(SIDES_CACHE_PREFIX + imageUrl, { ...sides, ts: Date.now(), v: CACHE_VERSION });
+  } catch {
+    // localStorage might be full, ignore
+  }
+}
+
+function channelToLinear(value) {
+  const c = value / 255;
+  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+function contrastForLuminance(luminance) {
+  return luminance > SIDES_DARK_TEXT_THRESHOLD ? '#000000' : '#ffffff';
+}
+
+/**
+ * Luminancia media de la mitad izquierda y de la mitad derecha de la imagen.
+ * Los píxeles transparentes no cuentan.
+ */
+function analyzeSides(img) {
+  const MAX_SIZE = 200;
+  let width = img.naturalWidth || img.width;
+  let height = img.naturalHeight || img.height;
+
+  if (width > MAX_SIZE || height > MAX_SIZE) {
+    const ratio = Math.min(MAX_SIZE / width, MAX_SIZE / height);
+    width = Math.round(width * ratio);
+    height = Math.round(height * ratio);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(width, 1);
+  canvas.height = Math.max(height, 1);
+
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  const half = canvas.width / 2;
+  let leftSum = 0;
+  let leftCount = 0;
+  let rightSum = 0;
+  let rightCount = 0;
+
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const i = (y * canvas.width + x) * 4;
+      if (pixels[i + 3] < 128) continue;
+      const luminance = 0.2126 * channelToLinear(pixels[i])
+        + 0.7152 * channelToLinear(pixels[i + 1])
+        + 0.0722 * channelToLinear(pixels[i + 2]);
+      if (x < half) {
+        leftSum += luminance;
+        leftCount++;
+      } else {
+        rightSum += luminance;
+        rightCount++;
+      }
+    }
+  }
+
+  return {
+    left: leftCount ? leftSum / leftCount : 0,
+    right: rightCount ? rightSum / rightCount : 0,
+  };
+}
+
+function loadBlobAndAnalyzeSides(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const sides = analyzeSides(img);
+        URL.revokeObjectURL(url);
+        resolve(sides);
+      } catch (err) {
+        URL.revokeObjectURL(url);
+        reject(err);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load blob image'));
+    };
+    img.src = url;
+  });
+}
+
+async function attemptSides(url) {
+  try {
+    const blob = await fetchImageAsBlob(url);
+    return await loadBlobAndAnalyzeSides(blob);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Color de contraste para la mitad izquierda y la derecha del fondo.
+ * Devuelve { left, right } con '#000000' (zona clara) o '#ffffff' (zona oscura).
+ * Si las dos mitades son parecidas, ambas devuelven el MISMO color: el banner se
+ * trata como uniforme y no se parte el texto por una diferencia leve.
+ * Devuelve null si la imagen no se puede leer.
+ */
+export async function getContrastSidesForBg(imageUrl) {
+  if (!imageUrl) return null;
+
+  const cached = getCachedSides(imageUrl);
+  if (cached) return cached;
+
+  let sides;
+
+  if (matchesDomain(imageUrl, CORS_SAFE_DOMAINS)) {
+    sides = await attemptSides(imageUrl);
+  } else if (matchesDomain(imageUrl, CORS_BLOCKED_DOMAINS)) {
+    sides = await attemptSides(proxyViaSelf(imageUrl))
+      || await attemptSides(proxyViaWsrv(imageUrl));
+  } else {
+    sides = await attemptSides(imageUrl)
+      || await attemptSides(proxyViaSelf(imageUrl))
+      || await attemptSides(proxyViaWsrv(imageUrl));
+  }
+
+  if (!sides) return null;
+
+  const { left, right } = sides;
+  const means = Math.abs(left - right) < SIDES_UNIFORM_DELTA
+    ? { left: (left + right) / 2, right: (left + right) / 2 }
+    : { left, right };
+
+  const result = {
+    left: contrastForLuminance(means.left),
+    right: contrastForLuminance(means.right),
+  };
+
+  setCachedSides(imageUrl, result);
+  return result;
+}
+
 /**
  * Parsea '#rgb' / '#rrggbb' a { r, g, b }. Devuelve null si no es un hex
  * válido (p. ej. un 'var(--x)' o una cadena vacía).

@@ -317,6 +317,20 @@ function normalizeSharedSong(song) {
  * Send an encrypted message
  */
 export async function sendMessage(conversationId, senderId, content, participantIds, replyTo = null, sharedPostId = null, sharedCommunityId = null, sharedInviteToken = null, sharedSong = null) {
+  // Un post de perfil privado no se reenvía a terceros (misma regla que
+  // repostPost). La UI ya deshabilita la acción; esto cubre clientes viejos o
+  // un post que pasó a privado con el menú abierto.
+  if (sharedPostId) {
+    const { data: sharedPost } = await supabase
+      .from('posts')
+      .select('user_id, profiles!posts_user_id_fkey (is_private)')
+      .eq('id', sharedPostId)
+      .maybeSingle();
+    if (sharedPost && sharedPost.profiles?.is_private === true && sharedPost.user_id !== senderId) {
+      throw new Error('share_private_forbidden');
+    }
+  }
+
   const allIds = [...new Set([senderId, ...participantIds])];
 
   // Sanitizar contenido antes de cifrarlo (anti-XSS: no guardar scripts)
