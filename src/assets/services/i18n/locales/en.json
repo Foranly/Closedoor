@@ -268,7 +268,7 @@
   "comunidades.role_save": "Save role",
   "comunidades.roles": "Roles",
   "comunidades.rules": "Rules",
-  "comunidades.rules_hint": "One rule per line",
+  "comunidades.rules_hint": "Rules are automatically numbered. No need to number them.",
   "comunidades.rules_placeholder": "1. Be respectful\n2. No spam...",
   "comunidades.save_changes": "Save changes",
   "comunidades.search_placeholder": "Search communities...",

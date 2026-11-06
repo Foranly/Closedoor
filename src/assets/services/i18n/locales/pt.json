@@ -266,7 +266,7 @@
   "comunidades.role_save": "Salvar função",
   "comunidades.roles": "Funções",
   "comunidades.rules": "Regras",
-  "comunidades.rules_hint": "Uma regra por linha",
+  "comunidades.rules_hint": "As regras são numeradas automaticamente. Não é necessário numerá-las.",
   "comunidades.rules_placeholder": "1. Seja respeitoso\n2. Sem spam...",
   "comunidades.save_changes": "Salvar alterações",
   "comunidades.search_placeholder": "Buscar comunidades...",
