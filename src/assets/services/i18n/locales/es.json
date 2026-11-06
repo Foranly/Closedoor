@@ -268,7 +268,7 @@
   "comunidades.role_save": "Guardar rol",
   "comunidades.roles": "Roles",
   "comunidades.rules": "Reglas",
-  "comunidades.rules_hint": "Las reglas se enumeran automaticamente; no es necesario numerarlas.",
+  "comunidades.rules_hint": "Las reglas se enumeran automaticamente. No es necesario numerarlas.",
   "comunidades.rules_placeholder": "1. Sé respetuoso\n2. Sin spam...",
   "comunidades.save_changes": "Guardar cambios",
   "comunidades.search_placeholder": "Buscar comunidades...",

@@ -179,6 +179,8 @@ export default function Comunidades() {
               {f.label}
             </button>
           ))}
+
+
         </div>
 
         <div className="explore-filter-2">
@@ -297,6 +299,11 @@ export default function Comunidades() {
           })}
         </div>
       )}
+
+      {/* ── Botón Crear al final (como acción principal de la página) ── */}
+      <div className="comunidades-create-bar">
+
+      </div>
 
       <CreateCommunityModal
         isOpen={showCreate}
