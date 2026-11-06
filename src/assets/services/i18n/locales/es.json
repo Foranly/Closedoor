@@ -567,6 +567,7 @@
   "post.share": "Compartir por chat",
   "post.share_error": "Error al compartir el post",
   "post.share_no_following": "No sigues a nadie para compartir",
+  "post.share_private_forbidden": "No puedes compartir publicaciones de un perfil privado",
   "post.share_send_to": "Enviar a {n}",
   "post.shared_to_chat": "¡Post compartido! Abriendo chat...",
   "post.show_more": "Mostrar más",

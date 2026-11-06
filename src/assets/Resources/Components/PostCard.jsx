@@ -343,6 +343,9 @@ const PostCard = React.memo(function PostCard({
   const profile = isOwner && currentProfile ? currentProfile : (post.profiles || {});
   const isPrivateProfile = profile?.is_private === true;
   const repostDisabled = isPrivateProfile && !isOwner;
+  // Misma regla para compartir por chat: el post de una cuenta privada no se
+  // reenvía a terceros. El dueño sí puede compartirlo con sus seguidores.
+  const shareDisabled = isPrivateProfile && !isOwner;
   const timeAgo = useMemo(() => getTimeAgo(t, locale, post.created_at), [t, locale, post.created_at]);
 
   // ── Determinar qué contenido mostrar (sin flicker) ──
@@ -597,6 +600,10 @@ const PostCard = React.memo(function PostCard({
   const openShareModal = useCallback(async (e) => {
     e.stopPropagation();
     setShowMenu(false);
+    if (shareDisabled) {
+      toast.error(t('post.share_private_forbidden') || "Cannot share a private profile's post");
+      return;
+    }
     if (!user) {
       toast.info(t('auth.login_required'));
       navigate(`/Login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
@@ -621,7 +628,7 @@ const PostCard = React.memo(function PostCard({
     } finally {
       setShareLoading(false);
     }
-  }, [user, navigate, t]);
+  }, [user, navigate, t, shareDisabled]);
 
   // Toggle selection of a user for multi-send
   const toggleUserSelection = useCallback((userId) => {
@@ -845,7 +852,14 @@ const PostCard = React.memo(function PostCard({
                       style={{ ...dropdownStyle, minWidth: 170 }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button className="fc-dropdown-btn" onClick={openShareModal}><FaShareAlt /> {t('post.share')}</button>
+                      <button
+                        className="fc-dropdown-btn"
+                        onClick={openShareModal}
+                        disabled={shareDisabled}
+                        title={shareDisabled ? t('post.share_private_forbidden') : undefined}
+                      >
+                        <FaShareAlt /> {t('post.share')}
+                      </button>
                       <button className="fc-dropdown-btn" onClick={handleEdit}><FaEdit /> {t('post.edit')}</button>
                       <button className="fc-dropdown-btn" onClick={handlePin}><FaThumbtack /> {post.is_pinned ? t('post.unpin') : t('post.pin')}</button>
                       <button className="fc-dropdown-btn" onClick={async (e) => {
@@ -886,7 +900,14 @@ const PostCard = React.memo(function PostCard({
                         {saved ? <FaBookmark /> : <FaRegBookmark />}
                         {saved ? (t('post.unsave') || 'Quitar guardado') : t('post.save')}
                       </button>
-                      <button className="fc-dropdown-btn" onClick={openShareModal}><FaShareAlt /> {t('post.share')}</button>
+                      <button
+                        className="fc-dropdown-btn"
+                        onClick={openShareModal}
+                        disabled={shareDisabled}
+                        title={shareDisabled ? t('post.share_private_forbidden') : undefined}
+                      >
+                        <FaShareAlt /> {t('post.share')}
+                      </button>
                       <button
                         className="fc-dropdown-btn"
                         onClick={async (e) => {
