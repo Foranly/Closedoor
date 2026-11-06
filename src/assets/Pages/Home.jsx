@@ -18,6 +18,7 @@ import {
   setCachedFeed,
   getCachedFeed,
   clearFeedCache,
+  getScheduledPosts,
 } from '../services/postService';
 import { getFollowing } from '../services/followService';
 import { rankFeedForUser } from '../services/feedRanking';
@@ -62,6 +63,9 @@ function Home() {
     });
     const [showCreatePost, setShowCreatePost] = useState(false);
     const [editingPost, setEditingPost] = useState(null);
+
+    // Cambia cuando se crea un post: re-arma el timer de posts programados.
+    const [schedTick, setSchedTick] = useState(0);
 
     // Lista de seguidos (para el tab "Siguiendo" y el filtro realtime)
     const [followingIds, setFollowingIds] = useState([]);
@@ -268,7 +272,48 @@ function Home() {
 
     const handlePostCreated = useCallback(() => {
         loadFeedForTab(tab);
+        // Un post recién programado cambia el próximo vencimiento a vigilar.
+        setSchedTick((n) => n + 1);
     }, [loadFeedForTab, tab]);
+
+    // ── Posts programados que se publican (no hay evento de DB) ──
+    // El post se vuelve visible cuando su scheduled_at ya pasó (los feeds filtran
+    // por fecha), pero la fila no cambia y no llega nada por Realtime. Se arma un
+    // timer para el siguiente post programado propio y, al vencer, se recarga el
+    // feed activo para que aparezca en su tab sin refrescar la página.
+    useEffect(() => {
+        if (!user?.id) return;
+        let cancelled = false;
+        let timer;
+        const MAX_DELAY = 24 * 60 * 60 * 1000;
+
+        const armTimer = async () => {
+            const items = await getScheduledPosts(user.id).catch(() => []);
+            if (cancelled || !items?.length) return;
+            const nextTs = items
+                .map((p) => new Date(p.scheduled_at).getTime())
+                .filter((ts) => Number.isFinite(ts))
+                .sort((a, b) => a - b)[0];
+            if (!nextTs) return;
+            const delay = nextTs - Date.now();
+            timer = setTimeout(() => {
+                if (cancelled) return;
+                if (delay > MAX_DELAY) {
+                    // Espera más larga que el máximo de setTimeout: re-armar.
+                    armTimer();
+                    return;
+                }
+                loadFeedForTab(tabRef.current);
+                armTimer();
+            }, Math.max(0, Math.min(delay, MAX_DELAY)));
+        };
+
+        armTimer();
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [user?.id, loadFeedForTab, schedTick]);
 
     const handlePostUpdate = useCallback((updatedPost) => {
         if (updatedPost._editing) {
