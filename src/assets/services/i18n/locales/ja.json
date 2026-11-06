@@ -266,7 +266,7 @@
   "comunidades.role_save": "ロールを保存",
   "comunidades.roles": "ロール",
   "comunidades.rules": "ルール",
-  "comunidades.rules_hint": "1行に1つのルール",
+  "comunidades.rules_hint": "ルールは自動的に一覧表示されるため、番号を振る必要はありません。",
   "comunidades.rules_placeholder": "1. 敬意を持って\n2. スパム禁止...",
   "comunidades.save_changes": "変更を保存",
   "comunidades.search_placeholder": "コミュニティを検索...",
