@@ -215,6 +215,14 @@
    de información. Queda FUERA de .chat-list-items (el scroller), así que no se
    desplaza con las conversaciones. */
 .chat-account-card {
+    /* Color de la izquierda (nombre y actividad) y de la derecha (botones).
+       Sin banner los dos son el color del tema. */
+    --chat-account-fg: var(--color-text, #ffffff);
+    --chat-account-fg-right: var(--chat-account-fg);
+    --chat-account-scrim: transparent;
+    --chat-account-hover: var(--overlay-bg, rgba(255, 255, 255, 0.05));
+    --chat-account-hover-right: var(--chat-account-hover);
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -224,6 +232,80 @@
     background: transparent;
     margin: 6px;
     border-radius: var(--radius, 10px);
+    isolation: isolate;
+}
+
+/* Banner del perfil como fondo, colocado y velado igual que el de las cards de
+   Explore (explore.css: cover + degradado 180deg). El color del texto y el
+   degradado los calcula el componente desde el color dominante del banner
+   (--chat-account-fg / --chat-account-scrim): banner claro ⇒ texto negro y
+   prácticamente sin velo; banner oscuro ⇒ texto blanco y pie oscurecido. */
+.chat-account-card--banner {
+    border-color: transparent;
+    color: var(--chat-account-fg);
+    /* Recorta el banner a las esquinas de la card. Los paneles flotantes van en
+       un portal a <body>, así que no les afecta. */
+    overflow: hidden;
+}
+
+.chat-account-card-banner {
+    --chat-account-blur: 7px;
+    position: absolute;
+    /* Se sale de la card para que el blur no deje un borde translúcido dentro
+       de ella; la card lo recorta con su overflow: hidden. */
+    inset: calc(-1 * var(--chat-account-blur) * 2);
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    /* Desenfocado para que el nombre y la actividad se lean sobre cualquier
+       imagen sin tener que echar un velo encima. */
+    filter: blur(var(--chat-account-blur));
+}
+
+.chat-account-card-banner img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.chat-account-card-scrim {
+    position: absolute;
+    inset: 0;
+    background: var(--chat-account-scrim);
+}
+
+/* El contenido va por encima del banner (un absoluto pinta sobre el flujo). */
+.chat-account-card > .chat-account-card-main,
+.chat-account-card > .chat-account-card-info-btn {
+    position: relative;
+    z-index: 1;
+}
+
+.chat-account-card--banner .chat-account-card-name {
+    color: var(--chat-account-fg);
+}
+
+.chat-account-card--banner .chat-account-card-activity,
+.chat-account-card--banner .chat-account-card-activity--idle {
+    color: var(--chat-account-fg);
+    opacity: 0.82;
+}
+
+/* Los dos botones de icono viven en la mitad derecha: su color sale de ahí. */
+.chat-account-card--banner .chat-account-card-info-btn {
+    color: var(--chat-account-fg-right);
+    opacity: 0.85;
+}
+
+.chat-account-card--banner .chat-account-card-main:hover {
+    background: var(--chat-account-hover);
+}
+
+.chat-account-card--banner .chat-account-card-info-btn:hover {
+    background: var(--chat-account-hover-right);
+    color: var(--chat-account-fg-right);
+    opacity: 1;
 }
 
 .chat-account-card-avatar {
