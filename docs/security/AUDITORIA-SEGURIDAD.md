@@ -319,6 +319,9 @@ Esto eliminó los últimos 2 falsos positivos.
 
 - **DB:** RLS en perfiles/posts/conversaciones/notificaciones/mensajes/votos/llamadas,
  email oculto y revocado, RPCs disponibles, UPDATE/DELETE/INSERT de entidades ajenas bloqueados.
+ Incluye el check autenticado de la migración 085: insertar en `messages` un
+ `shared_post_id` de un perfil privado ajeno debe devolver `42501` (RLS); si
+ devuelve `23503` la fila pasó la política y solo falló la FK de conversación.
 - **SQL:** payloads de inyección contra la API REST (parámetros `eq`).
 - **XSS:** sanitización real de contenido y URLs (script, eventos, iframe, svg, protocolos).
 - **AUTH:** password, username, y email con la **whitelist real** (`validateEmail` de
@@ -362,6 +365,16 @@ ejecutarse en cualquier CI o cron sin tocar el código:
 ```bash
 VITE_SUPABASE_URL=https://xxxx.supabase.co \
 VITE_SUPABASE_ANON_KEY=<anon> \
+node scripts/test-security-full.mjs
+```
+
+Los checks que necesitan sesión (hoy solo el de la migración 085) usan una cuenta
+normal de prueba, nunca la `service_role`; sin ella se imprimen como `⏭️ omitido`
+y no cuentan ni como pass ni como fail:
+
+```bash
+SEC_TEST_EMAIL=cuenta-de-prueba@dominio.com \
+SEC_TEST_PASSWORD=<password> \
 node scripts/test-security-full.mjs
 ```
 
