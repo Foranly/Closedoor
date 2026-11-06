@@ -58,6 +58,64 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
+// ── Cliente autenticado OPCIONAL ──
+// Algunas políticas no se pueden probar sin sesión. Ejemplo: el INSERT en
+// messages de la migración 085 (no compartir posts de perfiles privados). Con
+// la anon key el insert falla igual por `sender_id = auth.uid()`, así que el
+// test daría un falso positivo. Con una cuenta de prueba se distingue el motivo
+// por el código de error. Sin credenciales el check se OMITE (no cuenta).
+const SEC_TEST_EMAIL = process.env.SEC_TEST_EMAIL
+  || envContent.match(/SEC_TEST_EMAIL=(.+)/)?.[1]?.trim()
+  || '';
+const SEC_TEST_PASSWORD = process.env.SEC_TEST_PASSWORD
+  || envContent.match(/SEC_TEST_PASSWORD=(.+)/)?.[1]?.trim()
+  || '';
+
+let secSession = null;
+if (SEC_TEST_EMAIL && SEC_TEST_PASSWORD) {
+  const client = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+  const { error } = await client.auth.signInWithPassword({
+    email: SEC_TEST_EMAIL,
+    password: SEC_TEST_PASSWORD,
+  });
+  if (error) {
+    console.warn(`\n⚠️  No se pudo iniciar sesión como cuenta de prueba (${error.message}).`);
+    console.warn('   El check de la migración 085 se omite.\n');
+  } else {
+    secSession = client;
+    console.log(`\n👤 Sesión de prueba: ${SEC_TEST_EMAIL} (checks autenticados activos)\n`);
+  }
+}
+
+/**
+ * Busca un post de un perfil privado para probar la política de la migración
+ * 085. Los posts NO encriptados son visibles aunque el perfil sea privado, así
+ * que basta con cruzar posts_public con profiles_public (ambas security_invoker,
+ * mismas reglas RLS que el frontend).
+ */
+async function findPrivateProfilePostId(excludeUserId) {
+  const { data: privateProfiles } = await supabase
+    .from('profiles_public')
+    .select('id')
+    .eq('is_private', true)
+    .limit(50);
+  // Excluir los del propio usuario de prueba: sus posts privados SÍ se pueden
+  // compartir (es el dueño) y el test daría un falso fallo.
+  const ids = (privateProfiles || [])
+    .map((p) => p.id)
+    .filter((id) => id !== excludeUserId);
+  if (!ids.length) return null;
+
+  const { data: posts } = await supabase
+    .from('posts_public')
+    .select('id')
+    .in('user_id', ids)
+    .limit(1);
+  return posts?.[0]?.id || null;
+}
+
 // ============================================
 // 1. TEST DB: RLS post-migración 051
 // ============================================
@@ -286,17 +344,57 @@ async function testDB() {
       fn: () => supabase.from('calls').select('*').limit(10),
       check: (d) => ({ pass: !d?.length, msg: !d?.length ? '✅ 0 filas' : `⚠️  ${d.length} visibles` })
     },
+    {
+      n: '1q', label: 'Compartir por chat un post de perfil privado: el INSERT en messages se bloquea (migración 085)',
+      fn: async () => {
+        if (!secSession) return { data: { skipped: 'sin SEC_TEST_EMAIL/SEC_TEST_PASSWORD' }, error: null };
+        const { data: { user: testUser } } = await secSession.auth.getUser();
+        if (!testUser) return { data: { skipped: 'la sesión de prueba ya no es válida' }, error: null };
+
+        const postId = await findPrivateProfilePostId(testUser.id);
+        if (!postId) return { data: { skipped: 'no hay posts de perfiles privados que probar' }, error: null };
+
+        // Conversación inexistente A PROPÓSITO: las FK se comprueban después de
+        // la RLS, así que si la política deja pasar el post privado el insert
+        // solo falla con 23503 (FK) y el check lo detecta. No se escribe nada
+        // en ningún caso.
+        const { error } = await secSession.from('messages').insert({
+          conversation_id: '00000000-0000-0000-0000-000000000000',
+          sender_id: testUser.id,
+          ciphertext: 'sec-test',
+          iv: 'sec-test',
+          encrypted_for: [testUser.id],
+          shared_post_id: postId,
+        });
+        return { data: { postId }, error };
+      },
+      check: (data, err) => {
+        if (data?.skipped) return { skip: true, msg: `sin probar (${data.skipped})` };
+        // Sin error = el mensaje se insertó: fuga real.
+        if (!err) return { pass: false, msg: '⚠️  Se insertó el mensaje con un post de perfil privado' };
+        // 42501 = RLS violation → la política nueva hizo su trabajo.
+        if (err.code === '42501') return { pass: true, msg: '✅ RLS bloqueó el post privado (42501)' };
+        // 23503 = FK de conversation_id: la fila pasó la RLS y solo falló la FK.
+        if (err.code === '23503') return { pass: false, msg: '⚠️  La RLS dejó pasar el post privado (solo falló la FK) — aplica la migración 085' };
+        return { pass: false, msg: `⚠️  Error inesperado: ${err.code || ''} ${err.message || ''}` };
+      }
+    },
   ];
 
-  let pass = 0, fail = 0;
+  let pass = 0, fail = 0, skipped = 0;
   for (const test of tests) {
     const { data, error } = await test.fn();
     const result = test.check(data, error);
+    if (result.skip) {
+      console.log(`⏭️  ${test.n}. ${test.label}: ${result.msg}`);
+      skipped++;
+      continue;
+    }
     const icon = result.pass ? '✅' : '⚠️ ';
     console.log(`${icon} ${test.n}. ${test.label}: ${result.msg}`);
     if (result.pass) pass++; else fail++;
   }
-  return { pass, fail };
+  return { pass, fail, skipped };
 }
 
 // ============================================
@@ -630,16 +728,22 @@ console.log('\n═════════════════════�
 console.log('  📊  RESUMEN FINAL');
 console.log('═══════════════════════════════════════\n');
 
-const total = { pass: 0, fail: 0 };
+const total = { pass: 0, fail: 0, skipped: 0 };
 for (const [area, res] of Object.entries(results)) {
-  const pct = ((res.pass / (res.pass + res.fail)) * 100).toFixed(0);
-  console.log(`${area.toUpperCase()}: ${res.pass}/${res.pass + res.fail} (${pct}%)`);
+  const areaTotal = res.pass + res.fail;
+  const pct = areaTotal ? ((res.pass / areaTotal) * 100).toFixed(0) : '—';
+  const skippedNote = res.skipped ? `, ${res.skipped} omitidas` : '';
+  console.log(`${area.toUpperCase()}: ${res.pass}/${areaTotal} (${pct}%${skippedNote})`);
   total.pass += res.pass;
   total.fail += res.fail;
+  total.skipped += res.skipped || 0;
 }
 
 const totalPct = ((total.pass / (total.pass + total.fail)) * 100).toFixed(0);
 console.log(`\n🏁  TOTAL: ${total.pass}/${total.pass + total.fail} (${totalPct}%)`);
+if (total.skipped) {
+  console.log(`⏭️  ${total.skipped} check(s) omitido(s): no cuentan como fallo, revisa el motivo arriba`);
+}
 if (total.fail === 0) {
   console.log('🎉  TODAS LAS PRUEBAS PASARON');
 } else {
