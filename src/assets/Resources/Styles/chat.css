@@ -878,7 +878,6 @@
     padding: 5px 12px;
     border-radius: 999px;
     background: var(--color-surface, #1a1a1a);
-    border: 1px solid var(--color-border, #2a2a2a);
     color: var(--color-text-secondary, #9ca3af);
     font-size: 0.72rem;
     font-weight: 600;
@@ -1052,7 +1051,7 @@
     align-items: center;
     gap: 8px;
     padding: 8px 18px;
-    border: 1px solid var(--color-border, #2a2a2a);
+    border: none;
     border-radius: 999px;
     background: var(--color-surface, #1a1a1a);
     color: var(--color-text, #ffffff);
@@ -1688,10 +1687,7 @@
     margin-bottom: 6px;
     border-radius: var(--radius, 10px);
     background: var(--color-surface, #1a1a1a);
-    border: 1px solid var(--color-border, #2a2a2a);
     overflow: hidden;
-    /* Ancho fijo en px (no %): dentro de la burbuja shrink-to-fit los
-       porcentajes se resuelven inconsistente y las cards variaban */
     width: 280px;
     max-width: 100%;
     transition: border-color 0.15s ease;
@@ -1826,9 +1822,7 @@
     pointer-events: none;
 }
 
-/* ── Song card in chat ──
-   Mismo lenguaje visual que la card de comunidad; se pinta fuera de la
-   burbuja (mensaje de solo-canción → .chat-message-bubble--bare). */
+/* ── Song card in chat ── */
 .chat-message-shared-song {
     display: flex;
     align-items: center;
@@ -1837,9 +1831,6 @@
     margin-bottom: 6px;
     border-radius: var(--radius, 10px);
     background: var(--color-surface, #1a1a1a);
-    border: 1px solid var(--color-border, #2a2a2a);
-    /* Ancho fijo en px, igual que la card de comunidad (los % dentro de la
-       burbuja shrink-to-fit se resuelven inconsistente) */
     width: 280px;
     max-width: 100%;
     transition: border-color 0.15s ease;
