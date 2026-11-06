@@ -1166,30 +1166,6 @@ export async function notifyCommentMentions(actorId, postId, commentId, content)
 }
 
 /**
- * Notify the post owner when someone dislikes their post (JS fallback for DB trigger)
- */
-export async function notifyDislike(actorId, postId) {
-  if (!actorId || !postId) return;
-  try {
-    const { data: post } = await supabase
-      .from('posts')
-      .select('user_id')
-      .eq('id', postId)
-      .single();
-    if (post && post.user_id !== actorId) {
-      await supabase.from('notifications').insert({
-        user_id: post.user_id,
-        actor_id: actorId,
-        type: 'dislike',
-        reference_id: postId,
-      });
-    }
-  } catch (err) {
-    console.warn('Error sending dislike notification:', err);
-  }
-}
-
-/**
  * Vote on a poll (single choice per user per post)
  */
 export async function votePoll(postId, optionId, userId) {
@@ -1383,8 +1359,9 @@ export async function dislikePost(postId, userId) {
     throw error;
   }
 
-  // Notificar al dueño del post (en background)
-  notifyDislike(userId, postId);
+  // La notificación 'dislike' la crea SOLO el trigger notify_dislike() de la DB
+  // (migración 036). No insertarla también desde aquí: eso generaba un duplicado
+  // por cada dislike, igual que pasaba con like/comment/repost.
   // Dislike = interacción válida → contar vista (dedup server-side)
   trackPostView(postId, userId).catch(() => {});
 }
