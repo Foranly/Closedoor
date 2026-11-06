@@ -215,6 +215,14 @@
    de información. Queda FUERA de .chat-list-items (el scroller), así que no se
    desplaza con las conversaciones. */
 .chat-account-card {
+    /* Color de la izquierda (nombre y actividad) y de la derecha (botones).
+       Sin banner los dos son el color del tema. */
+    --chat-account-fg: var(--color-text, #ffffff);
+    --chat-account-fg-right: var(--chat-account-fg);
+    --chat-account-scrim: transparent;
+    --chat-account-hover: var(--overlay-bg, rgba(255, 255, 255, 0.05));
+    --chat-account-hover-right: var(--chat-account-hover);
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -224,6 +232,77 @@
     background: transparent;
     margin: 6px;
     border-radius: var(--radius, 10px);
+    isolation: isolate;
+}
+
+/* Banner del perfil como fondo, colocado y velado igual que el de las cards de
+   Explore (explore.css: cover + degradado 180deg). El color del texto y el
+   degradado los calcula el componente a partir de la luminancia de cada mitad
+   del banner (--chat-account-fg / --chat-account-fg-right /
+   --chat-account-scrim): banner claro ⇒ texto negro y prácticamente sin velo;
+   banner oscuro ⇒ texto blanco y pie oscurecido. */
+.chat-account-card--banner {
+    border-color: transparent;
+    color: var(--chat-account-fg);
+    /* Recorta el banner a las esquinas de la card. Los paneles flotantes van en
+       un portal a <body>, así que no les afecta. */
+    overflow: hidden;
+}
+
+/* El banner se pinta nítido: la legibilidad la resuelven el color calculado por
+   mitades y, cuando el banner es uniforme, el velo del scrim. */
+.chat-account-card-banner {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.chat-account-card-banner img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.chat-account-card-scrim {
+    position: absolute;
+    inset: 0;
+    background: var(--chat-account-scrim);
+}
+
+/* El contenido va por encima del banner (un absoluto pinta sobre el flujo). */
+.chat-account-card > .chat-account-card-main,
+.chat-account-card > .chat-account-card-info-btn {
+    position: relative;
+    z-index: 1;
+}
+
+.chat-account-card--banner .chat-account-card-name {
+    color: var(--chat-account-fg);
+}
+
+.chat-account-card--banner .chat-account-card-activity,
+.chat-account-card--banner .chat-account-card-activity--idle {
+    color: var(--chat-account-fg);
+    opacity: 0.82;
+}
+
+/* Los dos botones de icono viven en la mitad derecha: su color sale de ahí. */
+.chat-account-card--banner .chat-account-card-info-btn {
+    color: var(--chat-account-fg-right);
+    opacity: 0.85;
+}
+
+.chat-account-card--banner .chat-account-card-main:hover {
+    background: var(--chat-account-hover);
+}
+
+.chat-account-card--banner .chat-account-card-info-btn:hover {
+    background: var(--chat-account-hover-right);
+    color: var(--chat-account-fg-right);
+    opacity: 1;
 }
 
 .chat-account-card-avatar {
@@ -1687,10 +1766,7 @@
     margin-bottom: 6px;
     border-radius: var(--radius, 10px);
     background: var(--color-surface, #1a1a1a);
-    border: 1px solid var(--color-border, #2a2a2a);
     overflow: hidden;
-    /* Ancho fijo en px (no %): dentro de la burbuja shrink-to-fit los
-       porcentajes se resuelven inconsistente y las cards variaban */
     width: 280px;
     max-width: 100%;
     transition: border-color 0.15s ease;
@@ -1825,9 +1901,7 @@
     pointer-events: none;
 }
 
-/* ── Song card in chat ──
-   Mismo lenguaje visual que la card de comunidad; se pinta fuera de la
-   burbuja (mensaje de solo-canción → .chat-message-bubble--bare). */
+/* ── Song card in chat ── */
 .chat-message-shared-song {
     display: flex;
     align-items: center;
@@ -1836,9 +1910,6 @@
     margin-bottom: 6px;
     border-radius: var(--radius, 10px);
     background: var(--color-surface, #1a1a1a);
-    border: 1px solid var(--color-border, #2a2a2a);
-    /* Ancho fijo en px, igual que la card de comunidad (los % dentro de la
-       burbuja shrink-to-fit se resuelven inconsistente) */
     width: 280px;
     max-width: 100%;
     transition: border-color 0.15s ease;

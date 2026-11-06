@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState, useContext, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import './css/header.css';
 import { IconHome, IconUser, IconBars, IconBell, IconCompass, IconCog, IconComment, IconUsers, IconDownload } from './ShellIcons';
 import { useAuth } from '../../../hooks/useAuth';
@@ -41,6 +42,7 @@ function Header() {
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const menuRef = useRef(null);
   const asideRef = useRef(null);
+  const closeMenuTimer = useRef(null);
   const location = useLocation();
 
   // Modo 'hover': colapsado por defecto; se expande mientras el ratón pasa por
@@ -109,8 +111,40 @@ function Header() {
   // Al salir con el ratón también se quita el foco expandido: el modo hover solo
   // se mantiene expandido mientras el ratón está encima (los usuarios de teclado
   // no disparan mouseleave, así que su expansión por foco sigue intacta).
+  // El menú de modos se renderiza en un portal a <body> (ver JSX): el sidebar con
+  // vidrio usa backdrop-filter, que crea un containing block para position:fixed,
+  // y además tiene overflow-y:auto, así que el menú quedaba desplazado y
+  // recortado dentro del sidebar cuando el fondo del perfil estaba activo.
+  // Al estar en un portal ya no es descendiente del <aside>, de modo que al
+  // llevar el ratón del sidebar al menú el mouseleave del aside dispara antes
+  // que el mouseenter del menú: por eso el cierre se retrasa y se cancela al
+  // entrar en el menú.
+  const cancelMenuClose = () => {
+    if (closeMenuTimer.current) {
+      clearTimeout(closeMenuTimer.current);
+      closeMenuTimer.current = null;
+    }
+  };
+  const closeMenuSoon = () => {
+    cancelMenuClose();
+    closeMenuTimer.current = setTimeout(() => {
+      closeMenuTimer.current = null;
+      setHovering(false);
+      setFocused(false);
+      setMenuOpen(false);
+    }, 150);
+  };
+
+  useEffect(() => () => {
+    if (closeMenuTimer.current) clearTimeout(closeMenuTimer.current);
+  }, []);
+
   const onMouseEnter = mode === 'hover' ? () => setHovering(true) : undefined;
-  const onMouseLeave = mode === 'hover' ? () => { setHovering(false); setFocused(false); setMenuOpen(false); } : undefined;
+  const onMouseLeave = mode === 'hover' ? () => {
+    if (menuOpen) { closeMenuSoon(); return; }
+    setHovering(false);
+    setFocused(false);
+  } : undefined;
   const onFocus = mode === 'hover' ? () => setFocused(true) : undefined;
   const onBlur = mode === 'hover' ? () => setFocused(false) : undefined;
 
@@ -240,8 +274,17 @@ function Header() {
               <span className="sidebar-footer-label">{modeLabel}</span>
             </button>
           </Tooltip>
-          {menuOpen && (
-            <div className="sidebar-mode-menu" style={{ left: menuPos.x, top: menuPos.y }} ref={menuRef} role="menu">
+          {menuOpen && createPortal(
+            <div
+              className="sidebar-mode-menu"
+              style={{ left: menuPos.x, top: menuPos.y }}
+              ref={menuRef}
+              role="menu"
+              onMouseEnter={cancelMenuClose}
+              onMouseLeave={() => {
+                if (mode === 'hover') { setHovering(false); setFocused(false); setMenuOpen(false); }
+              }}
+            >
               {MODES.map((m) => {
                 const isActive = m === mode;
                 return (
@@ -262,7 +305,8 @@ function Header() {
                   </button>
                 );
               })}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       </div>

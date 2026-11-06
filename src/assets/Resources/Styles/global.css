@@ -524,6 +524,12 @@ body:has(.sidebar--collapsed) .app-layout--chat {
     cursor: not-allowed;
 }
 
+/* Un item deshabilitado no se marca al pasar por encima. */
+.fc-dropdown-btn:disabled:hover,
+.fc-dropdown-btn:disabled:active {
+    background: transparent;
+}
+
 .fc-dropdown-btn--danger {
     color: var(--color-text-secondary, #9ca3af) !important;
 }
@@ -693,4 +699,16 @@ html.fc-sidebar-text .sidebar-icon {
 /* Mismo color para el logo del app (span enmascarado, ver header.css) */
 html.fc-sidebar-text .sidebar-brand-logo {
     --sidebar-logo-color: var(--fc-cards-text);
+}
+
+/* ==========================================
+   ◈ Rendimiento: capas pesadas promovidas a GPU
+   ========================================== */
+.post-card-lightbox,
+.post-card-sensitive-overlay,
+.fc-modal-drag-overlay,
+.chat-call-overlay,
+.chat-account-card-banner {
+    transform: translateZ(0);
+    backface-visibility: hidden;
 }

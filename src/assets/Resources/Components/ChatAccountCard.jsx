@@ -13,6 +13,9 @@ import {
 import { getFollowCounts, getCachedFollowCounts, setCachedFollowCounts } from '../../services/followService';
 import { supabase } from '../../services/supabaseclient';
 import { useUserStatus } from '../../services/useUserStatus';
+import { getImageStyle } from '../../services/helpers';
+import { getCdnUrl } from '../../services/cdnService';
+import { useBgContrastSides } from '../../../hooks/useBgContrast';
 import Avatar from './Avatar';
 import ExploreCard from './ExploreCard';
 
@@ -48,6 +51,17 @@ function anchorFromElement(el) {
  * Los 3 puntos abren el mismo menú .fc-dropdown que el resto de la app (el de
  * tu propia tarjeta de perfil): compartir perfil y elegir estado, vía
  * useUserStatus.
+ *
+ * El banner del perfil se usa como fondo de la card, colocado y velado igual
+ * que el banner de las cards de Explore (cover + degradado oscuro), para que
+ * ambas se vean igual. El color del texto sale de useBgContrastSides, que mide
+ * la luminancia de la MITAD IZQUIERDA y de la DERECHA por separado: un banner
+ * negro a la izquierda y blanco a la derecha necesita texto claro en una zona y
+ * oscuro en la otra, así que el nombre y la actividad usan el color de la
+ * izquierda y los botones de icono el de la derecha. Si las dos mitades dan un
+ * color parecido se usa uno solo. Con banner claro no se echa velo blanco (se
+ * lavaba la imagen). Si el banner no carga, la card vuelve a los colores del
+ * tema.
  *
  * Solo es la cuenta del usuario en sesión: no consulta la actividad de otros.
  * La actividad se lee del detector en vivo si estamos en la app de escritorio y
@@ -201,6 +215,40 @@ export default function ChatAccountCard() {
   const name = profile?.displayname || profile?.username || user?.user_metadata?.username || '';
   const username = profile?.username || user?.user_metadata?.username || '';
 
+  // ── Banner como fondo ──
+  const bannerUrl = profile?.banner_url || null;
+  const [brokenBanner, setBrokenBanner] = useState(null);
+  const showBanner = Boolean(bannerUrl) && brokenBanner !== bannerUrl;
+  // Color por mitades: el nombre y la actividad van sobre la izquierda y los
+  // dos botones de icono sobre la derecha, así que cada zona lleva el color que
+  // se lee en SU trozo de banner. Si las dos mitades dan el mismo color, se usa
+  // uno solo para toda la card.
+  const bannerSides = useBgContrastSides(showBanner ? bannerUrl : null);
+  const splitBanner = bannerSides.left !== bannerSides.right;
+  // '#000000' ⇒ esa zona clara ⇒ texto e iconos oscuros.
+  const lightBanner = bannerSides.left === '#000000';
+  // Tinte del hover opuesto al color del texto, para que el botón se marque sin
+  // desaparecer sobre la imagen.
+  const hoverTint = (fg) => (fg === '#000000'
+    ? 'rgba(0, 0, 0, 0.12)'
+    : 'rgba(255, 255, 255, 0.2)');
+
+  const bannerVars = showBanner
+    ? {
+        '--chat-account-fg': bannerSides.left,
+        '--chat-account-fg-right': bannerSides.right,
+        // Con el banner partido no se echa velo: cada mitad ya es contraria a su
+        // texto, y oscurecerla estropearía justo la que va en negro.
+        '--chat-account-scrim': splitBanner
+          ? 'none'
+          : lightBanner
+            ? 'linear-gradient(180deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.07) 100%)'
+            : 'linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.6) 100%)',
+        '--chat-account-hover': hoverTint(bannerSides.left),
+        '--chat-account-hover-right': hoverTint(bannerSides.right),
+      }
+    : undefined;
+
   const ActivityIcon = !activity
     ? null
     : activity.kind === 'game'
@@ -243,7 +291,19 @@ export default function ChatAccountCard() {
 
   return (
     <>
-      <div className="chat-account-card">
+      <div className={`chat-account-card${showBanner ? ' chat-account-card--banner' : ''}`} style={bannerVars}>
+        {showBanner && (
+          <div className="chat-account-card-banner" aria-hidden="true">
+            <img
+              src={getCdnUrl(bannerUrl)}
+              alt=""
+              style={{ ...getImageStyle(profile?.banner_position), objectFit: 'cover' }}
+              onError={() => setBrokenBanner(bannerUrl)}
+            />
+            <div className="chat-account-card-scrim" />
+          </div>
+        )}
+
         <button
           type="button"
           className="chat-account-card-main"
