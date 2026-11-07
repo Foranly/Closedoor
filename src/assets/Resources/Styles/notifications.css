@@ -26,7 +26,7 @@
 
 .notifications-selected-count {
   font-size: 0.85rem;
-  color: var(--color-text-secondary, #9ca3af);
+  color: var(--color-text, #ffffff);
   background: var(--overlay-bg-subtle);
   padding: 6px 14px;
   border-radius: var(--radius, 10px);
@@ -44,7 +44,7 @@
   border-radius: var(--radius, 10px);
   font-family: inherit;
   user-select: none;
-  background: var(--overlay-bg);
+  background: var(--background-surface, #1a1a1a);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: var(--color-text, #ffffff);
@@ -69,10 +69,10 @@
   border-radius: var(--radius, 10px);
   font-family: inherit;
   user-select: none;
-  background: rgba(255, 70, 70, 0.12);
+  background: var(--color-danger-action, rgba(239, 68, 68, 0.1));
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #6b7280;
+  color: var(--color-text-danger, #ef4444);
   border: none;
   transition: background 0.2s ease, color 0.2s ease;
   white-space: nowrap;

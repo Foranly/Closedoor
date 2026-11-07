@@ -60,6 +60,22 @@
     font-family: inherit;
 }
 
+.posts-section-action-home {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--text-color, #ffffff);
+    color: var(--color-bg, #000000);
+    border: none;
+    border-radius: var(--radius, 10px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.15s ease;
+    font-family: inherit;
+}
+
 .posts-section-action:hover {
     opacity: 0.85;
     transform: translateY(-1px);
@@ -87,7 +103,7 @@
     display: none;
 }
 
-.posts-section-tab {
+.posts-section-tab, .posts-section-tab-home {
     white-space: nowrap;
     flex-shrink: 0;
     padding: 8px 18px;
@@ -100,7 +116,7 @@
     font-weight: 500;
     font-family: inherit;
     cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
 .posts-section-tab-with-dropdown {
@@ -174,7 +190,7 @@
     color: var(--accent-text-color, #000000);
 }
 
-.posts-section-tab:hover {
+.posts-section-tab:hover, .posts-section-tab-home:hover {
     background: var(--color-surface-hover, #252525);
     color: var(--color-text, #ffffff);
 }
@@ -184,6 +200,16 @@
     color: var(--accent-text-color, #000000);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+}
+
+.posts-section-tab--active-home {
+    background: var(--text-color, #ffffff);
+    color: var(--color-bg, #000000);
+}
+
+.posts-section-tab--active-home:hover {
+    background: var(--text-color, #ffffff);
+    color: #000;
 }
 
 .posts-section-tab--active:hover {
