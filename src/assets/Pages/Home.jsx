@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { IconNewspaper } from '../Resources/Components/ShellIcons';
 import { useI18n } from '../services/i18n/useI18n';
+import { FaPlus } from 'react-icons/fa';
 import '../Resources/Styles/Home.css';
 import '../Resources/Styles/post.css';
 import '../Resources/Styles/skeleton.css';
@@ -387,22 +388,23 @@ function Home() {
                     <div className="posts-section-header">
                         <div className="posts-section-tabs">
                             <button
-                                className={`posts-section-tab ${tab === 'for_you' ? 'posts-section-tab--active' : ''}`}
+                                className={`posts-section-tab-home ${tab === 'for_you' ? 'posts-section-tab--active-home' : ''}`}
                                 onClick={() => setTab('for_you')}
                             >
                                 {t('home.tab_for_you')}
                             </button>
                             <button
-                                className={`posts-section-tab ${tab === 'following' ? 'posts-section-tab--active' : ''}`}
+                                className={`posts-section-tab-home ${tab === 'following' ? 'posts-section-tab--active-home' : ''}`}
                                 onClick={() => setTab('following')}
                             >
                                 {t('home.tab_following')}
                             </button>
                         </div>
                         <button
-                            className="posts-section-action"
+                            className="posts-section-action-home"
                             onClick={() => setShowCreatePost(true)}
                         >
+                            <FaPlus />
                             {t('home.new_post')}
                         </button>
                     </div>
