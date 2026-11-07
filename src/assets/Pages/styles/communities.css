@@ -311,7 +311,6 @@
 .community-create-privacy-opt strong { font-size: 0.85rem; color: inherit; }
 .community-create-privacy-opt small { font-size: 0.7rem; color: var(--color-text-muted, #6b7280); }
 .community-create-privacy-opt--active {
-  border-color: var(--color-accent, #6b7280);
   background: color-mix(in srgb, var(--color-accent, #6b7280) 12%, transparent);
   color: var(--color-text, #fff);
 }

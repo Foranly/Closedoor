@@ -11,6 +11,8 @@
     --color-text-muted: #6b7280;
     --color-accent: #6b7280;
     --accent-color: #6b7280;
+    --color-danger-action: rgba(239, 68, 68, 0.1);
+    --color-text-danger: #ef4444;
     --radius: 10px;
     --radius-sm: 6px;
     --radius-lg: 14px;
