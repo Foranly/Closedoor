@@ -39,6 +39,7 @@
   gap: 2px;
   padding: 12px;
   min-width: 220px;
+  height: max-content;
   flex-shrink: 0;
 }
 
@@ -100,8 +101,8 @@
 .settings-panel {
   flex: 1;
   padding: 20px 24px;
-  border-left: 1px solid var(--color-border, #2a2a2a);
   min-height: 200px;
+  border-left: 1px solid var(--color-border, #2a2a2a);
 }
 
 /* ── Row inside panel ── */
