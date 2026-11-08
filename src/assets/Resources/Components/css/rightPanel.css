@@ -11,10 +11,6 @@
   flex-direction: column;
   gap: 12px;
   align-self: flex-start;
-  /* El panel se pega arriba y ocupa como máximo hasta el borde inferior de la
-     ventana. Usamos max-height (no height fija): si llenara justo el viewport,
-     al llegar al final del scroll se desplazaría; con max-height permanece
-     pegado. Si su contenido es más alto, scrollea de forma independiente. */
   max-height: calc(100vh - 30px);
   overflow-y: auto;
   overflow-x: hidden;
@@ -50,6 +46,13 @@ html.fc-desktop .right-panel {
 
 .right-panel-card--noborder {
   border: none;
+}
+
+html:not(.fc-cards-glass) .right-panel-card {
+  --accent-surface-rgba: initial;
+  --accent-surface-rgba-hover: initial;
+  --accent-surface-blur: initial;
+  --accent-surface-border: initial;
 }
 
 .right-panel-card-title {
