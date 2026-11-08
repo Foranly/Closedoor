@@ -89,7 +89,7 @@
     font-size: 0.95rem;
     font-family: inherit;
     color: var(--color-text, #ffffff);
-    background: var(--color-bg, #000000);
+    background: var(--color-surface-hover);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     width: 100%;
     box-sizing: border-box;
