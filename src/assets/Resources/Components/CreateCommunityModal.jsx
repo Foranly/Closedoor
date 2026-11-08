@@ -15,21 +15,12 @@ import {
   COMMUNITY_NAME_MAX,
   COMMUNITY_DESC_MAX,
 } from '../../services/communityService';
+import { SUGGESTED_INTERESTS } from '../../services/communityInterests';
 import './css/modal.css';
 import '../../Pages/styles/communities.css';
 
 // Module-level cache igual que Modal.jsx (persiste entre aperturas)
 const colorCache = {};
-
-// Intereses sugeridos (los mismos que el modal de perfil)
-const SUGGESTED_INTERESTS = [
-  'Videojuegos', 'Películas', 'Música', 'Arte', 'Fotografía',
-  'Deportes', 'Lectura', 'Escritura', 'Viajes', 'Cocina',
-  'Tecnología', 'Ciencia', 'Naturaleza', 'Animales', 'Moda',
-  'Diseño', 'Baile', 'Anime', 'Programación', 'IA',
-  'Fitness', 'Fútbol', 'Historia', 'Astronomía', 'Emprendimiento',
-  'Criptomonedas', 'Sostenibilidad', 'Streaming', 'Edición de Video', 'DIY',
-];
 
 export default function CreateCommunityModal({ isOpen, onClose, onSuccess }) {
   const { t } = useI18n();

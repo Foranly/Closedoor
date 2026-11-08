@@ -1199,112 +1199,133 @@
   color: var(--color-text-secondary, #888);
   cursor: pointer;
 }
-.community-role-save {
-  margin-top: 14px;
-  padding: 9px 0;
-  border-radius: 999px;
-  border: none;
-  background: var(--color-accent, #6b7280);
-  color: #fff;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-}
-.community-role-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── Editar avatar/banner de la comunidad (modal de ajustes) ── */
-.community-settings-media {
+/* ── Ajustes de la comunidad: tres columnas, todo a la vista (sin pestañas) ──
+   [imagen · nombre · descripción · reglas]
+   [intereses · acento · privacidad]
+   [invitaciones · roles]
+   El modal en sí es el de creación (ModalShell + community-create-modal);
+   solo se amplía el ancho para que quepan las tres columnas. ── */
+/* El ancho base lo pone `dialog.fc-modal` (max-width: 960px, width: 100%), que
+   tiene especificidad (0,1,1) y ganaría a una clase suelta. Se declara con
+   `dialog.fc-modal.<clase>` para pasarle por delante sin !important. */
+/* Ancho derivado de la card de comunidad del listado: .explore-grid usa
+   columnas de 392px, así que el modal mide lo justo para tres de ellas.
+   1280 = 3 × 392 + 2 × 24 (gap) + 2 × 28 (padding del <dialog>).
+   Con border-box el contenido queda en 1224 y cada columna en 392 exactos. */
+dialog.fc-modal.community-settings-modal {
+  max-width: 1280px;
+  width: calc(100vw - 40px);
+}
+
+.community-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+/* La card de imagen usa las medidas de .explore-card del listado de comunidades
+   (banner 40/11 y avatar de 64px) para que se vea con el mismo tamaño. */
+.community-settings-modal .community-create-preview-banner {
+  height: auto;
+  aspect-ratio: 40 / 11;
+}
+.community-settings-modal .community-create-preview-avatar {
+  width: 64px;
+  height: 64px;
+}
+.community-settings-modal .community-create-preview-avatar-letter {
+  font-size: 1.4rem;
+}
+.community-settings-modal .community-create-preview-avatar-wrap {
+  bottom: -32px;
+}
+
+.community-settings-col {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-bottom: 12px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--color-border, #2a2a2a);
-}
-
-.community-settings-media-row {
-  display: flex;
-  gap: 10px;
-}
-
-.community-settings-media-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  gap: 14px;
   min-width: 0;
 }
 
-.community-settings-media-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--color-text-muted, #6b7280);
+.community-settings-invites {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.community-settings-media-preview {
-  position: relative;
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  overflow: hidden;
+/* ── Card de miembros del panel derecho: se puede pulsar para abrir el diálogo ── */
+.community-members-card {
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.community-members-card:hover {
   background: var(--color-surface-hover, #252525);
-  border: 2px solid var(--color-border, #2a2a2a);
+}
+
+.community-members-card:focus-visible {
+  outline: 2px solid var(--color-accent, #6b7280);
+  outline-offset: 2px;
+}
+
+/* ── Modal de miembros: fila con los dos dropdowns (orden y rol) ──
+   Reutiliza los botones y menús del modal de seguidores
+   (followers-modal-sort-btn / -menu), solo se coloca la fila. */
+.community-members-menus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 24px 4px;
   flex-shrink: 0;
 }
 
-.community-settings-media-preview--banner {
-  width: 100%;
-  max-width: 200px;
-  height: 64px;
-  border-radius: var(--radius, 10px);
+.community-members-menu {
+  position: relative;
 }
 
-.community-settings-media-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.community-settings-media-letter {
-  position: absolute;
-  inset: 0;
+/* Etiqueta "Nombre" con el slug (c/<slug>) al lado, en la misma línea. */
+.community-settings-label-row {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: var(--color-text, #fff);
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.community-settings-media-btn {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+.community-settings-slug {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* ── Crear rol: mismo shell que los otros modales de comunidad (el de ajustes
+   usa el ancho del de creación a propósito). Misma pelea de especificidad con
+   `dialog.fc-modal`. ── */
+dialog.fc-modal.community-role-modal {
+  max-width: 440px;
+  width: 100%;
+}
+
+.community-settings-body {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 0.7rem;
-  transition: background 0.15s ease;
-}
-
-.community-settings-media-btn:hover { background: rgba(0, 0, 0, 0.8); }
-
-.community-settings-media-save {
-  margin-top: 6px;
-  align-self: flex-start;
-  padding: 7px 18px;
+  flex-direction: column;
+  gap: 14px;
 }
 
 /* Responsive */
 @media (max-width: 1024px) {
   .community-header-banner { height: 150px; }
   .community-body { padding: 14px 0 18px; }
+
+  /* Dos columnas antes de colapsar del todo: la tercera (invitaciones y
+     roles) pasa debajo de la primera. */
+  .community-settings-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+}
+
+@media (max-width: 760px) {
+  .community-settings-grid { grid-template-columns: 1fr; }
 }
