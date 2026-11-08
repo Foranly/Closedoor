@@ -9,6 +9,8 @@ import {
   getCommunityMembers,
   getActiveMembersRanking,
 } from '../../services/communityService';
+import { supabase } from '../../services/supabaseclient';
+import { requestMembersDialog } from '../../services/communityEvents';
 import Avatar from './Avatar';
 import { FaUsers, FaTrophy, FaShieldAlt } from 'react-icons/fa';
 import './css/profileSidebar.css';
@@ -73,6 +75,30 @@ export default function CommunitySidebar() {
     fetchData();
   }, [slug, fetchData]);
 
+  // ── Live: el sidebar se quedaba con la comunidad del montaje ──
+  // Al guardar los ajustes (nombre, reglas, privacidad…) la página actualiza su
+  // propio estado, pero este panel es otro componente y no se enteraba hasta
+  // recargar. `communities` está en la publicación supabase_realtime (058), así
+  // que se escucha la fila y se mezcla lo que cambie; también cubre ediciones
+  // hechas desde otro cliente.
+  useEffect(() => {
+    const id = community?.id;
+    if (!id) return undefined;
+
+    const channel = supabase
+      .channel(`community-sidebar-${id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communities', filter: `id=eq.${id}` }, (payload) => {
+        const updated = payload.new;
+        if (!updated?.id) return;
+        setCommunity((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [community?.id]);
+
   if (!slug) return null;
 
   if (loading && !community) {
@@ -136,9 +162,27 @@ export default function CommunitySidebar() {
         </div>
       )}
 
-      {/* ── Members ── */}
+      {/* ── Members ──
+          Pulsar la card abre el diálogo de miembros de la página (que es quien
+          tiene la lista completa y los filtros). Los avatares siguen siendo
+          enlaces al perfil, así que se ignora el clic sobre ellos. ── */}
       {hasMembers && (
-        <div className="profile-sidebar-card">
+        <div
+          className="profile-sidebar-card community-members-card"
+          role="button"
+          tabIndex={0}
+          title={t('comunidades.members')}
+          onClick={(e) => {
+            if (e.target.closest('a')) return;
+            requestMembersDialog(slug);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              requestMembersDialog(slug);
+            }
+          }}
+        >
           <div className="profile-sidebar-title">
             <FaUsers className="profile-sidebar-title-icon" />
             {t('comunidades.members')}
