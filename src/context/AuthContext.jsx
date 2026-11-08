@@ -6,6 +6,7 @@ useCallback,
 useRef,
 } from "react";
 import { supabase } from "../assets/services/supabaseclient";
+import { resetActivityDedupe } from "../assets/services/activityService";
 import {
 checkUsernameExists,
 checkEmailExists,
@@ -102,11 +103,19 @@ window.removeEventListener("touchstart", onTouchStart, true);
 const persistMyStatus = useCallback(async (status, userId) => {
 if (!userId) return;
 try {
+// Al reportar 'disconnected' se limpia también la actividad detectada: si no,
+// el perfil sigue mostrando "Escuchando…" con el usuario ya fuera (la fila
+// mantendría activity/activity_updated_at). La migración 086 lo hace por
+// trigger, pero esto no depende de que se haya aplicado.
+if (status === "disconnected") resetActivityDedupe();
 const { error } = await supabase
 .from("profiles")
 .update({
 user_status: status,
 user_status_updated_at: new Date().toISOString(),
+...(status === "disconnected"
+? { activity: null, activity_updated_at: null, program_activity: null }
+: {}),
 })
 .eq("id", userId);
 if (error) console.warn("[AuthStatus] DB update error:", error);
@@ -172,6 +181,7 @@ return "";
 
 const handleDisconnect = () => {
 if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+resetActivityDedupe();
 const token = sessionTokenRef.current;
 if (SB_URL && SB_KEY && token) {
 try {
@@ -185,6 +195,11 @@ apikey: SB_KEY,
 body: JSON.stringify({
 user_status: "disconnected",
 user_status_updated_at: new Date().toISOString(),
+// Misma limpieza que persistMyStatus: nadie debe quedar con actividad
+// publicada al cerrar la app.
+activity: null,
+activity_updated_at: null,
+program_activity: null,
 }),
 keepalive: true,
 }).catch(() => {});
@@ -815,6 +830,16 @@ return true;
           return { success: false, error: "solo_session_local" };
         }
       }
+      // ── Reportar desconexión y limpiar la actividad ANTES de destruir la sesión ──
+      // Cerrando sesión no se disparaba beforeunload/pagehide, así que la fila se
+      // quedaba con el último latido en 'online' y con la actividad publicada: los
+      // demás seguían viendo "Escuchando…" (y en la DB no se limpiaba nunca).
+      // Si esta salida no cierra la sesión (todas las comprobaciones de arriba),
+      // no se toca: el usuario sigue activo en otro sitio.
+      if (currentUserId) {
+        await persistMyStatus("disconnected", currentUserId).catch(() => {});
+      }
+
       const { error } = await supabase.auth.signOut();
       if (error) {
         setError(error.message);

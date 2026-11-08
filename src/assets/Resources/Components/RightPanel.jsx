@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { useI18n } from '../../services/i18n/useI18n';
-import { getUserProfile, getUserProfileByUsername, getCachedProfileByUsername, getCachedProfile } from '../../services/userService';
+import { supabase } from '../../services/supabaseclient';
+import { getUserProfile, getUserProfileByUsername, getCachedProfileByUsername, getCachedProfile, setCachedProfile, setCachedProfileByUsername } from '../../services/userService';
 import { getTrendingHashtags, getTrendingWords, getCachedTrendingWords, getCachedTrendingHashtags, deduplicateTrending } from '../../services/hashtagService';
 import { getTrendingCategory } from '../../services/trendingDictionary';
 import ProfileSidebar from './ProfileSidebar';
@@ -204,6 +205,36 @@ function ProfileContent({ path, ownProfile, user, t }) {
       .catch(() => setViewedProfile(null))
       .finally(() => setLoading(false));
   }, [path, isOtherProfilePage, isUUID]);
+
+  // ── Live: mantener el perfil del sidebar al día mientras siga abierto ──
+  // El efecto de arriba solo corre al cambiar de ruta (o una vez por cache miss),
+  // así que la ActivityCard de ProfileSidebar se quedaba con la actividad del
+  // primer render y el estado de conexión congelado hasta recargar. Aquí se
+  // escucha la fila del perfil y se mezcla lo que llega (activity,
+  // activity_updated_at, program_activity, user_status, user_status_updated_at…).
+  useEffect(() => {
+    const id = viewedProfile?.id;
+    if (!isOtherProfilePage || !id) return undefined;
+
+    const channel = supabase
+      .channel(`right-panel-profile-${id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${id}` }, (payload) => {
+        const updated = payload.new;
+        if (!updated?.id) return;
+        // El payload de Realtime trae la fila completa; email no debe acabar en
+        // el cache local del visitante (misma política que PROFILE_PUBLIC_COLUMNS).
+        const safe = { ...updated };
+        delete safe.email;
+        setViewedProfile((prev) => (prev && prev.id === safe.id ? { ...prev, ...safe } : prev));
+        setCachedProfile(safe);
+        if (safe.username) setCachedProfileByUsername(safe.username, safe);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isOtherProfilePage, viewedProfile?.id]);
 
   const { showAccent, accentVisibility, showInterests, showProfileStats } = useI18n();
 

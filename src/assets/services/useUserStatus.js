@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { supabase } from './supabaseclient';
 import { updateTrackedStatus } from './presenceService';
+import { resetActivityDedupe } from './activityService';
 import { UserStatusContext } from '../../context/UserStatusContext';
 
 /**
@@ -38,9 +39,18 @@ export function useUserStatus(userId, otherUserId) {
     if (!userId) return null;
 
     try {
+      // La desconexión limpia la fila de actividad: invalidar el dedupe para que
+      // al volver se vuelva a publicar la misma canción.
+      if (newStatus === 'disconnected') resetActivityDedupe();
+
       const payload = {
         user_status: newStatus,
         user_status_updated_at: new Date().toISOString(),
+        // Reportarse desconectado limpia la actividad del perfil (música/vídeo/
+        // juego). Mismo criterio que el trigger de la migración 086.
+        ...(newStatus === 'disconnected'
+          ? { activity: null, activity_updated_at: null, program_activity: null }
+          : {}),
       };
 
       const { error } = await supabase
@@ -146,6 +156,7 @@ export function useUserStatus(userId, otherUserId) {
 
       const handleDisconnect = () => {
         if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+        resetActivityDedupe();
 
         // 1. DB vía fetch con keepalive: true — garantiza que llegue aunque
         //    el navegador cierre la pestaña
@@ -158,11 +169,15 @@ export function useUserStatus(userId, otherUserId) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
                 'apikey': SB_KEY,
-              },
-              body: JSON.stringify({
-                user_status: 'disconnected',
-                user_status_updated_at: new Date().toISOString(),
-              }),
+              },                body: JSON.stringify({
+                  user_status: 'disconnected',
+                  user_status_updated_at: new Date().toISOString(),
+                  // Limpieza de actividad en la MISMA petición keepalive (no se
+                  // puede mandar una segunda al cerrar la pestaña).
+                  activity: null,
+                  activity_updated_at: null,
+                  program_activity: null,
+                }),
               keepalive: true,
             }).catch(() => {});
           } catch {}

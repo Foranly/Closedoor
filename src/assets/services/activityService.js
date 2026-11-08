@@ -150,6 +150,17 @@ export function activitySignature(activity) {
 let lastWrittenKey = null;
 
 /**
+ * Olvida la última escritura confirmada.
+ *
+ * Se llama al reportar 'disconnected': esa escritura limpia `activity` en la
+ * fila, así que el dedupe quedaría mintiendo y, al volver, la misma canción no
+ * se republicaría (la card se vería vacía hasta el siguiente cambio de tema).
+ */
+export function resetActivityDedupe() {
+  lastWrittenKey = null;
+}
+
+/**
  * Guarda la actividad en la fila del usuario (o la limpia con `null`).
  *
  * Dedupe: si el valor es idéntico al último escrito con éxito no se vuelve a
@@ -180,6 +191,7 @@ export async function persistActivity(userId, rawActivity) {
     lastWrittenKey = null;
     throw error;
   }
+
 
   lastWrittenKey = key;
   return true;
