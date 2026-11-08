@@ -6,7 +6,7 @@ import usePageTitle from '../../hooks/usePageTitle';
 import useBgContrast from '../../hooks/useBgContrast';
 import { supabase, dbPublic } from '../services/supabaseclient';
 import { toast } from 'react-toastify';
-import { FaUsers, FaLock, FaPlus, FaCheck, FaTimes, FaSpinner, FaCamera, FaLink, FaTrash, FaShieldAlt, FaRegComments, FaEllipsisH, FaCog, FaComment } from 'react-icons/fa';
+import { FaUsers, FaLock, FaPlus, FaCheck, FaTimes, FaSpinner, FaCamera, FaLink, FaTrash, FaRegComments, FaEllipsisH, FaCog, FaComment } from 'react-icons/fa';
 import {
   getCommunity,
   getCachedCommunity,
@@ -32,7 +32,6 @@ import {
   deleteInvite,
   getActiveMembersRanking,
   redeemInvite,
-  updateCommunity,
   clearCommunityCache,
   clearCommunitiesListCache,
 } from '../services/communityService';
@@ -49,10 +48,15 @@ import { uploadWithLocalPreview } from '../services/cdnService';
 import { getFollowing } from '../services/followService';
 import { getOrCreateConversation, sendMessage } from '../services/chatService';
 import { getCachedBlockStatus } from '../services/blockService';
+import { COMMUNITY_MEMBERS_EVENT } from '../services/communityEvents';
 import VirtualPostList from '../Resources/Components/VirtualPostList';
 import Avatar from '../Resources/Components/Avatar';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
+import ModalShell from '../Resources/Components/ModalShell';
+import CommunitySettingsModal from '../Resources/Components/CommunitySettingsModal';
 import '../Resources/Components/css/profileSidebar.css';
+// Buscador de usuarios: se reutiliza el mismo que el modal de seguidores.
+import '../Resources/Components/css/followersModal.css';
 import './styles/communities.css';
 
 const BUILTIN_MODERATOR_ROLES = ['owner', 'admin', 'moderator'];
@@ -108,12 +112,6 @@ export default function CommunityPage() {
 
   // UI
   const [showSettings, setShowSettings] = useState(false);
-  const [editAvatar, setEditAvatar] = useState('');
-  const [editBanner, setEditBanner] = useState('');
-  const [savingMedia, setSavingMedia] = useState(false);
-  // Subida en vuelo: bloquea el guardado mientras la URL real del CDN no
-  // llega (evita persistir un blob: URL que solo vería el creador).
-  const [mediaUploading, setMediaUploading] = useState(false);
   // Banner roto (el archivo del CDN ya no existe → 404 para todos). Se oculta
   // con elegancia y se limpia la cache del detalle para que el refetch sane.
   const [bannerBroken, setBannerBroken] = useState(false);
@@ -127,6 +125,17 @@ export default function CommunityPage() {
   const [showInvites, setShowInvites] = useState(false);
   const [deletingPost, setDeletingPost] = useState(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  // Modal de miembros: mismo esquema que el de seguidores del perfil
+  // (buscador + dropdown de orden + lista de filas).
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberRoleFilter, setMemberRoleFilter] = useState('all');
+  // 'date' (por antigüedad en la comunidad) | 'role' (jerarquía de roles)
+  const [memberSortMode, setMemberSortMode] = useState('date');
+  const [memberSortDir, setMemberSortDir] = useState('desc');
+  const [memberSortMenuOpen, setMemberSortMenuOpen] = useState(false);
+  const memberSortMenuRef = useRef(null);
+  const [memberRoleMenuOpen, setMemberRoleMenuOpen] = useState(false);
+  const memberRoleMenuRef = useRef(null);
   const [leavePending, setLeavePending] = useState(false);
   const [inviteToken, setInviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') || null);
   const [inviteRedeeming, setInviteRedeeming] = useState(false);
@@ -140,26 +149,12 @@ export default function CommunityPage() {
   const membershipRef = useRef(null);
   useEffect(() => { membershipRef.current = membership; }, [membership]);
 
-  // Al navegar a otra comunidad se resetea el estado de banner roto y los
-  // borradores de edición de imagen pendientes (evita guardar en la comunidad
-  // B una imagen elegida para la A).
+  // Al navegar a otra comunidad se resetea el estado de banner roto (los
+  // borradores de imagen viven ahora dentro de CommunitySettingsModal y se
+  // reinician solos al abrirse con otra comunidad).
   useEffect(() => {
     setBannerBroken(false);
-    setEditAvatar('');
-    setEditBanner('');
-    setSavingMedia(false);
-    setMediaUploading(false);
   }, [slug]);
-
-  // Al cerrar el modal de ajustes se descartan los borradores de imagen
-  useEffect(() => {
-    if (!showSettings) {
-      setEditAvatar('');
-      setEditBanner('');
-      setSavingMedia(false);
-      setMediaUploading(false);
-    }
-  }, [showSettings]);
 
   // ── Cerrar menú de 3 puntos al hacer clic fuera o scrollear ──
   useEffect(() => {
@@ -177,6 +172,38 @@ export default function CommunityPage() {
       document.removeEventListener('scroll', closeOnScroll, { capture: true });
     };
   }, [headerMenuOpen]);
+
+  // ── Abrir el diálogo de miembros desde el panel derecho ──
+  // La card de miembros del sidebar pide el diálogo con un CustomEvent; solo
+  // responde la página de esa comunidad.
+  useEffect(() => {
+    if (!slug) return undefined;
+    const handleRequest = (e) => {
+      if (e.detail?.slug !== slug) return;
+      setMemberSearch('');
+      setMemberRoleFilter('all');
+      setMemberSortMenuOpen(false);
+      setMemberRoleMenuOpen(false);
+      setShowMembersModal(true);
+    };
+    window.addEventListener(COMMUNITY_MEMBERS_EVENT, handleRequest);
+    return () => window.removeEventListener(COMMUNITY_MEMBERS_EVENT, handleRequest);
+  }, [slug]);
+
+  // ── Menús del modal de miembros (orden y rol): cerrar al clic fuera ──
+  useEffect(() => {
+    if (!memberSortMenuOpen && !memberRoleMenuOpen) return;
+    const handleClick = (e) => {
+      if (memberSortMenuRef.current && !memberSortMenuRef.current.contains(e.target)) {
+        setMemberSortMenuOpen(false);
+      }
+      if (memberRoleMenuRef.current && !memberRoleMenuRef.current.contains(e.target)) {
+        setMemberRoleMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [memberSortMenuOpen, memberRoleMenuOpen]);
 
   const bannerUrl = community?.banner_url || '';
   const contrastColor = useBgContrast(bannerUrl);
@@ -480,66 +507,6 @@ export default function CommunityPage() {
     } catch (err) {
       console.error(err);
       toast.error(err.message || t('comunidades.error'));
-    }
-  };
-
-  // ── Editar avatar/banner (owner) ──
-  // Re-subir la imagen también sana archivos rotos del CDN: si el archivo
-  // cacheado devolvió 404, uploadImage descarta la entrada y crea uno nuevo.
-  const handleMediaUpload = async (e, type) => {
-    const file = e.target.files?.[0];
-    if (!file || !user?.id) return;
-    if (!file.type.startsWith('image/')) {
-      toast.error(t('modal.invalid_image_type'));
-      return;
-    }
-    setMediaUploading(true);
-    try {
-      const { localUrl, realUrlPromise } = uploadWithLocalPreview(file, user.id, type);
-      if (type === 'avatar') setEditAvatar(localUrl);
-      else setEditBanner(localUrl);
-      const realUrl = await realUrlPromise;
-      if (type === 'avatar') setEditAvatar(realUrl);
-      else setEditBanner(realUrl);
-      toast.success(t('upload.uploaded'), { autoClose: 2000 });
-    } catch (err) {
-      console.error('CDN upload error:', err);
-      toast.error(err.message || t('comunidades.error'));
-    } finally {
-      setMediaUploading(false);
-      e.target.value = '';
-    }
-  };
-
-  const handleSaveMedia = async () => {
-    if (!editAvatar && !editBanner) return;
-    // Guarda contra blob: URLs (subida en vuelo o fallida): un blob solo lo
-    // puede ver la sesión que lo creó → jamás debe persistirse en la DB.
-    if ((editAvatar && editAvatar.startsWith('blob:')) || (editBanner && editBanner.startsWith('blob:'))) {
-      toast.error(t('comunidades.media_uploading'));
-      return;
-    }
-    setSavingMedia(true);
-    try {
-      const updates = {};
-      if (editAvatar) updates.avatar_url = editAvatar;
-      if (editBanner) updates.banner_url = editBanner;
-      const updated = await updateCommunity(community.id, updates);
-      if (updated) {
-        setCommunity(updated);
-        setEditAvatar('');
-        setEditBanner('');
-        setBannerBroken(false);
-        // El listado cachea la comunidad → invalidarlo para que la nueva
-        // imagen (y el updated_at) aparezcan sin esperar el TTL.
-        clearCommunitiesListCache(user.id);
-        toast.success(t('comunidades.media_saved'));
-      }
-    } catch (err) {
-      console.error('[Community] Error saving media:', err);
-      toast.error(err.message || t('comunidades.error'));
-    } finally {
-      setSavingMedia(false);
     }
   };
 
@@ -849,6 +816,67 @@ export default function CommunityPage() {
   const canPost = isMember;
   const canManage = isModerator;
 
+  // ── Modal de miembros: búsqueda, filtro por rol y orden ──
+  // Roles presentes en la lista (incluye los personalizados que existan hoy),
+  // para no ofrecer chips que no devolverían a nadie.
+  const memberRoleOptions = Array.from(new Set(members.map((m) => m.role).filter(Boolean)));
+
+  // Peso para ordenar por jerarquía; los roles personalizados van después de
+  // 'member' y se ordenan alfabéticamente entre ellos.
+  const memberRoleWeight = (role) => {
+    const weights = { owner: 4, admin: 3, moderator: 2, member: 1 };
+    return weights[role] || 0;
+  };
+
+  const memberSortOptions = [
+    { mode: 'date', dir: 'desc', modeLabel: t('comunidades.filter_recent'), label: `${t('comunidades.filter_recent')} ↓` },
+    { mode: 'date', dir: 'asc', modeLabel: t('comunidades.filter_recent'), label: `${t('comunidades.filter_recent')} ↑` },
+    { mode: 'role', dir: 'desc', modeLabel: t('comunidades.filter_role'), label: `${t('comunidades.filter_role')} ↓` },
+    { mode: 'role', dir: 'asc', modeLabel: t('comunidades.filter_role'), label: `${t('comunidades.filter_role')} ↑` },
+  ];
+  const currentMemberSort = memberSortOptions.find(
+    (o) => o.mode === memberSortMode && o.dir === memberSortDir,
+  ) || memberSortOptions[0];
+
+  const memberRoleLabel = (role) => (
+    ['owner', 'admin', 'moderator', 'member'].includes(role)
+      ? t(`comunidades.role_${role}`)
+      : role
+  );
+  const memberRoleChoices = [
+    { value: 'all', label: t('comunidades.filter_all_roles') },
+    ...memberRoleOptions.map((role) => ({ value: role, label: memberRoleLabel(role) })),
+  ];
+  const currentMemberRoleChoice = memberRoleChoices.find((c) => c.value === memberRoleFilter)
+    || memberRoleChoices[0];
+
+  const filteredMembers = (() => {
+    const q = memberSearch.trim().toLowerCase().replace(/^@/, '');
+    let list = members;
+    if (q) {
+      list = list.filter((m) => {
+        const username = String(m.profiles?.username || '').toLowerCase();
+        const displayname = String(m.profiles?.displayname || '').toLowerCase();
+        return username.includes(q) || displayname.includes(q);
+      });
+    }
+    if (memberRoleFilter !== 'all') {
+      list = list.filter((m) => m.role === memberRoleFilter);
+    }
+
+    const dir = memberSortDir === 'asc' ? -1 : 1;
+    if (memberSortMode === 'role') {
+      return [...list].sort((a, b) => {
+        const diff = memberRoleWeight(b.role) - memberRoleWeight(a.role);
+        if (diff !== 0) return dir * diff;
+        return String(a.profiles?.username || '').localeCompare(String(b.profiles?.username || ''));
+      });
+    }
+    return [...list].sort(
+      (a, b) => dir * (new Date(b.joined_at || 0) - new Date(a.joined_at || 0)),
+    );
+  })();
+
   return (
     <div className="community-page">
       {/* ── Header ── */}
@@ -965,7 +993,18 @@ export default function CommunityPage() {
           </span>
 
           <div className="community-header-stats" style={{ color: contrastColor }}>
-            <button type="button" className="community-header-stat" onClick={() => setShowMembersModal(true)}>
+            <button
+              type="button"
+              className="community-header-stat"
+              onClick={() => {
+                // Abrir limpio: sin búsqueda ni filtros de la vez anterior.
+                setMemberSearch('');
+                setMemberRoleFilter('all');
+                setMemberSortMenuOpen(false);
+                setMemberRoleMenuOpen(false);
+                setShowMembersModal(true);
+              }}
+            >
               <strong>{community.member_count || 0}</strong> {t('comunidades.members')}
             </button>
             <span className="community-header-stat">
@@ -1157,25 +1196,159 @@ export default function CommunityPage() {
 
       </div>
 
-      {/* ── Modal de miembros ── */}
-      {showMembersModal && (
-        <div className="community-modal-backdrop" onClick={() => setShowMembersModal(false)}>
-          <div className="community-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="community-modal-header">
-              <span className="community-modal-title">{t('comunidades.members')} ({members.length})</span>
-              <button type="button" className="community-modal-close" onClick={() => setShowMembersModal(false)}><FaTimes /></button>
-            </div>
-            <div className="community-modal-body">
-              {members.map((m) => (
-                <div key={m.user_id} className="community-member-row">
-                  <Link to={`/profile/${m.profiles?.username}`} className="community-member-main">
-                    <Avatar className="community-member-avatar" src={m.profiles?.avatar_url} alt={m.profiles?.username} />
-                    <div>
-                      <span className="community-member-name">@{m.profiles?.username || '…'}</span>
-                      <span className="community-member-role">{t(`comunidades.role_${m.role}`)}</span>
-                    </div>
-                  </Link>
-                  {(isOwner || isModerator) && m.user_id !== user?.id && (
+      {/* ── Modal de miembros — mismo shell y estructura que el de seguidores
+          del perfil (FollowersModal): header + buscador + dropdown de orden +
+          lista de filas. ── */}
+      <ModalShell
+        isOpen={showMembersModal}
+        onClose={() => setShowMembersModal(false)}
+        className="followers-modal"
+      >
+        <div className="followers-modal-header">
+          <h3 className="fc-modal-title">{t('comunidades.members')} ({members.length})</h3>
+          <button
+            type="button"
+            className="followers-modal-close"
+            onClick={() => setShowMembersModal(false)}
+            aria-label={t('common.close')}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="followers-modal-search">
+          <div className="followers-modal-search-wrap">
+            <svg className="followers-modal-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              className="followers-modal-search-input"
+              type="text"
+              value={memberSearch}
+              onChange={(e) => setMemberSearch(e.target.value)}
+              placeholder={t('comunidades.members_search')}
+            />
+          </div>
+        </div>
+
+        <div className="community-members-menus">
+          {/* Orden */}
+          <div className="community-members-menu" ref={memberSortMenuRef}>
+            <button
+              type="button"
+              className="followers-modal-sort-btn"
+              onClick={() => setMemberSortMenuOpen((o) => !o)}
+              aria-haspopup="menu"
+              aria-expanded={memberSortMenuOpen}
+            >
+              <span className="followers-modal-sort-btn-label">{currentMemberSort.modeLabel}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {memberSortMenuOpen && (
+              <div className="followers-modal-sort-menu fc-dropdown" role="menu">
+                {memberSortOptions.map((opt) => {
+                  const active = opt.mode === memberSortMode && opt.dir === memberSortDir;
+                  return (
+                    <button
+                      key={`${opt.mode}-${opt.dir}`}
+                      type="button"
+                      role="menuitem"
+                      aria-pressed={active}
+                      className={`fc-dropdown-btn${active ? ' fc-dropdown-btn--active' : ''}`}
+                      onClick={() => {
+                        setMemberSortMode(opt.mode);
+                        setMemberSortDir(opt.dir);
+                        setMemberSortMenuOpen(false);
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Filtro por rol (solo los que existen hoy en la comunidad) */}
+          <div className="community-members-menu" ref={memberRoleMenuRef}>
+            <button
+              type="button"
+              className="followers-modal-sort-btn"
+              onClick={() => setMemberRoleMenuOpen((o) => !o)}
+              aria-haspopup="menu"
+              aria-expanded={memberRoleMenuOpen}
+            >
+              <span className="followers-modal-sort-btn-label">{currentMemberRoleChoice.label}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {memberRoleMenuOpen && (
+              <div className="followers-modal-sort-menu fc-dropdown" role="menu">
+                {memberRoleChoices.map((choice) => {
+                  const active = choice.value === memberRoleFilter;
+                  return (
+                    <button
+                      key={choice.value}
+                      type="button"
+                      role="menuitem"
+                      aria-pressed={active}
+                      className={`fc-dropdown-btn${active ? ' fc-dropdown-btn--active' : ''}`}
+                      onClick={() => {
+                        setMemberRoleFilter(choice.value);
+                        setMemberRoleMenuOpen(false);
+                      }}
+                    >
+                      {choice.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+
+        {members.length === 0 ? (
+          <div className="followers-modal-empty">
+            <p>{t('comunidades.no_members')}</p>
+          </div>
+        ) : filteredMembers.length === 0 ? (
+          <div className="followers-modal-empty">
+            <p>{t('comunidades.no_members_match')}</p>
+          </div>
+        ) : (
+          <div className="followers-modal-list">
+            {filteredMembers.map((m) => (
+              <div
+                key={m.user_id}
+                className="followers-modal-item"
+                onClick={(e) => {
+                  if (e.target.closest('.followers-modal-action')) return;
+                  setShowMembersModal(false);
+                  navigate(`/profile/${m.profiles?.username}`);
+                }}
+              >
+                <Avatar
+                  className="followers-modal-avatar"
+                  src={m.profiles?.avatar_url}
+                  alt={m.profiles?.username}
+                />
+                <div className="followers-modal-info">
+                  <div className="followers-modal-name-row">
+                    <span className="followers-modal-username">{m.profiles?.username || '…'}</span>
+                    <span className="community-member-role">
+                      {['owner', 'admin', 'moderator', 'member'].includes(m.role)
+                        ? t(`comunidades.role_${m.role}`)
+                        : m.role}
+                    </span>
+                  </div>
+                </div>
+                {(isOwner || isModerator) && m.user_id !== user?.id && (
+                  <div className="followers-modal-action">
                     <select
                       className="community-member-role-select"
                       value={m.role}
@@ -1189,14 +1362,13 @@ export default function CommunityPage() {
                       ))}
                       <option value="owner" disabled>{t('comunidades.role_owner')}</option>
                     </select>
-                  )}
-                </div>
-              ))}
-              {members.length === 0 && <p className="community-modal-empty">{t('comunidades.no_members')}</p>}
-            </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </ModalShell>
 
       {/* ── Modal de invitaciones ── */}
       {showInvites && (
@@ -1308,145 +1480,88 @@ export default function CommunityPage() {
         </div>
       )}
 
-      {/* ── Modal de ajustes (owner): roles + accesos rápidos ── */}
-      {showSettings && isOwner && (
-        <div className="community-modal-backdrop" onClick={() => setShowSettings(false)}>
-          <div className="community-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="community-modal-header">
-              <span className="community-modal-title">{t('comunidades.settings')}</span>
-              <button type="button" className="community-modal-close" onClick={() => setShowSettings(false)}><FaTimes /></button>
-            </div>
-            <div className="community-modal-body">
-              {/* ── Editar avatar / banner (owner). La re-subida también sana
-                  archivos rotos del CDN (ver cdnService.uploadImage) ── */}
-              <div className="community-settings-media">
-                <div className="community-roles-bar-title"><FaCamera /> {t('comunidades.edit_media')}</div>
-                <div className="community-settings-media-row">
-                  <div className="community-settings-media-item">
-                    <span className="community-settings-media-label">{t('comunidades.avatar')}</span>
-                    <div className="community-settings-media-preview">
-                      {editAvatar || community.avatar_url ? (
-                        <img src={editAvatar || community.avatar_url} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                      ) : (
-                        <span className="community-settings-media-letter">{community.name.charAt(0).toUpperCase()}</span>
-                      )}
-                      <button
-                        type="button"
-                        className="community-settings-media-btn"
-                        onClick={() => document.getElementById('cc-settings-avatar-input')?.click()}
-                        title={t('comunidades.avatar')}
-                      >
-                        <FaCamera />
-                      </button>
-                      <input
-                        id="cc-settings-avatar-input"
-                        type="file"
-                        accept="image/jpeg,image/png,image/gif,image/webp"
-                        style={{ display: 'none' }}
-                        onChange={(e) => handleMediaUpload(e, 'avatar')}
-                      />
-                    </div>
-                  </div>
-                  <div className="community-settings-media-item">
-                    <span className="community-settings-media-label">{t('comunidades.banner')}</span>
-                    <div className="community-settings-media-preview community-settings-media-preview--banner">
-                      {editBanner || community.banner_url ? (
-                        <img src={editBanner || community.banner_url} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                      ) : (
-                        <span className="community-settings-media-letter">{t('comunidades.banner')}</span>
-                      )}
-                      <button
-                        type="button"
-                        className="community-settings-media-btn"
-                        onClick={() => document.getElementById('cc-settings-banner-input')?.click()}
-                        title={t('comunidades.banner')}
-                      >
-                        <FaCamera />
-                      </button>
-                      <input
-                        id="cc-settings-banner-input"
-                        type="file"
-                        accept="image/jpeg,image/png,image/gif,image/webp"
-                        style={{ display: 'none' }}
-                        onChange={(e) => handleMediaUpload(e, 'banner')}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="community-role-save community-settings-media-save"
-                  onClick={handleSaveMedia}
-                  disabled={savingMedia || mediaUploading || (!editAvatar && !editBanner)}
-                >
-                  {savingMedia ? <FaSpinner className="fc-spin" /> : t('comunidades.save_changes')}
-                </button>
-              </div>
-              <div className="community-roles-bar-title"><FaShieldAlt /> {t('comunidades.roles')}</div>
-              <div className="community-roles-bar-list">
-                {roles.map((r) => (
-                  <span key={r.id} className="community-role-chip" style={{ '--cc-role': r.color || '#6366f1' }}>
-                    {r.name}
-                    <button type="button" onClick={() => handleDeleteRole(r)}><FaTimes /></button>
-                  </span>
-                ))}
-                <button type="button" className="community-roles-bar-add" onClick={() => setShowCreateRole(true)}>
-                  <FaPlus /> {t('comunidades.role_create')}
-                </button>
-              </div>
-              <button
-                type="button"
-                className="community-sidebar-link"
-                style={{ marginTop: 14 }}
-                onClick={() => { setShowSettings(false); setShowInvites(true); }}
-              >
-                <FaLink style={{ marginRight: 4 }} /> {t('comunidades.invites')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Ajustes (owner): mismo modal que el de creación, con una pestaña
+          extra para las invitaciones. Todo el estado de los campos vive dentro
+          del componente; al guardar devuelve la comunidad actualizada. ── */}
+      <CommunitySettingsModal
+        isOpen={showSettings && isOwner}
+        onClose={() => setShowSettings(false)}
+        community={community}
+        onSaved={(updated) => {
+          if (!updated) return;
+          setCommunity(updated);
+          setBannerBroken(false);
+          // El listado cachea la comunidad: invalidarlo para que el nuevo
+          // nombre/imagen aparezca sin esperar el TTL.
+          clearCommunitiesListCache(user?.id);
+        }}
+        roles={roles}
+        onCreateRole={() => setShowCreateRole(true)}
+        onDeleteRole={handleDeleteRole}
+        myInvite={myInvite}
+        inviteUrl={inviteUrl}
+        onCopyInvite={copyInvite}
+        onCreateInvite={handleCreateInvite}
+        onDeleteInvite={handleDeleteInvite}
+        // El modal de "compartir por chat" es un overlay con z-index, no un
+        // <dialog>: si se abriera con los ajustes abiertos quedaría detrás de
+        // la capa superior. Se cierra primero.
+        onShareInvite={() => {
+          setShowSettings(false);
+          openShareModal();
+        }}
+      />
 
-      {showCreateRole && (
-        <div className="community-modal-backdrop" onClick={() => setShowCreateRole(false)}>
-          <div className="community-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="community-modal-header">
-              <span className="community-modal-title">{t('comunidades.role_create')}</span>
-              <button type="button" className="community-modal-close" onClick={() => setShowCreateRole(false)}><FaTimes /></button>
-            </div>
-            <div className="community-modal-body">
-              <input
-                className="fc-modal-input"
-                value={newRoleName}
-                onChange={(e) => setNewRoleName(e.target.value)}
-                placeholder={t('comunidades.role_name')}
-                maxLength={30}
-              />
-              <div className="community-role-color-row">
-                <span>{t('comunidades.role_color')}</span>
-                <input type="color" value={newRoleColor} onChange={(e) => setNewRoleColor(e.target.value)} />
-              </div>
-              <div className="community-role-perms">
-                {['manage_posts', 'manage_members', 'manage_requests', 'manage_chat', 'manage_roles'].map((perm) => (
-                  <label key={perm} className="community-role-perm">
-                    <input
-                      type="checkbox"
-                      checked={newRolePerms.includes(perm)}
-                      onChange={(e) => setNewRolePerms((prev) =>
-                        e.target.checked ? [...prev, perm] : prev.filter((x) => x !== perm)
-                      )}
-                    />
-                    {t(`comunidades.perm_${perm}`)}
-                  </label>
-                ))}
-              </div>
-              <button type="button" className="community-role-save" onClick={handleCreateRole} disabled={!newRoleName.trim()}>
-                {t('comunidades.role_save')}
-              </button>
-            </div>
+      {/* Crear rol: se abre ENCIMA del modal de ajustes, así que también tiene
+          que ser un <dialog> nativo (un div con z-index quedaría detrás de la
+          capa superior del otro modal). */}
+      <ModalShell
+        isOpen={showCreateRole}
+        onClose={() => setShowCreateRole(false)}
+        className="community-create-modal community-role-modal"
+      >
+        <div className="fc-modal-header">
+          <h3 className="fc-modal-title">{t('comunidades.role_create')}</h3>
+          <div className="fc-modal-header-actions">
+            <button type="button" className="fc-modal-save" onClick={handleCreateRole} disabled={!newRoleName.trim()}>
+              {t('comunidades.role_save')}
+            </button>
+            <button type="button" className="fc-modal-close" onClick={() => setShowCreateRole(false)} aria-label={t('common.close')}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           </div>
         </div>
-      )}
+        <div className="community-settings-body">
+        <input
+          className="fc-modal-input"
+          value={newRoleName}
+          onChange={(e) => setNewRoleName(e.target.value)}
+          placeholder={t('comunidades.role_name')}
+          maxLength={30}
+        />
+        <div className="community-role-color-row">
+          <span>{t('comunidades.role_color')}</span>
+          <input type="color" value={newRoleColor} onChange={(e) => setNewRoleColor(e.target.value)} />
+        </div>
+        <div className="community-role-perms">
+          {['manage_posts', 'manage_members', 'manage_requests', 'manage_chat', 'manage_roles'].map((perm) => (
+            <label key={perm} className="community-role-perm">
+              <input
+                type="checkbox"
+                checked={newRolePerms.includes(perm)}
+                onChange={(e) => setNewRolePerms((prev) =>
+                  e.target.checked ? [...prev, perm] : prev.filter((x) => x !== perm)
+                )}
+              />
+              {t(`comunidades.perm_${perm}`)}
+            </label>
+          ))}
+        </div>
+        </div>
+      </ModalShell>
 
       {/* ── Confirmar salida ── */}
       {leavePending && (
