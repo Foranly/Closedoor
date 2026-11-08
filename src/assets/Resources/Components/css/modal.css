@@ -82,7 +82,6 @@ dialog.fc-modal::-webkit-scrollbar-thumb:hover {
 .fc-modal-label {
     display: flex;
     flex-direction: column;
-    margin-bottom: 16px;
     font-size: 0.9rem;
     font-weight: 500;
     color: var(--color-text-secondary, #9ca3af);

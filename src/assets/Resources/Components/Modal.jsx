@@ -896,9 +896,11 @@ export default function Modal({
                   maxLength={PRONOUNS_MAX}
                 />
                 <span className="fc-modal-char-count">{pronouns.length}/{PRONOUNS_MAX}</span>
+                {/* Hint text below the input
                 <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #6b7280)', marginTop: 2, display: 'block' }}>
                   {t('modal.pronouns_hint')}
                 </span>
+                */}
               </label>
               <label className="fc-modal-label">
                 {t('modal.bio_label')}
