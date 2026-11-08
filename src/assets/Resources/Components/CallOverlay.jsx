@@ -4,6 +4,9 @@ import { LiveKitRoom, RoomAudioRenderer, useLocalParticipant } from '@livekit/co
 import { FaPhone, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaSpinner, FaWindowMinimize, FaExpand } from 'react-icons/fa';
 import Avatar from './Avatar';
 import { getLiveKitToken } from '../../services/callService';
+// Estilos propios: el overlay se monta en CallProvider (App), así que no puede
+// depender de chat.css, que solo se carga en el chunk lazy de /chat.
+import './css/callOverlay.css';
 
 /**
  * CallOverlay — UI de llamada de voz (LiveKit Cloud).

@@ -17,6 +17,7 @@ import {
 } from 'react-icons/fa6';
 import { useI18n } from '../../services/i18n/useI18n';
 import { useAuth } from '../../../hooks/useAuth';
+import { computeEffectiveStatus } from '../../services/userStatus';
 import { useLocalActivityState, isLocalActivityAvailable } from '../../../hooks/useLocalActivity';
 import { isFollowing, getCachedFollowStatus } from '../../services/followService';
 import { resolveActivityArtwork } from '../../services/musicService';
@@ -114,12 +115,32 @@ export default function ActivityCard({ profile, isOwnProfile, surfaceStyle }) {
   const viewerIsFollower = useViewerIsFollower(user?.id, profile?.id, !needsFollowerCheck);
 
   const visible = canViewActivity({ profile, isOwnProfile, viewerIsFollower });
-  const storedActivity = activityFromProfile(profile);
+  // El estado de conexión manda: si el dueño está desconectado (lo marcó al
+  // cerrar, o el heartbeat lleva >3 min parado) no se muestra actividad aunque
+  // la fila conserve el último registro. En la DB la limpia el trigger de la
+  // migración 086; esto cubre además el caso de cierre sucio (crash), donde
+  // nadie llegó a escribir 'disconnected'.
+  const ownerDisconnected = computeEffectiveStatus(profile) === 'disconnected';
+  const storedActivity = ownerDisconnected ? null : activityFromProfile(profile);
 
   const activity = isLive ? normalizeActivity(liveActivity) : enabled ? storedActivity : null;
   // Segunda actividad: el programa elegido a mano. No lo detecta el watcher, así
-  // que se lee de la fila del perfil (columna de la migración 081).
-  const program = enabled ? programFromProfile(profile) : null;
+  // que se lee de la fila del perfil (columna de la migración 081). Es una
+  // preferencia y por eso no caduca, pero tampoco debe verse con el dueño
+  // desconectado: si no, al cerrar la pestaña el perfil seguiría mostrando
+  // "Usando <programa>" (mientras arreglaba la actividad detectada, este bloque
+  // se quedaba fuera del guard y parecía que la actividad no se limpiaba).
+  const program = enabled && !ownerDisconnected ? programFromProfile(profile) : null;
+
+  // La caducidad depende del reloj, no de un evento: el dueño pasa a
+  // 'disconnected' a los 3 min sin heartbeat y la actividad caduca a los 15 min.
+  // Sin este tick la card solo se recalcularía al cambiar algo en la fila, así
+  // que seguiría enseñando actividad vieja hasta recargar.
+  const [, setStatusTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStatusTick((n) => n + 1), 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const [artwork, setArtwork] = useState('');
   const artworkKey = activity && activity.kind === 'music'
