@@ -2930,6 +2930,7 @@ export default function Chat() {
                   className="chat-list-item chat-call-item"
                   onClick={() => selectConversation(call.conversation_id)}
                   title={getDisplayName(peer)}
+                  style={{ '--fc-user-accent': peer?.accent_color || undefined }}
                 >
                   <Avatar
                     src={peer?.avatar_url}
@@ -2981,6 +2982,7 @@ export default function Chat() {
               className={`chat-list-item ${conv.id === activeConvId ? 'chat-list-item--active' : ''}`}
               onClick={() => selectConversation(conv.id)}
               onContextMenu={(e) => handleContextMenu(e, conv.id)}
+              style={{ '--fc-user-accent': conv.otherUser?.accent_color || undefined }}
             >
               <Avatar
                 src={conv.otherUser?.avatar_url}
