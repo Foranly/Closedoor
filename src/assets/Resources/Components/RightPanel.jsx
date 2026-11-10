@@ -27,9 +27,11 @@ export default function RightPanel() {
 
   // ── Community page: render community sidebar ──
   const isCommunityPage = path.startsWith('/c/');
+  // Solo /profile toma la superficie del perfil (ver rightPanel.css).
+  const isProfileRoute = path === PROFILE_ROUTE || path.startsWith(PROFILE_ROUTE_PREFIX);
 
   return (
-    <aside className="right-panel">
+    <aside className={`right-panel${isProfileRoute ? ' right-panel--profile' : ''}`}>
       {isCommunityPage ? (
         <CommunitySidebar />
       ) : (
