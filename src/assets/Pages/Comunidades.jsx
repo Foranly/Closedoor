@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { useI18n } from '../services/i18n/useI18n';
 import usePageTitle from '../../hooks/usePageTitle';
-import { FaUsers, FaPlus, FaSpinner, FaLock, FaSyncAlt } from 'react-icons/fa';
+import { FaUsers, FaPlus, FaSpinner, FaSyncAlt } from 'react-icons/fa';
 import { useAuth } from '../../hooks/useAuth';
 import { getCommunities, getCommunityById, canCreateCommunity, getCachedCommunities, MIN_FOLLOWERS_TO_CREATE, MAX_COMMUNITIES_PER_USER } from '../services/communityService';
 import { supabase } from '../services/supabaseclient';
 import CreateCommunityModal from '../Resources/Components/CreateCommunityModal';
+import CommunityCard from '../Resources/Components/CommunityCard';
 import { toast } from 'react-toastify';
 import '../Resources/Styles/explore.css';
 import '../Resources/Styles/skeleton.css';
@@ -26,9 +26,6 @@ export default function Comunidades() {
   const [showCreate, setShowCreate] = useState(false);
   const [checkingPerms, setCheckingPerms] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  // Banners cuyo archivo ya no existe en el CDN (404) → mostrar el fallback
-  // de gradiente en vez de la imagen rota (el refetch puede sanearlos).
-  const [brokenBanners, setBrokenBanners] = useState(() => new Set());
   const searchTimerRef = useRef(null);
 
   const load = useCallback(async (query = '', sort = 'popular') => {
@@ -220,83 +217,9 @@ export default function Comunidades() {
         </div>
       ) : (
         <div className="explore-grid comunidades-grid">
-          {communities.map((c) => {
-            const accentStyle = c.accent_color
-              ? {
-                  '--accent-color': c.accent_color,
-                  '--accent-color-2': c.accent_color_secondary || c.accent_color,
-                }
-              : {};
-            return (
-              <Link
-                key={c.id}
-                to={`/c/${c.slug}`}
-                className={`explore-card${c.accent_color ? ' explore-card--accent' : ''}`}
-                style={accentStyle}
-              >
-                <div className="explore-card-banner">
-                  {c.banner_url && !brokenBanners.has(c.id) ? (
-                    <img
-                      className="explore-card-banner-img"
-                      src={c.banner_url}
-                      alt=""
-                      onError={() => setBrokenBanners((prev) => new Set(prev).add(c.id))}
-                    />
-                  ) : (
-                    <div
-                      className="comunidades-card-banner-fallback"
-                      style={{ background: `linear-gradient(135deg, ${c.accent_color || '#333'}, ${c.accent_color_secondary || c.accent_color || '#222'})` }}
-                    />
-                  )}
-                  <div className="explore-card-overlay" />
-                </div>
-
-                <div className="explore-card-body">
-                  {c.avatar_url ? (
-                    <img className="explore-card-avatar" src={c.avatar_url} alt={c.name} />
-                  ) : (
-                    <div
-                      className="explore-card-avatar comunidades-card-avatar-letter"
-                      style={{ background: `linear-gradient(135deg, ${c.accent_color || '#333'}, ${c.accent_color_secondary || c.accent_color || '#222'})` }}
-                    >
-                      {c.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-
-                  <div className="explore-card-info">
-                    <div className="explore-card-name-row">
-                      <span className="explore-card-name">{c.name}</span>
-                      <span className="comunidades-card-slug">c/{c.slug}</span>
-                      {c.is_private && (
-                        <span className="explore-card-private-icon" title={t('comunidades.private')}>
-                          <FaLock />
-                        </span>
-                      )}
-                      {c.is_mature && (
-                        <span className="comunidades-card-mature" title={t('comunidades.mature')}>
-                          +18
-                        </span>
-                      )}
-                    </div>
-
-                    <span className="explore-card-followers">
-                      {c.member_count || 0} {t('comunidades.members')} · {c.post_count || 0} {t('comunidades.posts')}
-                    </span>
-
-                    {c.description && <p className="explore-card-bio">{c.description}</p>}
-
-                    {c.interests?.length > 0 && (
-                      <div className="explore-card-interests">
-                        {c.interests.slice(0, 3).map((interest) => (
-                          <span key={interest} className="explore-card-interest">{interest}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+          {communities.map((c) => (
+            <CommunityCard key={c.id} community={c} />
+          ))}
         </div>
       )}
 

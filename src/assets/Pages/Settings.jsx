@@ -17,7 +17,7 @@ import ProgramLogo from '../Resources/Components/ProgramLogo';
 import { getActivitySettings, readActivityHistory, clearActivityHistory, persistActivity, persistProgramActivity, programFromProfile } from '../services/activityService';
 import { supabase } from '../services/supabaseclient';
 import { getNicknames, getCachedNicknames, cacheNicknames, setNickname, removeNickname } from '../services/chatService';
-import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop, FaBars, FaInfoCircle, FaSyncAlt, FaDownload } from 'react-icons/fa';
+import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop, FaBars, FaInfoCircle, FaSyncAlt, FaDownload, FaUsers } from 'react-icons/fa';
 import { MdLogout } from 'react-icons/md';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
@@ -612,6 +612,7 @@ export default function Settings() {
   const [selectOpen, setSelectOpen] = useState(false);
   const selectRef = useRef(null);
   const [privacyUpdating, setPrivacyUpdating] = useState(false);
+  const [communitiesPrivacyUpdating, setCommunitiesPrivacyUpdating] = useState(false);
   const [statsPrivacyUpdating, setStatsPrivacyUpdating] = useState(false);
   const [activeCategory, setActiveCategory] = useState('system');
   // ── Zoom de la ventana (solo tiene sentido en la app de escritorio) ──
@@ -1077,6 +1078,23 @@ export default function Settings() {
       toast.error(t('settings.activity_save_error'));
     } finally {
       setActivityUpdating(false);
+    }
+  };
+
+  // ── Privacidad de la pestaña "Comunidades" (migración 088) ──
+  const communitiesVisibility = profile?.communities_visibility || 'following';
+
+  const handleCommunitiesVisibilityChange = async (value) => {
+    if (!user?.id || communitiesPrivacyUpdating || value === communitiesVisibility) return;
+    setCommunitiesPrivacyUpdating(true);
+    try {
+      await updateUserProfile(user.id, { communities_visibility: value });
+      await refreshProfile(user.id);
+    } catch (err) {
+      console.error('Error updating communities visibility:', err);
+      toast.error(t('settings.communities_save_error'));
+    } finally {
+      setCommunitiesPrivacyUpdating(false);
     }
   };
 
@@ -2392,6 +2410,46 @@ export default function Settings() {
                     })}
                   </div>
                 )}
+              </div>
+
+              <div className="settings-row-divider" />
+
+              {/* ── Comunidades del perfil ── */}
+              <div className="settings-row">
+                <div className="settings-row-header">
+                  <span className="settings-section-icon"><FaUsers /></span>
+                  <div>
+                    <h2 className="settings-section-title">{t('settings.communities_privacy')}</h2>
+                    <p className="settings-section-desc">{t('settings.communities_privacy_desc')}</p>
+                  </div>
+                </div>
+
+                <div className="settings-segmented">
+                  <button
+                    type="button"
+                    className={`settings-segmented-btn ${communitiesVisibility === 'nobody' ? 'settings-segmented-btn--active' : ''}`}
+                    onClick={() => handleCommunitiesVisibilityChange('nobody')}
+                    disabled={communitiesPrivacyUpdating || profileLoading}
+                  >
+                    {t('settings.communities_visibility_nobody')}
+                  </button>
+                  <button
+                    type="button"
+                    className={`settings-segmented-btn ${communitiesVisibility === 'following' ? 'settings-segmented-btn--active' : ''}`}
+                    onClick={() => handleCommunitiesVisibilityChange('following')}
+                    disabled={communitiesPrivacyUpdating || profileLoading}
+                  >
+                    {t('settings.communities_visibility_following')}
+                  </button>
+                  <button
+                    type="button"
+                    className={`settings-segmented-btn ${communitiesVisibility === 'everyone' ? 'settings-segmented-btn--active' : ''}`}
+                    onClick={() => handleCommunitiesVisibilityChange('everyone')}
+                    disabled={communitiesPrivacyUpdating || profileLoading}
+                  >
+                    {t('settings.communities_visibility_everyone')}
+                  </button>
+                </div>
               </div>
 
               <div className="settings-row-divider" />

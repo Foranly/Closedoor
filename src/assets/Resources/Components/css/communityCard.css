@@ -1,0 +1,36 @@
+/* CommunityCard — detalles propios de la card de comunidad (el resto de los
+   estilos vienen de explore.css, que la card comparte con Explore). */
+
+.comunidades-card-banner-fallback {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.comunidades-card-avatar-letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+.comunidades-card-slug {
+    font-size: 0.78rem;
+    color: var(--color-text-muted, #6b7280);
+}
+
+.comunidades-card-mature {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 6px;
+}

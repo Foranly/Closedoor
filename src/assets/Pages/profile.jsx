@@ -74,6 +74,8 @@ import { useRegisterUserStatus, UserStatusContext } from '../../context/UserStat
 import { getNicknames, getCachedNicknames, cacheNicknames } from "../services/chatService";
 import NicknameModal from "../Resources/Components/NicknameModal";
 import VirtualPostList from "../Resources/Components/VirtualPostList";
+import ProfileCommunities from "../Resources/Components/ProfileCommunities";
+import { canViewProfileCommunities } from "../services/communityService";
 
 function Profile() {
     const { t, showAccent, accentVisibility, showBadges, locale } = useI18n();
@@ -140,6 +142,13 @@ function Profile() {
         return null;
     });
     const canViewContent = isOwnProfile || !isPrivate || isFollower === true;
+    // Pestaña "Comunidades": propia siempre; en perfiles ajenos manda
+    // communities_visibility (por defecto, solo a quien el dueño sigue).
+    const canSeeCommunities = canViewProfileCommunities({
+        profile: activeProfile,
+        isOwnProfile,
+        ownerFollowsViewer: isFollowedBy,
+    });
 
     // ── Track profile view (once per visitor) ──
     useEffect(() => {
@@ -428,7 +437,7 @@ function Profile() {
 
     const [showCreatePost, setShowCreatePost] = useState(false);
     const [editingPost, setEditingPost] = useState(null);
-    const [tab, setTab] = useState('posts'); // 'posts' | 'likes' | 'saved' | 'scheduled' | 'replies'
+    const [tab, setTab] = useState('posts'); // 'posts' | 'likes' | 'saved' | 'scheduled' | 'replies' | 'communities'
     const [postSubFilter, setPostSubFilter] = useState('all'); // 'all' | 'reposts'
     const [postFilterOpen, setPostFilterOpen] = useState(false);
     const [postFilterDropdownStyle, setPostFilterDropdownStyle] = useState(null);
@@ -2103,6 +2112,14 @@ function Profile() {
                         >
                             {t('profile.replies_tab')}
                         </button>
+                        {canSeeCommunities && (
+                            <button
+                                className={`posts-section-tab ${tab === 'communities' ? 'posts-section-tab--active' : ''}`}
+                                onClick={() => setTab('communities')}
+                            >
+                                {t('profile.communities_tab')}
+                            </button>
+                        )}
                     </div>
                     {isOwnProfile && (
                         <button
@@ -2322,6 +2339,8 @@ function Profile() {
                             replyInfoByPostId={replyInfoByPostId}
                         />
                     )
+                ) : tab === 'communities' ? (
+                    <ProfileCommunities key={activeProfile?.id} userId={activeProfile?.id} isOwnProfile={isOwnProfile} />
                 ) : null}
             </div>
             )}
