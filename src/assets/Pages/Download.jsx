@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FaArrowLeft,
   FaWindows,
   FaApple,
   FaLinux,
@@ -13,7 +11,6 @@ import {
 import { useI18n } from '../services/i18n/useI18n';
 import usePageTitle from '../../hooks/usePageTitle';
 import {
-  DESKTOP_VERSION,
   DESKTOP_PLATFORM_GROUPS,
   DESKTOP_RELEASE_URL,
   detectDesktopOS,
@@ -63,7 +60,6 @@ const COMPARE_ROWS = [
 
 export default function Download() {
   const { t } = useI18n();
-  const navigate = useNavigate();
   usePageTitle(t('download.title') || 'Foranly Desktop');
 
   const detectedOS = useMemo(() => detectDesktopOS(), []);
@@ -71,11 +67,6 @@ export default function Download() {
   const [open, setOpen] = useState(false);
   const [macArch, setMacArch] = useState(null);
   const dropdownRef = useRef(null);
-
-  const goBack = useCallback(() => {
-    if (window.history.length > 1) navigate(-1);
-    else navigate('/');
-  }, [navigate]);
 
   // Etiquetas literales (no `t(\`download.os_${…}\`)`) para que
   // scripts/validate-locales.mjs las vea y no se queden sin traducir.
