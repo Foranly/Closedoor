@@ -96,6 +96,8 @@ export const PROFILE_PUBLIC_COLUMNS = [
   'activity_updated_at',
   'activity_enabled',
   'activity_visibility',
+  // Comunidades del perfil (migración 088): quién ve la tab.
+  'communities_visibility',
   // Programa elegido a mano (migración 081): segunda actividad, convive con la
   // canción/juego detectado.
   'program_activity',

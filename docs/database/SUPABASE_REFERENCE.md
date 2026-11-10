@@ -75,6 +75,11 @@ CREATE TABLE IF NOT EXISTS profiles (
   -- Programa abierto que el usuario elige compartir (migración 081):
   -- {kind:'app', title, app}. Convive con `activity` (canción/juego).
   program_activity JSONB DEFAULT NULL,
+  -- Quién ve la pestaña "Comunidades" del perfil (migración 088).
+  -- La regla se aplica en el cliente; RLS (058) ya oculta las membresías de
+  -- comunidades privadas a quien no es miembro.
+  communities_visibility TEXT NOT NULL DEFAULT 'following'
+    CHECK (communities_visibility IN ('nobody', 'following', 'everyone')),
   -- Color de acento
   accent_color VARCHAR(7) DEFAULT NULL,
   accent_color_secondary TEXT DEFAULT NULL,

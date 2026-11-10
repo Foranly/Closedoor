@@ -165,6 +165,30 @@ export function isAdminRole(roles) {
   return Array.isArray(roles) && roles.includes('admin');
 }
 
+// ── Privacidad de las comunidades del perfil (migración 088) ──
+const COMMUNITIES_VISIBILITY = ['nobody', 'following', 'everyone'];
+
+/** Ajuste de visibilidad con el valor por defecto aplicado a filas antiguas. */
+export function getCommunitiesVisibility(profile) {
+  const value = profile?.communities_visibility;
+  return COMMUNITIES_VISIBILITY.includes(value) ? value : 'following';
+}
+
+/**
+ * ¿Puede este visitante ver la pestaña de comunidades del perfil?
+ * @param {object} params
+ * @param {object} params.profile - Fila del dueño (communities_visibility).
+ * @param {boolean} params.isOwnProfile
+ * @param {boolean|null} params.ownerFollowsViewer - null = todavía no se sabe.
+ */
+export function canViewProfileCommunities({ profile, isOwnProfile, ownerFollowsViewer }) {
+  if (isOwnProfile) return true;
+  const visibility = getCommunitiesVisibility(profile);
+  if (visibility === 'everyone') return true;
+  if (visibility === 'nobody') return false;
+  return ownerFollowsViewer === true;
+}
+
 const COMMUNITY_SELECT = [
   'id', 'slug', 'name', 'description', 'rules', 'interests',
   'avatar_url', 'banner_url', 'accent_color', 'accent_color_secondary',
@@ -227,6 +251,35 @@ export async function getFollowerCountFor(userId) {
     return 0;
   }
   return count || 0;
+}
+
+const COMMUNITY_CARD_SELECT = [
+  'id', 'slug', 'name', 'description', 'interests',
+  'avatar_url', 'banner_url', 'accent_color', 'accent_color_secondary',
+  'is_private', 'is_mature', 'member_count', 'post_count',
+].join(',');
+
+/**
+ * Comunidades activas a las que pertenece un usuario, de la más reciente a la
+ * más antigua. RLS (058) filtra: un visitante solo recibe membresías de
+ * comunidades públicas; el propio usuario recibe también las privadas.
+ */
+export async function getUserCommunities(userId, { limit = 60 } = {}) {
+  if (!userId) return [];
+  const { data, error } = await dbPublic
+    .from('community_members')
+    .select(`community_id, role, joined_at, communities (${COMMUNITY_CARD_SELECT})`)
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('joined_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.warn('[Communities] Error fetching user communities:', error);
+    return [];
+  }
+  return (data || [])
+    .map((row) => normalizeCommunityUrls(row.communities))
+    .filter(Boolean);
 }
 
 // ¿Cuántas comunidades ha creado el usuario (como owner)?
