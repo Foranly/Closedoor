@@ -154,6 +154,52 @@
     opacity: 0.8;
 }
 
+/* ── Aceptación de términos (login y registro) ── */
+.auth-terms-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin: 2px 0;
+}
+
+.auth-terms {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--color-text-secondary, #9ca3af);
+    cursor: pointer;
+    user-select: none;
+}
+
+.auth-terms-checkbox {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    margin: 1px 0 0;
+    accent-color: var(--color-text, #ffffff);
+    cursor: pointer;
+}
+
+.auth-terms-checkbox:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.auth-terms-link {
+    color: var(--color-text, #ffffff);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.auth-terms-link:hover {
+    text-decoration: underline;
+    opacity: 0.8;
+}
+
 .auth-error {
     color: #6b7280;
     font-size: 0.85rem;

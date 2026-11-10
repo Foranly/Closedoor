@@ -1184,6 +1184,16 @@ dialog.fc-modal.settings-blocked-modal {
   text-align: right;
 }
 
+.settings-info-value--link {
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.settings-info-value--link:hover {
+  text-decoration: underline;
+  opacity: 0.8;
+}
+
 .settings-info-value--mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 500;
