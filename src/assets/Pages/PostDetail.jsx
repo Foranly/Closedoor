@@ -33,6 +33,7 @@ import { toast } from 'react-toastify';
 import PostCard from '../Resources/Components/PostCard';
 import SafeImage from '../Resources/Components/SafeImage';
 import Avatar from '../Resources/Components/Avatar';
+import ProfileHoverCard from '../Resources/Components/ProfileHoverCard';
 import Badge from '../Resources/Components/Badge';
 import GifPicker from '../Resources/Components/GifPicker';
 import RichText from '../Resources/Components/RichText';
@@ -902,12 +903,14 @@ export default function PostDetail() {
           onClick={(e) => { e.preventDefault(); navigate(`/profile/${reply.profiles?.username}`); }}
           style={{ alignSelf: 'flex-start' }}
         >
-          <Avatar
-            className="comment-card-avatar"
-            src={reply.profiles?.avatar_url}
-            alt={reply.profiles?.username || 'user'}
-            style={getImageStyle(reply.profiles?.avatar_position)}
-          />
+          <ProfileHoverCard userId={reply.profiles?.id || reply.user_id}>
+            <Avatar
+              className="comment-card-avatar"
+              src={reply.profiles?.avatar_url}
+              alt={reply.profiles?.username || 'user'}
+              style={getImageStyle(reply.profiles?.avatar_position)}
+            />
+          </ProfileHoverCard>
         </a>
         <div className={contentClass}>
           <div className="comment-card-header">
@@ -1192,12 +1195,14 @@ export default function PostDetail() {
           onClick={(e) => { e.preventDefault(); navigate(`/profile/${comment.profiles?.username}`); }}
           style={{ alignSelf: 'flex-start' }}
         >
-          <Avatar
-            className="comment-card-avatar"
-            src={comment.profiles?.avatar_url}
-            alt={comment.profiles?.username || 'user'}
-            style={getImageStyle(comment.profiles?.avatar_position)}
-          />
+          <ProfileHoverCard userId={comment.profiles?.id || comment.user_id}>
+            <Avatar
+              className="comment-card-avatar"
+              src={comment.profiles?.avatar_url}
+              alt={comment.profiles?.username || 'user'}
+              style={getImageStyle(comment.profiles?.avatar_position)}
+            />
+          </ProfileHoverCard>
         </a>
         <div className={contentClass}>
           <div className="comment-card-header">
