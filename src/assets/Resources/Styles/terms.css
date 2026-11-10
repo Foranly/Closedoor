@@ -1,0 +1,111 @@
+/* ==========================================
+   Terms of use — documento legible
+   ========================================== */
+
+.terms-page {
+    background: var(--color-surface, #1a1a1a);
+    border: 1px solid var(--color-border, #2a2a2a);
+    border-radius: var(--radius, 10px);
+    max-width: 780px;
+    margin: 0 auto 40px;
+    padding: 32px 36px 40px;
+    color: var(--color-text, #ffffff);
+    font-size: 0.92rem;
+    line-height: 1.7;
+}
+
+.terms-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding: 6px 12px;
+    border: 1px solid var(--color-border, #2a2a2a);
+    border-radius: var(--radius-sm, 6px);
+    background: transparent;
+    color: var(--color-text-secondary, #9ca3af);
+    font-family: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.terms-back:hover {
+    color: var(--color-text, #ffffff);
+    border-color: #444;
+}
+
+.terms-header {
+    padding-bottom: 18px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--color-border, #2a2a2a);
+}
+
+.terms-title {
+    margin: 0 0 8px;
+    font-size: 1.5rem;
+    line-height: 1.25;
+}
+
+.terms-subtitle {
+    margin: 0 0 6px;
+    color: var(--color-text-secondary, #9ca3af);
+    font-size: 0.9rem;
+}
+
+.terms-updated {
+    margin: 0;
+    color: var(--color-text-muted, #6b7280);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.terms-intro {
+    margin: 0 0 26px;
+    color: var(--color-text-secondary, #9ca3af);
+}
+
+.terms-section {
+    margin-bottom: 24px;
+}
+
+.terms-section-title {
+    margin: 0 0 10px;
+    font-size: 1rem;
+    line-height: 1.35;
+}
+
+.terms-section p {
+    margin: 0 0 10px;
+}
+
+.terms-section p:last-child {
+    margin-bottom: 0;
+}
+
+.terms-list {
+    margin: 0 0 10px;
+    padding-left: 20px;
+    color: var(--color-text-secondary, #9ca3af);
+}
+
+.terms-list li {
+    margin-bottom: 6px;
+}
+
+.terms-list li::marker {
+    color: var(--color-text-muted, #6b7280);
+}
+
+@media (max-width: 600px) {
+    .terms-page {
+        padding: 22px 18px 30px;
+        margin-bottom: 24px;
+        font-size: 0.9rem;
+    }
+
+    .terms-title {
+        font-size: 1.25rem;
+    }
+}
