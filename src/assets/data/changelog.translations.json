@@ -1,46 +1,4 @@
 {
-  "2026-10-16:twf9o0": {
-    "es": {
-      "title": "Canciones completas en la aplicación de escritorio.",
-      "items": [
-        "Las canciones del perfil se reproducen como una vista previa de 30 segundos en el navegador: YouTube solo ofrece la pista completa a las conexiones en las que confía, y un servidor nunca califica.",
-        "Ahora hay una aplicación de escritorio que resuelve la canción desde tu propia conexión, por lo que se reproduce hasta el final.",
-        "Nueva página de descarga con el instalador para tu plataforma.",
-        "Ahora puedes pegar una imagen directamente en un comentario o responder con Ctrl+V.",
-        "Cuando reproduces una canción en el navegador, la aplicación te ofrece la versión de escritorio; puedes descartarla definitivamente."
-      ]
-    },
-    "pt": {
-      "title": "Músicas completas no aplicativo de desktop",
-      "items": [
-        "As músicas do perfil são reproduzidas como uma prévia de 30 segundos no navegador: o YouTube só fornece a faixa completa para conexões em que confia, e um servidor nunca se qualifica.",
-        "Agora existe um aplicativo de desktop que resolve a música a partir da sua própria conexão, para que ela seja reproduzida do começo ao fim.",
-        "Nova página de download com o instalador da sua plataforma.",
-        "Agora você pode colar uma imagem diretamente em um comentário ou responder com Ctrl+V.",
-        "Quando você toca uma música no navegador, o aplicativo oferece a versão desktop — você pode dispensá-la definitivamente."
-      ]
-    },
-    "ru": {
-      "title": "Полные песни в настольном приложении",
-      "items": [
-        "Песни профиля воспроизводятся в браузере в виде 30-секундного предварительного просмотра: YouTube передает полную дорожку только тем соединениям, которым он доверяет, а сервер никогда не проходит проверку.",
-        "Теперь есть настольное приложение, которое воспроизводит песню через ваше собственное соединение, поэтому она воспроизводится до конца.",
-        "Новая страница загрузки с установщиком для вашей платформы.",
-        "Теперь вы можете вставить изображение прямо в комментарий или ответить, нажав Ctrl+V.",
-        "Когда вы проигрываете песню в браузере, приложение предлагает вам настольную версию — вы можете отказаться от нее навсегда."
-      ]
-    },
-    "ja": {
-      "title": "デスクトップ アプリの全曲",
-      "items": [
-        "プロフィールの曲はブラウザで 30 秒のプレビューとして再生されます。YouTube は信頼できる接続にのみ完全なトラックを提供し、サーバーが適格であることはありません。",
-        "現在は、独自の接続から曲を解決するデスクトップ アプリがあり、最後まで再生されます。",
-        "プラットフォーム用のインストーラーを含む新しいダウンロード ページ。",
-        "画像をコメントに直接貼り付けたり、Ctrl+V で返信したりできるようになりました。",
-        "ブラウザで曲を再生すると、アプリはデスクトップ バージョンを提供しますが、それは永久に無視できます。"
-      ]
-    }
-  },
   "2026-10-20:1tgafd3": {
     "es": {
       "title": "Reproductor flotante, base de chat y configuración de cuenta",
@@ -91,7 +49,77 @@
       ]
     }
   },
-  "2026-10-29:k5acpu": {
+  "2026-11-10:1fnmclv": {
+    "es": {
+      "title": "Hilos de comentarios, historial de llamadas y un compositor flotante",
+      "items": [
+        "Los comentarios ahora son tarjetas con una línea: cada respuesta depende del comentario al que responde y la guía va desde el avatar principal hasta la respuesta.",
+        "Puedes seguir respondiendo dentro de un hilo sin quedarte sin espacio: la sangría se detiene después de tres niveles y la guía sigue marcando dónde pertenece cada respuesta.",
+        "Sus propios comentarios y respuestas se pueden editar, y los editados muestran una pequeña marca junto a la hora.",
+        "Los comentarios muestran su apodo y sus insignias de función, y el autor de la publicación aparece marcado con una insignia de OP.",
+        "Los contadores de respuestas ahora incluyen respuestas a respuestas, y la hora de los comentarios y respuestas muestra la hora, con la fecha exacta al pasar el mouse.",
+        "Los horarios de publicación también muestran la hora en que abres una publicación, con la fecha exacta al pasar el mouse.",
+        "Las llamadas se registran dentro de cada chat y el panel de conversación tiene un nuevo botón con el historial de llamadas completo.",
+        "Nuevo botón flotante para crear una publicación desde cualquier página, incluidos otros perfiles.",
+        "Chats: reacciones a los mensajes, un anillo de color acentuado alrededor del avatar y animaciones de chat flotantes más suaves; Los chats flotantes ahora se ocultan en el móvil.",
+        "Los encabezados de las secciones Inicio y Perfil permanecen fijados en la parte superior mientras te desplazas.",
+        "La configuración muestra las versiones web y de escritorio, y la aplicación de escritorio ahora es 0.1.2.",
+        "El efecto de perfil translúcido ya no cambia el panel derecho fuera de su perfil."
+      ]
+    },
+    "pt": {
+      "title": "Tópicos de comentários, histórico de chamadas e um compositor flutuante",
+      "items": [
+        "Os comentários agora são cartões com uma linha de discussão: cada resposta depende do comentário que ela responde e o guia vai do avatar pai até a resposta.",
+        "Você pode continuar respondendo dentro de um tópico sem ficar sem espaço: o recuo para após três níveis e o guia continua marcando aonde cada resposta pertence.",
+        "Seus próprios comentários e respostas podem ser editados, e os editados mostram uma pequena marca ao lado da hora.",
+        "Os comentários mostram seu apelido e emblemas de função, e o autor da postagem é sinalizado com um emblema OP.",
+        "Os contadores de respostas agora incluem respostas às respostas, e o tempo nos comentários e respostas mostra a hora, com a data exata ao passar o mouse.",
+        "Os horários das postagens também mostram a hora quando você abre uma postagem, com a data exata ao passar o mouse.",
+        "As chamadas são registradas dentro de cada chat, e o painel de conversas possui um novo botão com o histórico completo de chamadas.",
+        "Novo botão flutuante para criar uma postagem de qualquer página, incluindo outros perfis.",
+        "Bate-papos: reações às mensagens, um anel colorido ao redor do avatar e animações de bate-papo flutuantes mais suaves; bate-papos flutuantes agora ficam ocultos no celular.",
+        "Os cabeçalhos das seções inicial e de perfil permanecem fixados na parte superior enquanto você rola.",
+        "As configurações mostram as versões web e desktop, e o aplicativo desktop agora é 0.1.2.",
+        "O efeito de perfil translúcido não altera mais o painel direito fora do seu perfil."
+      ]
+    },
+    "ru": {
+      "title": "Потоки комментариев, история звонков и плавающий композитор",
+      "items": [
+        "Комментарии теперь представляют собой карточки с цепочкой: каждый ответ висит на комментарии, на который он отвечает, а руководство перемещается от родительского аватара к ответу.",
+        "Вы можете продолжать отвечать внутри ветки, не исчерпав места: отступы прекращаются после трех уровней, а руководство продолжает отмечать место каждого ответа.",
+        "Ваши собственные комментарии и ответы можно редактировать, а отредактированные комментарии отмечены небольшой отметкой рядом со временем.",
+        "В комментариях отображается ваш псевдоним и значки ролей, а автор публикации помечается значком OP.",
+        "Счетчики ответов теперь включают ответы на ответы, а время комментариев и ответов показывает час с точной датой при наведении курсора мыши.",
+        "Время публикации также показывает час, когда вы открываете публикацию, с точной датой при наведении курсора.",
+        "Звонки регистрируются внутри каждого чата, а на панели разговоров появилась новая кнопка с полной историей звонков.",
+        "Новая плавающая кнопка для создания публикации с любой страницы, включая другие профили.",
+        "Чаты: реакции на сообщения, кольцо акцентного цвета вокруг аватара и более плавная плавающая анимация чата; плавающие чаты теперь скрываются на мобильных устройствах.",
+        "Заголовки разделов «Домой» и «Профиль» остаются закрепленными вверху при прокрутке.",
+        "В настройках показаны веб-версия и настольная версия, а настольное приложение теперь имеет версию 0.1.2.",
+        "Эффект полупрозрачного профиля больше не меняет правую панель за пределами вашего профиля."
+      ]
+    },
+    "ja": {
+      "title": "コメントスレッド、通話履歴、フローティングコンポーザー",
+      "items": [
+        "コメントはスレッド行のあるカードになりました。すべての返信は、それが返信するコメントからぶら下がっており、ガイドは親アバターから返信まで実行されます。",
+        "スペースを使い果たすことなく、スレッド内で回答を続けることができます。インデントは 3 レベルで停止し、ガイドは各回答が属する場所をマークし続けます。",
+        "自分のコメントと返信は編集でき、編集されたものには時間の横に小さなマークが表示されます。",
+        "コメントにはニックネームと役割バッジが表示され、投稿の作成者には OP バッジが付けられます。",
+        "返信カウンターには返信への返信が含まれるようになり、コメントと返信の時間が表示され、カーソルを合わせると正確な日付が表示されます。",
+        "投稿時間は、投稿を開くと時間も表示され、カーソルを合わせると正確な日付が表示されます。",
+        "通話は各チャット内に記録され、会話パネルには完全な通話履歴を表示する新しいボタンがあります。",
+        "他のプロフィールを含む任意のページから投稿を作成するための新しいフローティング ボタン。",
+        "チャット: メッセージの反応、アバターの周りのアクセントカラーのリング、およびよりスムーズなフローティング チャット アニメーション。フローティング チャットがモバイル上で非表示になりました。",
+        "ホーム セクションとプロフィール セクションのヘッダーは、スクロールしている間も上部に固定されたままになります。",
+        "設定には Web バージョンとデスクトップ バージョンが表示され、デスクトップ アプリは 0.1.2 になりました。",
+        "半透明のプロファイル効果によって、プロファイルの外側の右側のパネルが変更されなくなりました。"
+      ]
+    }
+  },
+  "2026-10-29:1juogs1": {
     "es": {
       "title": "Actividad en tu perfil y tu cuenta en la lista de chat",
       "items": [
@@ -99,18 +127,20 @@
         "Nueva sección Actividad en Configuración: desactívala por completo, elige si solo tus seguidores pueden verla o nadie y revisa un historial local de lo que has estado jugando.",
         "Con la actividad desactivada o configurada como Nadie, no se publica nada: su perfil no almacena ninguna actividad.",
         "La lista de chat ahora termina con tu propia tarjeta de cuenta: avatar, nombre y lo que estás haciendo en este momento.",
-        "Haga clic en esa tarjeta para abrir su tarjeta Explore sin salir del chat, o use el ícono de información para los detalles de su cuenta.",
+        "Haga clic en esa tarjeta para abrir su tarjeta Explore sin salir del chat, o use el ícono de información para los detalles de su cuenta; ambos se abren justo encima de la tarjeta.",
+        "La misma tarjeta tiene un menú de tres puntos para copiar el enlace de su perfil o cambiar su estado entre en línea, inactivo y no molestar.",
         "Los contadores de seguidores y seguidores en esa tarjeta se actualizan en el momento en que cambian."
       ]
     },
     "pt": {
       "title": "Atividade em seu perfil e sua conta na lista de bate-papo",
       "items": [
-        "Seu perfil agora mostra o que você está ouvindo, assistindo ou tocando: o aplicativo de desktop detecta isso localmente e a capa vem da mesma pesquisa da música do seu perfil.",
+        "Seu perfil agora mostra o que você está ouvindo, assistindo ou tocando: o aplicativo de desktop detecta isso localmente e a capa vem da mesma pesquisa que a música do seu perfil.",
         "Nova seção de atividades em Configurações: desative-a totalmente, escolha se apenas seus seguidores podem vê-la ou ninguém e revise um histórico local do que você está jogando.",
         "Com a atividade desativada ou definida como ninguém, nada é publicado – seu perfil não armazena nenhuma atividade.",
         "A lista de bate-papo agora termina com seu próprio cartão de conta: avatar, nome e o que você está fazendo no momento.",
-        "Clique nesse cartão para abrir seu cartão Explorar sem sair do bate-papo ou use o ícone de informações para obter os detalhes da sua conta.",
+        "Clique nesse cartão para abrir seu cartão Explorar sem sair do bate-papo ou use o ícone de informações para os detalhes da sua conta – ambos abertos logo acima do cartão.",
+        "O mesmo cartão possui um menu de três pontos para copiar o link do seu perfil ou alternar seu status entre online, inativo e não perturbe.",
         "Os contadores de seguidores e seguidores nesse cartão são atualizados no momento em que mudam."
       ]
     },
@@ -121,7 +151,8 @@
         "Новый раздел «Активность» в настройках: полностью отключите его, выберите, смогут ли его видеть только ваши подписчики или вообще никто, а также просмотрите локальную историю того, во что вы играли.",
         "Если активность отключена или установлено значение «Никто», ничего не публикуется — в вашем профиле вообще не сохраняется никакой активности.",
         "Список чата теперь заканчивается вашей собственной карточкой аккаунта: аватаром, именем и тем, что вы делаете в данный момент.",
-        "Нажмите на эту карточку, чтобы открыть карточку «Обзор», не выходя из чата, или используйте значок информации для просмотра данных своей учетной записи.",
+        "Нажмите на эту карточку, чтобы открыть карточку «Обзор», не выходя из чата, или используйте значок информации для сведений о своей учетной записи — оба открываются прямо над карточкой.",
+        "На той же карточке есть трехточечное меню для копирования ссылки на ваш профиль или переключения статуса между «онлайн», «ожидание» и «не беспокоить».",
         "Счетчики последователей и подписок на этой карточке обновляются в момент их изменения."
       ]
     },
@@ -132,7 +163,8 @@
         "[設定] の [新しいアクティビティ] セクション: 完全にオフにし、フォロワーのみに表示するか誰にも表示できないかを選択し、プレイした内容のローカル履歴を確認します。",
         "アクティビティをオフにするか、誰もに設定しない場合、何も公開されません。プロファイルにはアクティビティがまったく保存されません。",
         "チャット リストの最後には、アバター、名前、現在行っていることなど、自分のアカウント カードが表示されます。",
-        "そのカードをクリックして、チャットを終了せずに Explore カードを開くか、情報アイコンを使用してアカウントの詳細を確認します。",
+        "そのカードをクリックして、チャットを終了せずに Explore カードを開くか、アカウントの詳細の情報アイコンを使用します。どちらもカードのすぐ上に開きます。",
+        "同じカードには、プロフィール リンクをコピーしたり、ステータスをオンライン、アイドル、応答不可の間で切り替えるための 3 点メニューがあります。",
         "そのカード内のフォロワーとフォローしているカウンターは、変更されるとすぐに更新されます。"
       ]
     }
