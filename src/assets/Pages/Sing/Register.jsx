@@ -24,6 +24,7 @@ function Register() {
   const [loading, setLoading] = useState(false);
   const [discordLoading, setDiscordLoading] = useState(false);
   const [error, setError] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [captchaToken, setCaptchaToken] = useState(null);
   const [captchaNonce, setCaptchaNonce] = useState(0);
   const { register, loginWithDiscord } = useAuth();
@@ -76,6 +77,12 @@ function Register() {
 
     if (isTurnstileActive() && !captchaToken) {
       setError(t('auth.captcha_required') || 'Complete the CAPTCHA to continue');
+      setLoading(false);
+      return;
+    }
+
+    if (!acceptedTerms) {
+      setError(t('auth.terms_required'));
       setLoading(false);
       return;
     }
@@ -159,6 +166,22 @@ function Register() {
             </button>
           </div>
           <TurnstileCaptcha onTokenChange={setCaptchaToken} resetKey={captchaNonce} />
+          <div className="auth-terms-row">
+            <label className="auth-terms" htmlFor="register-terms">
+              <input
+                id="register-terms"
+                type="checkbox"
+                className="auth-terms-checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                disabled={loading || discordLoading}
+              />
+              <span>{t('auth.terms_accept')}</span>
+            </label>
+            <Link to="/terms" className="auth-terms-link">
+              {t('auth.terms_link')}
+            </Link>
+          </div>
           <button className="auth-submit" type="submit" disabled={loading}>
             {loading && <span className="auth-submit-spinner" aria-hidden="true" />}
             {loading ? t('auth.registering') : t('auth.register_btn')}
@@ -173,6 +196,10 @@ function Register() {
             type="button"
             disabled={discordLoading}
             onClick={async () => {
+              if (!acceptedTerms) {
+                setError(t('auth.terms_required'));
+                return;
+              }
               setDiscordLoading(true);
               const startedAt = Date.now();
               const res = await loginWithDiscord();

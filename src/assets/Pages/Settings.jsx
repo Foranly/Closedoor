@@ -17,7 +17,7 @@ import ProgramLogo from '../Resources/Components/ProgramLogo';
 import { getActivitySettings, readActivityHistory, clearActivityHistory, persistActivity, persistProgramActivity, programFromProfile } from '../services/activityService';
 import { supabase } from '../services/supabaseclient';
 import { getNicknames, getCachedNicknames, cacheNicknames, setNickname, removeNickname } from '../services/chatService';
-import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop, FaBars, FaInfoCircle, FaSyncAlt, FaDownload, FaUsers } from 'react-icons/fa';
+import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop, FaBars, FaInfoCircle, FaSyncAlt, FaDownload, FaUsers, FaFileAlt } from 'react-icons/fa';
 import { MdLogout } from 'react-icons/md';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
@@ -224,6 +224,43 @@ function InfoSettings({ t }) {
             </div>
           </>
         )}
+        <div className="settings-info-row">
+          <span className="settings-info-label">{t('settings.info_team')}</span>
+          <span className="settings-info-value">Foranly</span>
+        </div>
+        <div className="settings-info-row">
+          <span className="settings-info-label">{t('settings.info_repo')}</span>
+          <a
+            className="settings-info-value settings-info-value--link"
+            href="https://github.com/Foranly/Closedoor"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Foranly/Closedoor
+          </a>
+        </div>
+        <div className="settings-info-row">
+          <span className="settings-info-label">{t('settings.info_org')}</span>
+          <a
+            className="settings-info-value settings-info-value--link"
+            href="https://github.com/Foranly"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Foranly
+          </a>
+        </div>
+        <div className="settings-info-row">
+          <span className="settings-info-label">{t('settings.info_author')}</span>
+          <a
+            className="settings-info-value settings-info-value--link"
+            href="https://github.com/Frantt21"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Frantt21
+          </a>
+        </div>
       </div>
 
       <div className="settings-info-actions">
@@ -247,6 +284,14 @@ function InfoSettings({ t }) {
             {t('settings.info_download')}
           </button>
         )}
+        <button
+          type="button"
+          className="settings-info-btn"
+          onClick={() => navigate('/terms')}
+        >
+          <FaFileAlt />
+          {t('settings.info_terms')}
+        </button>
       </div>
 
       {check && (
