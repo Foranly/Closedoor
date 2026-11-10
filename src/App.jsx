@@ -68,6 +68,7 @@ const Comunidades = lazyPage(() => import('./assets/Pages/Comunidades.jsx'));
 const CommunityPage = lazyPage(() => import('./assets/Pages/CommunityPage.jsx'));
 const Trending = lazyPage(() => import('./assets/Pages/Trending.jsx'));
 const Download = lazyPage(() => import('./assets/Pages/Download.jsx'));
+const Terms = lazyPage(() => import('./assets/Pages/Terms.jsx'));
 
 // ── Minimal route-level loading fallback ──
 function PageFallback() {
@@ -231,6 +232,8 @@ function App() {
                 <Route path="/c/:slug" element={<CommunityPage />} />
                 <Route path="/Trending" element={<Trending />} />
                 <Route path="/download" element={<Download />} />
+                <Route path="/Terms" element={<Terms />} />
+                <Route path="/terms" element={<Terms />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
