@@ -357,8 +357,6 @@
     font-weight: 600;
     color: var(--color-text, #ffffff);
     margin: 0 0 16px 0;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--color-border, #2a2a2a);
 }
 
 /* Comment form */
@@ -383,11 +381,14 @@
     gap: 10px;
     margin-bottom: 20px;
     align-items: flex-start;
+    background: var(--color-surface, #1a1a1a);
+    padding: 16px;
+    border-radius: var(--radius, 10px);
 }
 
 .comment-form-avatar {
-    width: 32px;
-    height: 32px;
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
     object-fit: cover;
     overflow: hidden;
@@ -405,12 +406,12 @@
 .comment-form-input {
     width: 100%;
     padding: 10px 14px;
-    border: 1.5px solid var(--color-border, #2a2a2a);
     border-radius: var(--radius, 10px);
+    border: none;
     font-size: 0.9rem;
     font-family: inherit;
     color: var(--color-text, #ffffff);
-    background: var(--color-bg, #000000);
+    background: var(--color-surface-hover, #252525);
     resize: none;
     min-height: 40px;
     outline: none;
@@ -424,21 +425,29 @@
 
 .comment-form-media-row {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 6px;
     margin-bottom: 4px;
 }
 
+.comment-form-media-btns {
+    display: flex;
+    gap: 6px;
+}
+
 .comment-form-media-btn {
+    position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
     border: 1px solid var(--color-border, #2a2a2a);
     border-radius: var(--radius, 10px);
     background: transparent;
     color: var(--color-text-secondary, #9ca3af);
-    font-size: 0.78rem;
-    font-family: inherit;
+    font-size: 0.95rem;
     cursor: pointer;
     transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
@@ -529,6 +538,7 @@
 }
 
 .comment-form-submit {
+    flex-shrink: 0;
     padding: 8px 16px;
     background: var(--color-text, #ffffff);
     color: var(--color-bg, #000000);
@@ -552,15 +562,32 @@
 
 /* Individual comments */
 
-.comment-card {
+.comments-list {
     display: flex;
-    gap: 10px;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--color-border, #2a2a2a);
+    flex-direction: column;
+    gap: 12px;
 }
 
-.comment-card:last-child {
-    border-bottom: none;
+.comment-card {
+    --comment-avatar: 50px;
+    --comment-gap: 12px;
+    --comment-indent: 36px;
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--comment-avatar) minmax(0, 1fr);
+    column-gap: 10px;
+    row-gap: var(--comment-gap);
+    padding: 14px 16px;
+    background: var(--color-surface, #1a1a1a);
+    border-radius: var(--radius, 10px);
+}
+
+.comment-card-replies {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--comment-gap);
+    padding-left: var(--comment-indent);
 }
 
 /* ── Comentario remarcado (deep-link desde notificación ?comment=) ── */
@@ -586,8 +613,8 @@
 }
 
 .comment-card-avatar {
-    width: 32px;
-    height: 32px;
+    width: var(--comment-avatar);
+    height: var(--comment-avatar);
     border-radius: 50%;
     object-fit: cover;
     overflow: hidden;
@@ -601,20 +628,35 @@
 }
 
 .comment-card-content {
+    position: relative;
     flex: 1;
     min-width: 0;
+}
+
+/* ── Hilo: línea que baja del avatar del comentario hasta sus respuestas ── */
+.comment-card-content--threaded::before {
+    content: "";
+    position: absolute;
+    left: calc(-1 * (10px + var(--comment-avatar) / 2 + 1px));
+    top: calc(var(--comment-avatar) + 2px);
+    bottom: calc(-1 * var(--comment-gap));
+    width: 2px;
+    border-radius: 1px;
+    background: var(--color-border, #2a2a2a);
+    pointer-events: none;
 }
 
 .comment-card-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 4px 6px;
     margin-bottom: 4px;
 }
 
 .comment-card-username {
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 1rem;
     color: var(--color-text, #ffffff);
     text-decoration: none;
 }
@@ -624,8 +666,45 @@
 }
 
 .comment-card-time {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #6b7280);
+}
+
+.comment-card-edited {
     font-size: 0.72rem;
     color: var(--color-text-muted, #6b7280);
+    font-style: italic;
+}
+
+.comment-card-edited::before {
+    content: "·";
+    margin-right: 4px;
+}
+
+/* Editor inline del comentario */
+.comment-card-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.comment-card-edit-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* Marca del autor del post en sus propios comentarios */
+.comment-card-op {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: var(--accent-color, #ffffff);
+    color: var(--accent-text-color, #000000);
 }
 
 .comment-card-replying-to {
@@ -640,9 +719,9 @@
 }
 
 .comment-card-text {
-    font-size: 0.88rem;
+    font-size: 0.92rem;
     line-height: 1.5;
-    color: var(--color-text-secondary, #d1d5db);
+    color: var(--color-text, #ffffff);
     word-wrap: break-word;
     white-space: pre-wrap;
     margin: 0;
@@ -720,8 +799,8 @@
 .comment-card-reply-form {
     margin-top: 10px;
     padding: 12px;
-    background: var(--overlay-bg-subtle, rgba(255, 255, 255, 0.03));
-    border: 1px solid var(--color-border, #2a2a2a);
+    background: var(--bg-color-surface, #1a1a1a);
+    border: none;
     border-radius: var(--radius, 10px);
 }
 
@@ -899,18 +978,83 @@
 /* ---- Nested replies ---- */
 
 .comment-card--reply {
-    padding-left: 40px;
-    border-bottom: none;
-    border-top: 1px solid var(--color-border, #2a2a2a);
-    margin-top: 4px;
+    position: relative;
+    padding: 0;
+    background: none;
+    border-radius: 0;
 }
 
-.comment-card--reply:last-child {
-    border-bottom: none;
+/* Guía: baja por el canal y se desvía con una curva hacia cada respuesta */
+.comment-card--reply::before {
+    content: "";
+    position: absolute;
+    left: calc(var(--comment-avatar) / 2 - 1px - var(--comment-indent));
+    top: calc(-1 * var(--comment-gap));
+    width: calc(var(--comment-indent) - var(--comment-avatar) / 2 + 2px);
+    height: calc(var(--comment-gap) + var(--comment-avatar) / 2 + 1px);
+    border-left: 2px solid var(--color-border, #2a2a2a);
+    border-bottom: 2px solid var(--color-border, #2a2a2a);
+    border-radius: 0 0 0 8px;
+    pointer-events: none;
 }
 
-.comment-card-replies {
-    margin-top: 4px;
+/* La guía sigue bajando hasta la respuesta siguiente del mismo nivel */
+.comment-card--reply:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: calc(var(--comment-avatar) / 2 - 1px - var(--comment-indent));
+    top: calc(var(--comment-avatar) / 2 - 1px);
+    bottom: 0;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--color-border, #2a2a2a);
+    pointer-events: none;
+}
+
+/* A partir del tercer nivel ya no se sangra más: la guía pasa tras los avatares */
+.comment-card-replies--flat {
+    padding-left: 0;
+}
+
+.comment-card-replies--flat .comment-card--reply {
+    isolation: isolate;
+}
+
+.comment-card-replies--flat .comment-card--reply::before {
+    left: calc(var(--comment-avatar) / 2 - 1px);
+    bottom: 0;
+    width: 2px;
+    height: auto;
+    background: var(--color-border, #2a2a2a);
+    border: none;
+    border-radius: 1px;
+    z-index: -1;
+}
+
+/* La última del nivel profundo termina en el borde de su avatar */
+.comment-card-replies--flat .comment-card--reply:last-child::before {
+    bottom: auto;
+    height: var(--comment-gap);
+}
+
+/* En los niveles profundos la guía va recta, sin curvas ni desvíos */
+.comment-card-replies--flat .comment-card--reply::after {
+    content: none;
+}
+
+/* Mismo tamaño de avatar que las post cards en pantallas pequeñas */
+@media (max-width: 1024px) {
+    .comment-card {
+        --comment-avatar: 42px;
+        --comment-indent: 32px;
+    }
+}
+
+@media (max-width: 480px) {
+    .comment-card {
+        --comment-avatar: 36px;
+        --comment-indent: 28px;
+    }
 }
 
 /* ── GIF picker in comment forms ── */

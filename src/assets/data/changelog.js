@@ -22,6 +22,25 @@ export const CHANGELOG_SEEN_KEY = 'fc_changelog_seen';
 
 export const RELEASES = [
   {
+    id: '2026-11-10',
+    date: '2026-11-10',
+    title: 'Comment threads, call history and a floating composer',
+    items: [
+      'Comments are now cards with a thread line: every reply hangs from the comment it answers, and the guide runs from the parent avatar to the reply.',
+      'You can keep answering inside a thread without running out of room: indentation stops after three levels and the guide keeps marking where each reply belongs.',
+      'Your own comments and replies can be edited, and edited ones show a small mark next to the time.',
+      'Comments show your nickname and role badges, and the author of the post is flagged with an OP badge.',
+      'Reply counters now include replies to replies, and the time on comments and replies shows the hour, with the exact date on hover.',
+      'Post times show the hour too when you open a post, with the exact date on hover.',
+      'Calls are logged inside each chat, and the conversation panel has a new button with the full call history.',
+      'New floating button to create a post from any page, including other profiles.',
+      'Chats: message reactions, an accent-coloured ring around the avatar and smoother floating chat animations; floating chats now hide on mobile.',
+      'The Home and profile section headers stay pinned to the top while you scroll.',
+      'Settings shows the web and desktop versions, and the desktop app is now 0.1.2.',
+      'The translucent profile effect no longer changes the right panel outside your profile.',
+    ],
+  },
+  {
     id: '2026-10-29',
     date: '2026-10-29',
     title: 'Activity on your profile, and your account in the chat list',

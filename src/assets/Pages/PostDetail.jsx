@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -11,6 +11,7 @@ import {
   getComments,
   createComment,
   deleteComment,
+  updateComment,
   isLiked,
   isReposted,
   isDisliked,
@@ -27,18 +28,19 @@ import {
   dislikePost,
   undislikePost,
 } from '../services/postService';
-import { FaHeart, FaRegHeart, FaHeartBroken, FaReply, FaTrash, FaRegComment, FaRegSadTear, FaArrowLeft, FaImage, FaEllipsisV, FaUpload, FaSpinner } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaHeartBroken, FaReply, FaTrash, FaPen, FaRegComment, FaRegSadTear, FaArrowLeft, FaImage, FaEllipsisV, FaUpload, FaSpinner } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import PostCard from '../Resources/Components/PostCard';
 import SafeImage from '../Resources/Components/SafeImage';
 import Avatar from '../Resources/Components/Avatar';
+import Badge from '../Resources/Components/Badge';
 import GifPicker from '../Resources/Components/GifPicker';
 import RichText from '../Resources/Components/RichText';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
 import Tooltip from '../Resources/Components/Tooltip';
 import CreatePostModal from '../Resources/Components/CreatePostModal';
 import useMentionAutocomplete from '../hooks/useMentionAutocomplete';
-import { getTimeAgo, IMG_RE, VID_RE, getImageStyle, sanitizeUrl } from '../services/helpers';
+import { getTimeAgo, formatClockTime, formatFullDate, IMG_RE, VID_RE, getImageStyle, sanitizeUrl } from '../services/helpers';
 import { uploadImage, uploadWithLocalPreview } from '../services/cdnService';
 import { getClipboardImageFile } from '../services/clipboard';
 import usePageTitle from '../../hooks/usePageTitle';
@@ -49,7 +51,7 @@ export default function PostDetail() {
   const { postId } = useParams();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
-  const { t, locale } = useI18n();
+  const { t, locale, hour24 } = useI18n();
 
   const [post, setPost] = useState(null);
   const [postLoading, setPostLoading] = useState(true);
@@ -89,6 +91,8 @@ export default function PostDetail() {
 
   // ── Comment context menu ──
   const [commentMenuState, setCommentMenuState] = useState({ commentId: null, style: null });
+  const [editingComment, setEditingComment] = useState(null); // { id, content }
+  const [savingCommentEdit, setSavingCommentEdit] = useState(false);
   const commentMenuDropdownRef = useRef(null);
 
   const openCommentMenu = (e, commentId) => {
@@ -681,6 +685,32 @@ export default function PostDetail() {
     setConfirmDeleteComment(commentId);
   };
 
+  const startCommentEdit = (comment) => {
+    closeCommentMenu();
+    setEditingComment({ id: comment.id, content: comment.content || '' });
+  };
+
+  const cancelCommentEdit = () => setEditingComment(null);
+
+  const saveCommentEdit = async () => {
+    const id = editingComment?.id;
+    const content = editingComment?.content.trim();
+    if (!id || !content) return;
+    setSavingCommentEdit(true);
+    try {
+      const updated = await updateComment(id, content);
+      setComments((prev) => prev.map((c) => (c.id === id
+        ? { ...c, content: updated?.content ?? content, updated_at: updated?.updated_at ?? c.updated_at }
+        : c)));
+      setEditingComment(null);
+    } catch (err) {
+      console.error('Error editing comment:', err);
+      toast.error(t('post.edit_failed') || 'Could not edit comment');
+    } finally {
+      setSavingCommentEdit(false);
+    }
+  };
+
   const handleExternalLink = (url) => {
     setConfirmExternalLink(url);
   };
@@ -808,25 +838,58 @@ export default function PostDetail() {
   const topLevelComments = comments.filter((c) => !c.parent_id);
   const getReplies = (parentId) => comments.filter((c) => c.parent_id === parentId);
 
+  // Total de respuestas de cada comentario, contando también las de las respuestas.
+  const replyTotals = useMemo(() => {
+    const childrenByParent = new Map();
+    for (const c of comments) {
+      if (!c.parent_id) continue;
+      const kids = childrenByParent.get(c.parent_id);
+      if (kids) kids.push(c.id);
+      else childrenByParent.set(c.parent_id, [c.id]);
+    }
+    const totals = new Map();
+    const visiting = new Set();
+    const count = (id) => {
+      if (totals.has(id)) return totals.get(id);
+      if (visiting.has(id)) return 0; // evita bucles si los datos vienen mal
+      visiting.add(id);
+      let total = 0;
+      for (const kid of childrenByParent.get(id) || []) total += 1 + count(kid);
+      visiting.delete(id);
+      totals.set(id, total);
+      return total;
+    };
+    for (const c of comments) count(c.id);
+    return totals;
+  }, [comments]);
+
 
 
   // renderCommentContent is now handled by RichText component
 
-  // ── Render a single reply card ──
-  // depth=1: direct reply (indented), CAN be replied to, shows children toggle
-  // depth>=2: nested reply, NO Reply button, NO children (terminal)
+  // Editado = updated_at posterior a created_at
+  const isEdited = (c) => c?.updated_at && c?.created_at
+    && new Date(c.updated_at).getTime() - new Date(c.created_at).getTime() > 1500;
+
+  // ── Render a single reply (sangría tope en el nivel 3) ──
   const renderReplyCard = (reply, depth = 1) => {
     const isLikedComment = commentLikes[reply.id] || false;
     const isDislikedComment = commentDislikes[reply.id] || false;
     const isReplying = replyTo?.id === reply.id;
     const childReplies = getReplies(reply.id);
     const hasChildren = childReplies.length > 0;
+    const totalReplies = replyTotals.get(reply.id) || 0;
     const childrenExpanded = expandedReplies[reply.id];
-    const isDirectReply = depth === 1;
+    const threadOpen = hasChildren && childrenExpanded;
+    const contentClass = `comment-card-content${threadOpen ? ' comment-card-content--threaded' : ''}`;
     // Encontrar el autor del comentario padre
     const parentComment = comments.find((c) => c.id === reply.parent_id);
     const parentUsername = parentComment?.profiles?.username;
     const canDelete = user?.id && (user.id === reply.user_id || user.id === post?.user_id);
+    const canEdit = user?.id && user.id === reply.user_id;
+    const isOp = !!post?.user_id && reply.user_id === post.user_id;
+    const isEditing = editingComment?.id === reply.id;
+    const wasEdited = isEdited(reply);
 
     return (
       <div
@@ -846,22 +909,51 @@ export default function PostDetail() {
             style={getImageStyle(reply.profiles?.avatar_position)}
           />
         </a>
-        <div className="comment-card-content">
+        <div className={contentClass}>
           <div className="comment-card-header">
             <a
               className="comment-card-username"
               href={`/profile/${reply.profiles?.username}`}
               onClick={(e) => { e.preventDefault(); navigate(`/profile/${reply.profiles?.username}`); }}
             >
-              {reply.profiles?.username || 'unknown'}
+              {reply.profiles?.displayname || reply.profiles?.username || 'unknown'}
             </a>
-            <span className="comment-card-time">{getTimeAgo(t, locale, reply.created_at)}</span>
+            {reply.profiles?.roles && <Badge roles={reply.profiles.roles} />}
+            {isOp && <span className="comment-card-op">{t('post.op')}</span>}
+            <Tooltip text={formatFullDate(reply.created_at, locale, hour24)}>
+              <span className="comment-card-time">
+                {`${getTimeAgo(t, locale, reply.created_at)} · ${formatClockTime(reply.created_at, locale, hour24)}`}
+              </span>
+            </Tooltip>
+            {wasEdited && <span className="comment-card-edited">{t('post.edited')}</span>}
             {parentUsername && (
               <span className="comment-card-replying-to">
                 {t('post.replying_to', { user: `@${parentUsername}` })}
               </span>
             )}
           </div>
+          {isEditing ? (
+            <div className="comment-card-edit">
+              <textarea
+                className="comment-form-input"
+                value={editingComment.content}
+                onChange={(e) => setEditingComment((prev) => ({ ...prev, content: e.target.value }))}
+                rows={2}
+                maxLength={1000}
+                autoFocus
+              />
+              <div className="comment-card-edit-actions">
+                <button className="comment-form-cancel-reply" onClick={cancelCommentEdit}>{t('common.cancel')}</button>
+                <button
+                  className="comment-form-submit"
+                  onClick={saveCommentEdit}
+                  disabled={savingCommentEdit || !editingComment.content.trim()}
+                >
+                  {t('post.save')}
+                </button>
+              </div>
+            </div>
+          ) : (
           <p className="comment-card-text">
             <RichText
               text={reply.content}
@@ -871,6 +963,7 @@ export default function PostDetail() {
               onExternalLink={handleExternalLink}
             />
           </p>
+          )}
 
           {/* ── Media (clickable for gallery) ── */}
           {reply.image_url && (
@@ -919,21 +1012,18 @@ export default function PostDetail() {
               </button>
             </Tooltip>
 
-            {/* Only direct replies (depth=1) can be replied to */}
-            {isDirectReply && (
-              <Tooltip text={t('post.reply')} placement="bottom">
-                <button className="comment-card-btn" onClick={() => startReply(reply, true)}>
-                  <FaReply /> {t('post.reply')}
-                </button>
-              </Tooltip>
-            )}
+            <Tooltip text={t('post.reply')} placement="bottom">
+              <button className="comment-card-btn" onClick={() => startReply(reply, true)}>
+                <FaReply /> {t('post.reply')}
+              </button>
+            </Tooltip>
 
-            {isDirectReply && hasChildren && (
+            {hasChildren && (
               <button
                 className="comment-card-btn"
-                onClick={() => setExpandedReplies((prev) => ({ ...prev, [reply.id]: !childrenExpanded }))}
+                onClick={() => setExpandedReplies((prev) => ({ ...prev, [reply.id]: !threadOpen }))}
               >
-                {childrenExpanded ? t('post.hide_replies') : t('post.replies_count', { n: childReplies.length })}
+                {threadOpen ? t('post.hide_replies') : t('post.replies_count', { n: totalReplies })}
               </button>
             )}
 
@@ -958,6 +1048,11 @@ export default function PostDetail() {
                     style={commentMenuState.style}
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {canEdit && (
+                      <button className="fc-dropdown-btn" onClick={() => startCommentEdit(reply)}>
+                        <FaPen /> {t('post.edit')}
+                      </button>
+                    )}
                     <button
                       className="fc-dropdown-btn fc-dropdown-btn--danger"
                       onClick={() => handleDeleteComment(reply.id)}
@@ -971,8 +1066,8 @@ export default function PostDetail() {
             )}
           </div>
 
-          {/* ── Inline reply form (only for direct replies) ── */}
-          {isDirectReply && isReplying && (
+          {/* ── Inline reply form ── */}
+          {isReplying && (
             <div className="comment-card-reply-form" id={`reply-form-${reply.id}`}>
               <div className="comment-card-reply-info">
                 {t('post.reply_to', { user: `@${replyTo?.username}` })}
@@ -992,24 +1087,33 @@ export default function PostDetail() {
               />
               {replyMention.mentionDropdown}
               <div className="comment-form-media-row">
+                <div className="comment-form-media-btns">
+                  <button
+                    type="button"
+                    className={`comment-form-media-btn ${replyShowMedia ? 'comment-form-media-btn--active' : ''}`}
+                    onClick={() => setReplyShowMedia((s) => !s)}
+                    title={t('post.comment_add_media')}
+                  >
+                    <FaImage />
+                    {replyMediaUrl && (
+                      <span className="comment-form-media-badge">{t('post.comment_media_added')}</span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={`comment-form-media-btn ${showReplyGifPicker ? 'comment-form-media-btn--active' : ''}`}
+                    onClick={() => setShowReplyGifPicker((s) => !s)}
+                    title={t('create_post.add_gif') || 'GIF'}
+                  >
+                    <span style={{ fontWeight: 800, fontSize: '0.72rem', lineHeight: 1 }}>GIF</span>
+                  </button>
+                </div>
                 <button
-                  type="button"
-                  className={`comment-form-media-btn ${replyShowMedia ? 'comment-form-media-btn--active' : ''}`}
-                  onClick={() => setReplyShowMedia((s) => !s)}
-                  title={t('post.comment_add_media')}
+                  className="comment-form-submit"
+                  onClick={handleSubmitReply}
+                  disabled={submittingReply || (!replyContent.trim() && !replyMediaUrl.trim())}
                 >
-                  <FaImage />
-                  {replyMediaUrl && (
-                    <span className="comment-form-media-badge">{t('post.comment_media_added')}</span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className={`comment-form-media-btn ${showReplyGifPicker ? 'comment-form-media-btn--active' : ''}`}
-                  onClick={() => setShowReplyGifPicker((s) => !s)}
-                  title={t('create_post.add_gif') || 'GIF'}
-                >
-                  <span style={{ fontWeight: 800, fontSize: '0.72rem', lineHeight: 1 }}>GIF</span>
+                  {submittingReply ? t('post.sending') : t('post.comment_post')}
                 </button>
               </div>
               {showReplyGifPicker && (
@@ -1047,21 +1151,17 @@ export default function PostDetail() {
                   )}
                 </div>
               )}
-              <div className="comment-form-actions">
-                <button className="comment-form-submit" onClick={handleSubmitReply} disabled={submittingReply || (!replyContent.trim() && !replyMediaUrl.trim())}>
-                  {submittingReply ? t('post.sending') : t('post.comment_post')}
-                </button>
-              </div>
+
             </div>
           )}
 
-          {/* ── Nested replies (only direct replies can have children) ── */}
-          {isDirectReply && hasChildren && childrenExpanded && (
-            <div className="comment-card-replies">
-              {childReplies.map((child) => renderReplyCard(child, 2))}
-            </div>
-          )}
         </div>
+
+        {threadOpen && (
+          <div className={`comment-card-replies${depth >= 3 ? ' comment-card-replies--flat' : ''}`}>
+            {childReplies.map((child) => renderReplyCard(child, depth + 1))}
+          </div>
+        )}
       </div>
     );
   };
@@ -1071,8 +1171,15 @@ export default function PostDetail() {
     const isLikedComment = commentLikes[comment.id] || false;
     const isDislikedComment = commentDislikes[comment.id] || false;
     const directReplies = getReplies(comment.id);
+    const totalReplies = replyTotals.get(comment.id) || 0;
+    const threadOpen = !!expandedReplies[comment.id] && directReplies.length > 0;
+    const contentClass = `comment-card-content${threadOpen ? ' comment-card-content--threaded' : ''}`;
     const isReplying = replyTo?.id === comment.id;
     const canDelete = user?.id && (user.id === comment.user_id || user.id === post?.user_id);
+    const canEdit = user?.id && user.id === comment.user_id;
+    const isOp = !!post?.user_id && comment.user_id === post.user_id;
+    const isEditing = editingComment?.id === comment.id;
+    const wasEdited = isEdited(comment);
 
     return (
       <div
@@ -1092,17 +1199,46 @@ export default function PostDetail() {
             style={getImageStyle(comment.profiles?.avatar_position)}
           />
         </a>
-        <div className="comment-card-content">
+        <div className={contentClass}>
           <div className="comment-card-header">
             <a
               className="comment-card-username"
               href={`/profile/${comment.profiles?.username}`}
               onClick={(e) => { e.preventDefault(); navigate(`/profile/${comment.profiles?.username}`); }}
             >
-              {comment.profiles?.username || 'unknown'}
+              {comment.profiles?.displayname || comment.profiles?.username || 'unknown'}
             </a>
-            <span className="comment-card-time">{getTimeAgo(t, locale, comment.created_at)}</span>
+            {comment.profiles?.roles && <Badge roles={comment.profiles.roles} />}
+            {isOp && <span className="comment-card-op">{t('post.op')}</span>}
+            <Tooltip text={formatFullDate(comment.created_at, locale, hour24)}>
+              <span className="comment-card-time">
+                {`${getTimeAgo(t, locale, comment.created_at)} · ${formatClockTime(comment.created_at, locale, hour24)}`}
+              </span>
+            </Tooltip>
+            {wasEdited && <span className="comment-card-edited">{t('post.edited')}</span>}
           </div>
+          {isEditing ? (
+            <div className="comment-card-edit">
+              <textarea
+                className="comment-form-input"
+                value={editingComment.content}
+                onChange={(e) => setEditingComment((prev) => ({ ...prev, content: e.target.value }))}
+                rows={2}
+                maxLength={1000}
+                autoFocus
+              />
+              <div className="comment-card-edit-actions">
+                <button className="comment-form-cancel-reply" onClick={cancelCommentEdit}>{t('common.cancel')}</button>
+                <button
+                  className="comment-form-submit"
+                  onClick={saveCommentEdit}
+                  disabled={savingCommentEdit || !editingComment.content.trim()}
+                >
+                  {t('post.save')}
+                </button>
+              </div>
+            </div>
+          ) : (
           <p className="comment-card-text">
             <RichText
               text={comment.content}
@@ -1112,6 +1248,7 @@ export default function PostDetail() {
               onExternalLink={handleExternalLink}
             />
           </p>
+          )}
 
           {/* ── Media en comentario (clickable, gallery) ── */}
           {comment.image_url && (
@@ -1175,17 +1312,14 @@ export default function PostDetail() {
             </Tooltip>
 
             {/* Show replies count */}
-            {directReplies.length > 0 && (() => {
-              const showReplies = expandedReplies[comment.id];
-              return (
-                <button
-                  className="comment-card-btn"
-                  onClick={() => setExpandedReplies((prev) => ({ ...prev, [comment.id]: !showReplies }))}
-                >
-                  {showReplies ? t('post.hide_replies') : t('post.replies_count', { n: directReplies.length })}
-                </button>
-              );
-            })()}
+            {directReplies.length > 0 && (
+              <button
+                className="comment-card-btn"
+                onClick={() => setExpandedReplies((prev) => ({ ...prev, [comment.id]: !threadOpen }))}
+              >
+                {threadOpen ? t('post.hide_replies') : t('post.replies_count', { n: totalReplies })}
+              </button>
+            )}
 
             {/* Spacer flex para empujar el menú a la derecha */}
             {canDelete && <div style={{ flex: 1 }} />}
@@ -1208,6 +1342,11 @@ export default function PostDetail() {
                     style={commentMenuState.style}
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {canEdit && (
+                      <button className="fc-dropdown-btn" onClick={() => startCommentEdit(comment)}>
+                        <FaPen /> {t('post.edit')}
+                      </button>
+                    )}
                     <button
                       className="fc-dropdown-btn fc-dropdown-btn--danger"
                       onClick={() => handleDeleteComment(comment.id)}
@@ -1238,25 +1377,35 @@ export default function PostDetail() {
                 maxLength={1000}
                 onPaste={(e) => handleReplyPaste(e, comment.id)}
                 title={t('post.paste_image_hint') || 'Paste an image with Ctrl+V'}
-              />              <div className="comment-form-media-row">
+              />
+              <div className="comment-form-media-row">
+                <div className="comment-form-media-btns">
+                  <button
+                    type="button"
+                    className={`comment-form-media-btn ${replyShowMedia ? 'comment-form-media-btn--active' : ''}`}
+                    onClick={() => setReplyShowMedia((s) => !s)}
+                    title={t('post.comment_add_media')}
+                  >
+                    <FaImage />
+                    {replyMediaUrl && (
+                      <span className="comment-form-media-badge">{t('post.comment_media_added')}</span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={`comment-form-media-btn ${showReplyGifPicker ? 'comment-form-media-btn--active' : ''}`}
+                    onClick={() => setShowReplyGifPicker((s) => !s)}
+                    title={t('create_post.add_gif') || 'GIF'}
+                  >
+                    <span style={{ fontWeight: 800, fontSize: '0.72rem', lineHeight: 1 }}>GIF</span>
+                  </button>
+                </div>
                 <button
-                  type="button"
-                  className={`comment-form-media-btn ${replyShowMedia ? 'comment-form-media-btn--active' : ''}`}
-                  onClick={() => setReplyShowMedia((s) => !s)}
-                  title={t('post.comment_add_media')}
+                  className="comment-form-submit"
+                  onClick={handleSubmitReply}
+                  disabled={submittingReply || (!replyContent.trim() && !replyMediaUrl.trim())}
                 >
-                  <FaImage />
-                  {replyMediaUrl && (
-                    <span className="comment-form-media-badge">{t('post.comment_media_added')}</span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className={`comment-form-media-btn ${showReplyGifPicker ? 'comment-form-media-btn--active' : ''}`}
-                  onClick={() => setShowReplyGifPicker((s) => !s)}
-                  title={t('create_post.add_gif') || 'GIF'}
-                >
-                  <span style={{ fontWeight: 800, fontSize: '0.72rem', lineHeight: 1 }}>GIF</span>
+                  {submittingReply ? t('post.sending') : t('post.comment_post')}
                 </button>
               </div>
               {showReplyGifPicker && (
@@ -1294,25 +1443,16 @@ export default function PostDetail() {
                   )}
                 </div>
               )}
-              <div className="comment-form-actions">
-                <button className="comment-form-submit" onClick={handleSubmitReply} disabled={submittingReply || (!replyContent.trim() && !replyMediaUrl.trim())}>
-                  {submittingReply ? t('post.sending') : t('post.comment_post')}
-                </button>
-              </div>
             </div>
           )}
 
-          {/* ── Replies (indented once) ── */}
-          {(() => {
-            const showReplies = expandedReplies[comment.id];
-            if (!showReplies || directReplies.length === 0) return null;
-            return (
-              <div className="comment-card-replies">
-                {directReplies.map((reply) => renderReplyCard(reply))}
-              </div>
-            );
-          })()}
         </div>
+
+        {threadOpen && (
+          <div className="comment-card-replies">
+            {directReplies.map((reply) => renderReplyCard(reply))}
+          </div>
+        )}
       </div>
     );
   };
@@ -1399,24 +1539,33 @@ export default function PostDetail() {
               />
               {mainMention.mentionDropdown}
               <div className="comment-form-media-row">
+                <div className="comment-form-media-btns">
+                  <button
+                    type="button"
+                    className={`comment-form-media-btn ${commentShowMedia ? 'comment-form-media-btn--active' : ''}`}
+                    onClick={() => setCommentShowMedia((s) => !s)}
+                    title={t('post.comment_add_media')}
+                  >
+                    <FaImage />
+                    {commentMediaUrl && (
+                      <span className="comment-form-media-badge">{t('post.comment_media_added')}</span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={`comment-form-media-btn ${showCommentGifPicker ? 'comment-form-media-btn--active' : ''}`}
+                    onClick={() => setShowCommentGifPicker((s) => !s)}
+                    title={t('create_post.add_gif') || 'GIF'}
+                  >
+                    <span style={{ fontWeight: 800, fontSize: '0.72rem', lineHeight: 1 }}>GIF</span>
+                  </button>
+                </div>
                 <button
-                  type="button"
-                  className={`comment-form-media-btn ${commentShowMedia ? 'comment-form-media-btn--active' : ''}`}
-                  onClick={() => setCommentShowMedia((s) => !s)}
-                  title={t('post.comment_add_media')}
+                  className="comment-form-submit"
+                  onClick={handleSubmitComment}
+                  disabled={submittingComment || (!commentInput.trim() && !commentMediaUrl.trim())}
                 >
-                  <FaImage />
-                  {commentMediaUrl && (
-                    <span className="comment-form-media-badge">{t('post.comment_media_added')}</span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className={`comment-form-media-btn ${showCommentGifPicker ? 'comment-form-media-btn--active' : ''}`}
-                  onClick={() => setShowCommentGifPicker((s) => !s)}
-                  title={t('create_post.add_gif') || 'GIF'}
-                >
-                  <span style={{ fontWeight: 800, fontSize: '0.72rem', lineHeight: 1 }}>GIF</span>
+                  {submittingComment ? t('post.sending') : t('post.comment_post')}
                 </button>
               </div>
               {showCommentGifPicker && (
@@ -1464,15 +1613,6 @@ export default function PostDetail() {
                   )}
                 </div>
               )}
-              <div className="comment-form-actions">
-                <button
-                  className="comment-form-submit"
-                  onClick={handleSubmitComment}
-                  disabled={submittingComment || (!commentInput.trim() && !commentMediaUrl.trim())}
-                >
-                  {submittingComment ? t('post.sending') : t('post.comment_post')}
-                </button>
-              </div>
             </div>
           </div>
         )}
@@ -1502,7 +1642,9 @@ export default function PostDetail() {
             <p className="posts-empty-text">{t('post.no_comments')}</p>
           </div>
         ) : (
-          topLevelComments.map((comment) => renderComment(comment))
+          <div className="comments-list">
+            {topLevelComments.map((comment) => renderComment(comment))}
+          </div>
         )}
       </div>
 
