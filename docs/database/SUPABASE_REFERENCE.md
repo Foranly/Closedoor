@@ -588,11 +588,35 @@ CREATE POLICY "Public profiles are viewable by everyone"
 ```sql
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view posts" ON posts FOR SELECT USING (true);
-CREATE POLICY "Users can create posts" ON posts FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own posts" ON posts FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own posts" ON posts FOR DELETE USING (auth.uid() = user_id);
+-- SELECT: cifrado (051) + comunidad (058) + privacidad de perfil (089)
+CREATE POLICY "Anyone can view non-encrypted posts" ON posts
+  FOR SELECT
+  USING (
+    is_encrypted IS DISTINCT FROM true
+    AND (community_id IS NULL OR public.can_view_community(community_id))
+    AND public.can_view_profile_content(user_id)
+  );
+
+CREATE POLICY "Authors and allowed users can view encrypted posts" ON posts
+  FOR SELECT
+  USING (
+    is_encrypted = true
+    AND (
+      auth.uid() = user_id
+      OR auth.uid() = ANY (COALESCE(allowed_users, '{}'))
+    )
+    AND (community_id IS NULL OR public.can_view_community(community_id))
+  );
+
+-- INSERT / UPDATE / DELETE: definidas en 058 (autor y moderadores de la
+-- comunidad). El botón de "compartir" en chat valida la privacidad en 085.
 ```
+
+La regla de perfil privado vive en `can_view_profile_content(owner)`: el dueño
+pasa siempre, un perfil público pasa siempre y un perfil privado solo pasa si
+`follows` tiene `(follower_id = auth.uid(), following_id = owner, status =
+'accepted')`. La función es `SECURITY INVOKER` y `STABLE`, así que respeta el
+RLS de `profiles`/`follows` y no necesita `service_role`.
 
 ### likes
 
@@ -609,11 +633,27 @@ CREATE POLICY "Users can delete own likes" ON likes FOR DELETE USING (auth.uid()
 ```sql
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view comments" ON comments FOR SELECT USING (true);
-CREATE POLICY "Users can create comments" ON comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- SELECT (089): un comentario nunca es más público que su post
+CREATE POLICY "Comments are viewable by the post audience"
+  ON comments FOR SELECT
+  USING (public.can_view_post(post_id));
+
+-- INSERT (089): y solo se comenta un post que se puede abrir
+CREATE POLICY "Users can create comments"
+  ON comments FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid() = user_id
+    AND public.can_view_post(post_id)
+  );
+
 CREATE POLICY "Users can update own comments" ON comments FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own comments" ON comments FOR DELETE USING (auth.uid() = user_id);
 ```
+
+`can_view_post(post_id)` es `SECURITY INVOKER` y solo hace
+`SELECT EXISTS (SELECT 1 FROM posts WHERE id = post_id)`: hereda todas las
+reglas de la tabla `posts` (cifrado, comunidad y perfil privado) sin
+duplicarlas.
 
 ### comment_likes
 

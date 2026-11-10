@@ -467,7 +467,12 @@ function Profile() {
     const savesUserId = isOwnProfile ? user?.id : activeProfile?.id;
     const [scheduledPosts, setScheduledPosts] = useState([]);
     const [scheduledPostsLoading, setScheduledPostsLoading] = useState(true);
-    const repliesCacheKey = activeProfile?.id ? `replies_${activeProfile.id}` : null;
+    // v2: las respuestas se filtran por visibilidad del post padre (privacidad
+    // de perfil), así que la caché anterior no sirve. El visitante entra en la
+    // clave porque el resultado depende de a quién sigue.
+    const repliesCacheKey = activeProfile?.id
+        ? `replies_v2_${user?.id || 'anon'}_${activeProfile.id}`
+        : null;
     const [replies, setReplies] = useState(() => {
         const cached = repliesCacheKey ? getCachedFeed(repliesCacheKey) : null;
         return cached?.items || [];
@@ -829,7 +834,7 @@ function Profile() {
     useEffect(() => {
         const userId = activeProfile?.id;
         if (!userId || tab !== 'replies') return;
-        const cacheKey = `replies_${userId}`;
+        const cacheKey = `replies_v2_${user?.id || 'anon'}_${userId}`;
 
         // Restaurar cache inmediatamente (síncrono)
         const cached = getCachedFeed(cacheKey);
@@ -843,7 +848,7 @@ function Profile() {
         }
 
         // Fetch en segundo plano
-        getUserComments(userId)
+        getUserComments(userId, { viewerId: user?.id })
             .then(async (items) => {
                 setReplies(items);
                 let likedIds = [], dislikedIds = [];
