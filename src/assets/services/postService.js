@@ -262,7 +262,9 @@ export async function getProfileContent(profileUserId, currentUserId, { offset =
       .order('created_at', { ascending: false }),
   ]);
 
-  const repostItems = (repostsResult.data || []).map((r) => ({
+  // RLS (089): el post de un perfil privado ajeno no se devuelve → el embed
+  // llega null y la fila del repost no tiene nada que mostrar.
+  const repostItems = (repostsResult.data || []).filter((r) => r.posts).map((r) => ({
     ...r.posts,
     is_pinned: false,  // Los reposts nunca heredan el pin del post original
     pinned_at: null,
@@ -630,16 +632,20 @@ export async function getComments(postId) {
 }
 
 /**
- * Get all comments made by a specific user (for the Replies tab in profile)
+ * Get all comments made by a specific user (for the Replies tab in profile).
+ *
+ * `viewerId` descarta las respuestas cuyo post padre no puede ver el visitante
+ * (ver filterRepliesByParentVisibility). Del post padre solo se trae el autor
+ * (y si es privado), nunca su contenido.
  */
-export async function getUserComments(userId, { limit = 50, offset = 0 } = {}) {
+export async function getUserComments(userId, { limit = 50, offset = 0, viewerId = null } = {}) {
   if (!userId) return [];
   const { data, error } = await supabase
     .from('comments')
     .select(`
       id, content, image_url, video_url, created_at, post_id, comment_likes_count, comment_dislikes_count,
       profiles!comments_user_id_fkey (id, username, displayname, avatar_url, roles, avatar_position),
-      posts!comments_post_id_fkey (id, user_id, content, image_url, is_encrypted, encrypted_content, encrypted_iv, allowed_users, obfuscated_display, profiles!posts_user_id_fkey (id, username, displayname, avatar_url, roles))
+      posts!comments_post_id_fkey (user_id, profiles!posts_user_id_fkey (id, username, displayname, avatar_url, roles, is_private))
     `)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
@@ -649,7 +655,46 @@ export async function getUserComments(userId, { limit = 50, offset = 0 } = {}) {
     console.error('Error fetching user comments:', error);
     throw error;
   }
-  return data || [];
+  return filterRepliesByParentVisibility(data || [], viewerId);
+}
+
+/**
+ * Oculta las respuestas cuyo post padre no ve el visitante:
+ *  · post oculto por RLS (cifrado ajeno o comunidad privada) → llega null
+ *  · post de un perfil privado que el visitante no sigue (la privacidad de
+ *    perfil se aplica en el cliente, así que la comprobación va aquí)
+ * Si el visitante es el autor del post o el post es de un perfil público, pasa.
+ */
+async function filterRepliesByParentVisibility(items, viewerId) {
+  if (items.length === 0) return items;
+
+  const privateOwnerIds = new Set();
+  for (const item of items) {
+    const post = item.posts;
+    if (!post || post.user_id === viewerId) continue;
+    if (post.profiles?.is_private) privateOwnerIds.add(post.user_id);
+  }
+
+  const followedIds = new Set();
+  if (viewerId && privateOwnerIds.size > 0) {
+    const { data: follows } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', viewerId)
+      .eq('status', 'accepted')
+      .in('following_id', [...privateOwnerIds]);
+    (follows || []).forEach((f) => followedIds.add(f.following_id));
+  }
+
+  return items.filter((item) => {
+    const post = item.posts;
+    if (!post) return false;                     // RLS no lo deja ver
+    if (post.user_id === viewerId) return true;  // post propio
+    const author = post.profiles;
+    if (!author) return false;
+    if (!author.is_private) return true;         // autor público
+    return followedIds.has(post.user_id);        // privado: solo seguidores
+  });
 }
 
 export async function deleteComment(commentId) {
@@ -1333,7 +1378,9 @@ export async function getLikedPosts(userId, { limit = 50, offset = 0 } = {}) {
     return [];
   }
 
-  return (data || []).map((l) => ({
+  // Los likes de posts que el visitante no puede ver (perfil privado, 089)
+  // llegan con el embed en null: se descartan en vez de pintar una card vacía.
+  return (data || []).filter((l) => l.posts).map((l) => ({
     ...l.posts,
     _likeInfo: { likeId: l.id, likedAt: l.created_at },
   }));
@@ -1479,7 +1526,7 @@ export async function getSavedPosts(userId, { limit = 50, offset = 0 } = {}) {
     throw error;
   }
 
-  return (data || []).map((s) => ({
+  return (data || []).filter((s) => s.posts).map((s) => ({
     ...s.posts,
     _savedInfo: { savedId: s.id, savedAt: s.created_at },
   }));
