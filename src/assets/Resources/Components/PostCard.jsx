@@ -43,6 +43,7 @@ import { getOrCreateConversation, sendMessage } from '../../services/chatService
 import { getFollowing } from '../../services/followService';
 import { isBlocked, getCachedBlockStatus, blockUser, unblockUser, cacheBlockStatus, clearBlockedListsCache } from '../../services/blockService';
 import ConfirmModal from './ConfirmModal';
+import ProfileHoverCard from './ProfileHoverCard';
 import Tooltip from './Tooltip';
 import './css/postCard.css';
 
@@ -812,12 +813,14 @@ const PostCard = React.memo(function PostCard({
           className="post-card-avatar-link"
           onClick={(e) => e.stopPropagation()}
         >
-          <Avatar
-            className="post-card-avatar"
-            src={profile?.avatar_url}
-            alt={profile?.username || 'user'}
-            style={getImageStyle(profile?.avatar_position)}
-          />
+          <ProfileHoverCard userId={profile?.id || post.user_id}>
+            <Avatar
+              className="post-card-avatar"
+              src={profile?.avatar_url}
+              alt={profile?.username || 'user'}
+              style={getImageStyle(profile?.avatar_position)}
+            />
+          </ProfileHoverCard>
         </Link>
 
         {/* Content */}
