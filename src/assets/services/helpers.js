@@ -37,6 +37,33 @@ export function getTimeAgo(t, locale, dateStr) {
   });
 }
 
+// ── Hora de publicación (se añade al día en el detalle del post) ──
+export function formatClockTime(dateStr, locale, hour24 = true) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString(locale || 'es', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: !hour24,
+  });
+}
+
+// ── Fecha y hora completas (tooltip de la hora del post) ──
+export function formatFullDate(dateStr, locale, hour24 = true) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString(locale || 'es', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: !hour24,
+  });
+}
+
 // ── WCAG contrast text color ──
 export function getContrastText(hex) {
   if (!hex) return '#000000';
