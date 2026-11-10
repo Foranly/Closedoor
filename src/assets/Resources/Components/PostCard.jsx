@@ -33,7 +33,7 @@ import PostMarkdown from './PostMarkdown';
 import { closeUnbalancedMarkers } from '../../services/postMarkdown';
 import LinkPreview from './LinkPreview';
 import { useI18n } from '../../services/i18n/useI18n';
-import { DEFAULT_AVATAR, getTimeAgo, getEmbedUrl as getEmbedUrlHelper, isVideoUrl as isVideoUrlHelper, IMG_RE, VID_RE, VID_RE_EXTENDED, getImageStyle, sanitizeUrl } from '../../services/helpers';import { decode as encryptDecode,
+import { DEFAULT_AVATAR, getTimeAgo, formatClockTime, formatFullDate, getEmbedUrl as getEmbedUrlHelper, isVideoUrl as isVideoUrlHelper, IMG_RE, VID_RE, VID_RE_EXTENDED, getImageStyle, sanitizeUrl } from '../../services/helpers';import { decode as encryptDecode,
   decryptForUser,
   getCachedDecryptedContent,
   setCachedDecryptedContent,
@@ -347,6 +347,16 @@ const PostCard = React.memo(function PostCard({
   // reenvía a terceros. El dueño sí puede compartirlo con sus seguidores.
   const shareDisabled = isPrivateProfile && !isOwner;
   const timeAgo = useMemo(() => getTimeAgo(t, locale, post.created_at), [t, locale, post.created_at]);
+  // En el detalle del post se añade la hora de publicación.
+  const postedAt = useMemo(
+    () => (fullContent ? formatClockTime(post.created_at, locale, hour24) : ''),
+    [fullContent, post.created_at, locale, hour24]
+  );
+  // Fecha y hora exactas en el tooltip de la hora.
+  const fullDate = useMemo(
+    () => formatFullDate(post.created_at, locale, hour24),
+    [post.created_at, locale, hour24]
+  );
 
   // ── Determinar qué contenido mostrar (sin flicker) ──
   const isEncrypted = post.is_encrypted === true;
@@ -821,7 +831,9 @@ const PostCard = React.memo(function PostCard({
             >
               <span className="post-card-username">{profile?.displayname || profile?.username || 'unknown'}</span>
               {profile?.roles && <Badge roles={profile.roles} />}
-              <span className="post-card-time">{timeAgo}</span>
+              <Tooltip text={fullDate}>
+                <span className="post-card-time">{timeAgo}{postedAt && ` · ${postedAt}`}</span>
+              </Tooltip>
             </Link>
 
             {/* ── Right-side: encrypted badge + menus ── */}
