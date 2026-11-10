@@ -597,6 +597,9 @@ body:has(.sidebar--collapsed) .app-layout--chat {
    página de perfil, las vars inline del perfil ganan sobre las heredadas, así
    que allí las cards conservan el tratamiento configurado por su dueño.
 
+   El panel derecho queda fuera a propósito: su superficie solo sigue al
+   perfil en /profile (ver rightPanel.css).
+
    .sidebar--chat sí entra aquí (en /chat el sidebar flota como una card y
    debe seguir viéndose translúcido), pero NO en la regla de color de texto:
    sus iconos/links son chrome del app y no cambian de color al navegar.
@@ -614,7 +617,6 @@ html.fc-cards-glass:not(.fc-chat-default) :is(
     .profile-blocked-card,
     .chat-list,
     .chat-messages,
-    .right-panel-card,
     .community-header,
     .community-composer,
     .community-feed-controls,
@@ -679,8 +681,7 @@ html.fc-cards-glass.fc-cards-text:not(.fc-chat-default) :is(
     .profile-card,
     .profile-blocked-card,
     .chat-list,
-    .chat-messages,
-    .right-panel-card
+    .chat-messages
 ):not(.profile-page *):not(.community-page *):not(.comunidades-page *) {
     --accent-surface-text-color: var(--fc-cards-text);
     --accent-surface-text-secondary: var(--fc-cards-text);
