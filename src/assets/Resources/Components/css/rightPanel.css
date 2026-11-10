@@ -48,7 +48,10 @@ html.fc-desktop .right-panel {
   border: none;
 }
 
-html:not(.fc-cards-glass) .right-panel-card {
+/* La superficie del perfil (translúcida o de color) solo aplica al panel
+   derecho en /profile. En el resto de rutas se anulan las vars que hereda y
+   las cards usan la superficie del tema. */
+.right-panel:not(.right-panel--profile) {
   --accent-surface-rgba: initial;
   --accent-surface-rgba-hover: initial;
   --accent-surface-blur: initial;
