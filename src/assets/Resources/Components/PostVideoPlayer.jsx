@@ -28,7 +28,7 @@ function formatTime(seconds) {
  * Los embeds de YouTube/Vimeo no pasan por aquí: los pinta PostCard como
  * iframe, porque su reproducción no se puede controlar desde fuera.
  */
-export default function PostVideoPlayer({ src, title, className = '' }) {
+export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, className = '' }) {
   const { t } = useI18n();
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -44,7 +44,9 @@ export default function PostVideoPlayer({ src, title, className = '' }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   // Ratio real del archivo: el contenedor se ajusta a él para no dejar huecos
   // ni deformar el video en burbujas o cards más anchas.
-  const [ratio, setRatio] = useState(0);
+  // Si el post guardó las dimensiones al publicar, el hueco queda con el
+  // tamaño final antes de que cargue el video (sin salto de altura).
+  const [ratio, setRatio] = useState(savedRatio > 0 ? savedRatio : 0);
 
   // ── Sincronizar estado con el elemento <video> ──
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function PostVideoPlayer({ src, title, className = '' }) {
     setCurrentTime(0);
     setDuration(0);
     setPlaying(false);
-    setRatio(0);
+    setRatio(savedRatio > 0 ? savedRatio : 0);
 
     const onTime = () => setCurrentTime(video.currentTime);
     const onMeta = () => {
@@ -96,7 +98,7 @@ export default function PostVideoPlayer({ src, title, className = '' }) {
       video.removeEventListener('enterpictureinpicture', onEnterPip);
       video.removeEventListener('leavepictureinpicture', onLeavePip);
     };
-  }, [src]);
+  }, [src, savedRatio]);
 
   // ── Pantalla completa (se sigue con el evento para cubrir Escape) ──
   useEffect(() => {

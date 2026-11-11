@@ -29,6 +29,40 @@ import './css/createPostModal.css';
 
 const IMAGE_EXTENSIONS = IMG_RE;
 
+/**
+ * Lee las dimensiones reales de un video por URL (best-effort). Se guardan en
+ * posts.video_meta para que el feed reserve el hueco antes de cargar el
+ * archivo. Los embeds (YouTube/Vimeo) no exponen tamaño: devuelven null.
+ */
+function loadVideoMeta(url) {
+  return new Promise((resolve) => {
+    if (!url || getEmbedUrlHelper(url)) {
+      resolve(null);
+      return;
+    }
+    const video = document.createElement('video');
+    let settled = false;
+    const finish = (meta) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      video.removeAttribute('src');
+      video.load?.();
+      resolve(meta);
+    };
+    const timer = setTimeout(() => finish(null), 4000);
+    video.preload = 'metadata';
+    video.muted = true;
+    video.onloadedmetadata = () => {
+      finish(video.videoWidth && video.videoHeight
+        ? { width: video.videoWidth, height: video.videoHeight }
+        : null);
+    };
+    video.onerror = () => finish(null);
+    video.src = url;
+  });
+}
+
 export default function CreatePostModal({
   isOpen,
   onClose,
@@ -137,6 +171,7 @@ export default function CreatePostModal({
   };
 
   const validVideoUrl = isAttachableVideoUrl(videoUrl) ? videoUrl.trim() : '';
+
 
   // Preview the media found in current content
   const updatePreview = useCallback((text) => {
@@ -555,6 +590,13 @@ export default function CreatePostModal({
       // Las canciones de YouTube no traen preview: se pide uno a iTunes como
       // respaldo antes de guardar (best-effort), igual que en el perfil.
       const finalSong = song ? await withPreviewFallback(song) : null;
+      // Ratio del video para reservar el hueco en el feed: se mide aquí (si
+      // falla, el post se guarda igual sin video_meta y el reproductor mide al
+      // cargar). Al editar se conserva el guardado si la URL no cambió.
+      let finalVideoMeta = finalVideoUrl ? await loadVideoMeta(finalVideoUrl) : null;
+      if (!finalVideoMeta && finalVideoUrl && editPost?.video_url === finalVideoUrl) {
+        finalVideoMeta = editPost.video_meta || null;
+      }
 
       // Si es modo ofuscado, encriptar el contenido
       if (isEncrypted && !isEditing) {
@@ -568,6 +610,7 @@ export default function CreatePostModal({
           image_urls: finalImageUrls.length > 0 ? finalImageUrls : null,
           image_meta: finalImageMeta.length > 0 ? finalImageMeta : null,
           video_url: finalVideoUrl,
+          video_meta: finalVideoUrl ? finalVideoMeta : null,
           comments_allowed: commentsAllowed,
           is_sensitive: isSensitive,
           song: finalSong,
@@ -650,6 +693,7 @@ export default function CreatePostModal({
           imageUrls: finalImageUrls.length > 0 ? finalImageUrls : null,
           imageMeta: finalImageMeta.length > 0 ? finalImageMeta : null,
           videoUrl: finalVideoUrl,
+          videoMeta: finalVideoUrl ? finalVideoMeta : null,
           song: finalSong,
           encryptedContent: encryptedResult?.ciphertext || null,
           encryptedIv: encryptedResult?.iv || null,
