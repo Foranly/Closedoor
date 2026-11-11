@@ -26,6 +26,7 @@ import {
   getPinnedMessages, getDecryptedMessages,
 } from '../services/chatService';
 import { getFollowing } from '../services/followService';
+import { getUserProfile } from '../services/userService';
 import { isBlocked, blockUser, unblockUser, unfollowBothWays, getCachedBlockStatus, cacheBlockStatus } from '../services/blockService';
 import FollowButton from '../Resources/Components/FollowButton';
 import ModalShell from '../Resources/Components/ModalShell';
@@ -130,6 +131,10 @@ export default function Chat() {
   // ── State ──
   const [conversations, setConversations] = useState([]);
   const [convsLoading, setConvsLoading] = useState(true);
+  // true cuando el primer fetch de la lista terminó (la caché de sesión pone
+  // convsLoading=false antes, y abrir un chat pendiente antes del fetch haría
+  // que loadConvs lo descartara).
+  const [convsFetched, setConvsFetched] = useState(false);
   // Historial de llamadas de todas mis conversaciones (lista + hilo activo).
   const [callHistory, setCallHistory] = useState([]);
   const [activeConvId, setActiveConvId] = useState(null);
@@ -704,6 +709,7 @@ export default function Chat() {
       console.warn('Error loading conversations:', err);
     } finally {
       setConvsLoading(false);
+      setConvsFetched(true);
     }
   }, [user?.id]);
 
@@ -1484,6 +1490,26 @@ export default function Chat() {
     setSearchQuery('');
     selectConversation(tempId);
   };
+
+  // ── Abrir el chat con un usuario pedido por URL (?u=<userId>) ──
+  // Lo usa el botón «Mensaje» del perfil. Se espera a que la lista esté
+  // cargada para que loadConvs no descarte la conversación pendiente.
+  const openedFromUserUrlRef = useRef(false);
+  const wantedChatUserId = searchParams.get('u');
+
+  useEffect(() => {
+    if (!wantedChatUserId || openedFromUserUrlRef.current) return;
+    if (authLoading || !convsFetched || !user?.id) return;
+    openedFromUserUrlRef.current = true;
+    setSearchParams({}, { replace: true });
+    if (wantedChatUserId === user.id) return;
+    getUserProfile(wantedChatUserId)
+      .then((target) => {
+        if (target) startConversation(target);
+      })
+      .catch((err) => console.warn('Could not open chat from URL:', err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedChatUserId, convsFetched, authLoading, user?.id, setSearchParams]);
 
   // ── Context menu handlers (conversation list) ──
   const handleContextMenu = useCallback((e, convId) => {
