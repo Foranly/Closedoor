@@ -2480,7 +2480,9 @@ export default function Chat() {
     } catch (err) {
       setMessages((prev) => prev.filter(m => m.id !== tempId));
       console.error('Error sending message:', err);
-      toast.error(t('chat.send_error'), { className: 'fc-toast' });
+      if (!showRateLimitToast(t, err)) {
+        toast.error(t('chat.send_error'), { className: 'fc-toast' });
+      }
       return null;
     } finally {
       setSending(false);

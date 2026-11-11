@@ -157,6 +157,8 @@
   "common.delete": "Eliminar",
   "common.edit": "Editar",
   "common.error": "Error",
+  "common.rate_limited": "Vas demasiado rápido. Espera un momento e inténtalo de nuevo.",
+  "common.rate_limited_wait": "Vas demasiado rápido. Podrás reintentar en {seconds} s.",
   "common.loading": "Cargando...",
   "common.next": "Siguiente",
   "common.password": "Contraseña",

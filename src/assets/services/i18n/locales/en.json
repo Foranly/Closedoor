@@ -157,6 +157,8 @@
   "common.delete": "Delete",
   "common.edit": "Edit",
   "common.error": "Error",
+  "common.rate_limited": "You're going too fast. Wait a moment and try again.",
+  "common.rate_limited_wait": "You're going too fast. You can retry in {seconds}s.",
   "common.loading": "Loading...",
   "common.next": "Next",
   "common.password": "Password",

@@ -286,3 +286,32 @@ export function getBackgroundStyle(positionStr) {
   };
 }
 
+
+/**
+ * Error de rate limit devuelto por la DB (migración 092): los triggers lanzan
+ * `rate_limited:<bucket>` con SQLSTATE P0001. Devuelve el bucket para poder
+ * distinguir el contexto, o null si no es un error de límite.
+ */
+export function getRateLimitBucket(err) {
+  const info = getRateLimitInfo(err);
+  return info ? info.bucket : null;
+}
+
+/**
+ * Info del rate limit: { bucket, retryAfter } donde retryAfter son los segundos
+ * que faltan para reintentar (migración 093) o null si el servidor no lo envía.
+ */
+export function getRateLimitInfo(err) {
+  const message = typeof err === 'string' ? err : err?.message || '';
+  const match = /rate_limited:([a-z_]+)(?::(\d+))?/i.exec(message);
+  if (!match) return null;
+  return {
+    bucket: match[1],
+    retryAfter: match[2] ? Number(match[2]) : null,
+  };
+}
+
+/** true si el error viene del rate limit de interacciones. */
+export function isRateLimitError(err) {
+  return getRateLimitInfo(err) !== null;
+}
