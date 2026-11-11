@@ -545,6 +545,32 @@ dialog.fc-modal.social-links-modal {
     background: rgba(255, 255, 255, 0.14);
 }
 
+/* Botón para abrir el chat con este perfil (solo en perfiles ajenos).
+   Solo icono: el texto va en el tooltip / aria-label. */
+.profile-message-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    font-size: 0.95rem;
+    line-height: 1;
+    font-family: inherit;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius, 10px);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.profile-message-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
 /* ---- 3-dots Context Menu ---- */
 
 .profile-actions-menu {
