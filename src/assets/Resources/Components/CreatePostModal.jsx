@@ -5,7 +5,7 @@ import { createPost, updatePost, notifyMentions, notifyEncryptedAdd, extractMent
 import { searchProfiles } from '../../services/userService';
 import { useAuth } from '../../../hooks/useAuth';
 import { useI18n } from '../../services/i18n/useI18n';
-import { FaImage, FaTimes, FaPlus, FaMinus, FaLink, FaLock, FaUnlock, FaUserPlus, FaCheck, FaSearch, FaRegHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaPoll, FaCalendarAlt, FaClock, FaGlobe, FaUserFriends, FaBan, FaExclamationTriangle, FaBookmark, FaRegBookmark, FaUpload, FaSpinner, FaBold, FaItalic, FaStrikethrough, FaCode, FaListUl, FaQuoteRight } from 'react-icons/fa';
+import { FaImage, FaTimes, FaPlus, FaMinus, FaLink, FaLock, FaUnlock, FaUserPlus, FaCheck, FaSearch, FaRegHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaPoll, FaCalendarAlt, FaClock, FaGlobe, FaUserFriends, FaBan, FaExclamationTriangle, FaBookmark, FaRegBookmark, FaUpload, FaSpinner, FaMusic, FaVideo, FaBold, FaItalic, FaStrikethrough, FaCode, FaListUl, FaQuoteRight } from 'react-icons/fa';
 import SafeImage from './SafeImage';
 import Avatar from './Avatar';
 import Badge from './Badge';
@@ -14,6 +14,7 @@ import SongPicker from './SongPicker';
 import SongArtwork from './SongArtwork';
 import { withPreviewFallback } from '../../services/musicService';
 import { IMG_RE, VID_RE, YOUTUBE_PATTERN, VIMEO_PATTERN, extractUrls, detectMediaFromContent, getRateLimitInfo, getEmbedUrl as getEmbedUrlHelper } from '../../services/helpers';
+import { IMG_RE, VID_RE, YOUTUBE_PATTERN, VIMEO_PATTERN, isAttachableVideoUrl, extractUrls, detectMediaFromContent, getEmbedUrl as getEmbedUrlHelper } from '../../services/helpers';
 import { getClipboardImageFile } from '../../services/clipboard';
 import ConfirmModal from './ConfirmModal';
 import PostMarkdown from './PostMarkdown';
@@ -28,6 +29,40 @@ import './css/modal.css';
 import './css/createPostModal.css';
 
 const IMAGE_EXTENSIONS = IMG_RE;
+
+/**
+ * Lee las dimensiones reales de un video por URL (best-effort). Se guardan en
+ * posts.video_meta para que el feed reserve el hueco antes de cargar el
+ * archivo. Los embeds (YouTube/Vimeo) no exponen tamaño: devuelven null.
+ */
+function loadVideoMeta(url) {
+  return new Promise((resolve) => {
+    if (!url || getEmbedUrlHelper(url)) {
+      resolve(null);
+      return;
+    }
+    const video = document.createElement('video');
+    let settled = false;
+    const finish = (meta) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      video.removeAttribute('src');
+      video.load?.();
+      resolve(meta);
+    };
+    const timer = setTimeout(() => finish(null), 4000);
+    video.preload = 'metadata';
+    video.muted = true;
+    video.onloadedmetadata = () => {
+      finish(video.videoWidth && video.videoHeight
+        ? { width: video.videoWidth, height: video.videoHeight }
+        : null);
+    };
+    video.onerror = () => finish(null);
+    video.src = url;
+  });
+}
 
 export default function CreatePostModal({
   isOpen,
@@ -87,6 +122,17 @@ export default function CreatePostModal({
   // ── GIF picker state ──
   const [showGifPicker, setShowGifPicker] = useState(false);
 
+  // ── Canción adjunta al post ──
+  // Se guarda en posts.song y la reproduce el reproductor global: preview de
+  // 30 s en la web, canción entera desde el servidor local en la app de
+  // escritorio.
+  const [song, setSong] = useState(null);
+  const [showSongPicker, setShowSongPicker] = useState(false);
+
+  // ── Video por URL ──
+  // Solo por URL: el CDN todavía no procesa video, así que no hay subida.
+  const [videoUrl, setVideoUrl] = useState('');
+
   // ── Sensitive content state ──
   const [isSensitive, setIsSensitive] = useState(false);
 
@@ -94,8 +140,8 @@ export default function CreatePostModal({
   const [pendingClose, setPendingClose] = useState(false);
 
   const hasUnsavedContent = useCallback(() => {
-    return content.trim().length > 0 || getValidImageUrls().length > 0 || allowedUsers.length > 0 || showPoll || showSchedule || isSensitive;
-  }, [content, imageUrls, allowedUsers, showPoll, showSchedule]);
+    return content.trim().length > 0 || getValidImageUrls().length > 0 || !!song || !!videoUrl.trim() || allowedUsers.length > 0 || showPoll || showSchedule || isSensitive;
+  }, [content, imageUrls, allowedUsers, showPoll, showSchedule, song, videoUrl]);
 
   const confirmClose = useCallback(() => {
     if (hasUnsavedContent()) {
@@ -125,11 +171,14 @@ export default function CreatePostModal({
     return imageUrls.filter((url) => url.trim() && IMAGE_EXTENSIONS.test(url.trim()));
   };
 
+  const validVideoUrl = isAttachableVideoUrl(videoUrl) ? videoUrl.trim() : '';
+
+
   // Preview the media found in current content
   const updatePreview = useCallback((text) => {
-    const { imageUrl, videoUrl } = detectMediaFromContent(text);
+    const { imageUrl, videoUrl: detectedVideoUrl } = detectMediaFromContent(text);
     const validCount = getValidImageUrls().length;
-    if (imageUrl || videoUrl) {
+    if (imageUrl || detectedVideoUrl) {
       if (validCount >= 4) {
         setMediaLimitWarning(t('create_post.media_limit_warning'));
         setPreviewUrl(null);
@@ -140,8 +189,8 @@ export default function CreatePostModal({
       if (imageUrl) {
         setPreviewUrl(imageUrl);
         setPreviewType('image');
-      } else if (videoUrl) {
-        setPreviewUrl(videoUrl);
+      } else if (detectedVideoUrl) {
+        setPreviewUrl(detectedVideoUrl);
         setPreviewType('video');
       }
     } else {
@@ -208,6 +257,8 @@ export default function CreatePostModal({
 
         setCommentsAllowed(editPost.comments_allowed || 'everyone');
         setIsSensitive(!!editPost.is_sensitive);
+        setSong(editPost.song && editPost.song.title ? editPost.song : null);
+        setVideoUrl(editPost.video_url || '');
 
         // ── Encrypted post: descifrar contenido + mantener estado ──
         const wasEncrypted = editPost.is_encrypted === true;
@@ -260,6 +311,9 @@ export default function CreatePostModal({
       setShowSchedule(false);
       setScheduledAt('');
       setShowGifPicker(false);
+      setSong(null);
+      setShowSongPicker(false);
+      setVideoUrl('');
       setIsSensitive(false);
       setCommentsAllowed('everyone');
     }
@@ -429,8 +483,16 @@ export default function CreatePostModal({
 
   const handleSubmit = async () => {
     const trimmed = content.trim();
-    if (!trimmed && getValidImageUrls().length === 0 && !showPoll) {
+    // Un video o una imagen bastan: no hace falta texto.
+    if (!trimmed && getValidImageUrls().length === 0 && !showPoll && !song && !validVideoUrl) {
       setError(t('create_post.empty_error'));
+      return;
+    }
+
+    // El video solo se acepta por URL: si escribió algo, tiene que ser un
+    // enlace http(s) de video reconocible (mp4/webm/ogg, YouTube o Vimeo).
+    if (videoUrl.trim() && !validVideoUrl) {
+      setError(t('create_post.invalid_video_url'));
       return;
     }
 
@@ -440,7 +502,9 @@ export default function CreatePostModal({
       return;
     }
 
-    const { imageUrl, videoUrl } = detectMediaFromContent(trimmed);
+    const { imageUrl, videoUrl: detectedVideoUrl } = detectMediaFromContent(trimmed);
+    // El video pegado en el campo dedicado gana sobre el detectado en el texto.
+    const finalVideoUrl = validVideoUrl || detectedVideoUrl || null;
     const validImageUrls = getValidImageUrls();
 
     // Merge auto-detected image with manual URLs (auto-detected takes priority if manual is empty)
@@ -524,6 +588,16 @@ export default function CreatePostModal({
       let newPost;
       let encryptedResult = null;
       let obfuscatedDisplay = null;
+      // Las canciones de YouTube no traen preview: se pide uno a iTunes como
+      // respaldo antes de guardar (best-effort), igual que en el perfil.
+      const finalSong = song ? await withPreviewFallback(song) : null;
+      // Ratio del video para reservar el hueco en el feed: se mide aquí (si
+      // falla, el post se guarda igual sin video_meta y el reproductor mide al
+      // cargar). Al editar se conserva el guardado si la URL no cambió.
+      let finalVideoMeta = finalVideoUrl ? await loadVideoMeta(finalVideoUrl) : null;
+      if (!finalVideoMeta && finalVideoUrl && editPost?.video_url === finalVideoUrl) {
+        finalVideoMeta = editPost.video_meta || null;
+      }
 
       // Si es modo ofuscado, encriptar el contenido
       if (isEncrypted && !isEditing) {
@@ -536,9 +610,11 @@ export default function CreatePostModal({
           image_url: finalImageUrls[0] || imageUrl,
           image_urls: finalImageUrls.length > 0 ? finalImageUrls : null,
           image_meta: finalImageMeta.length > 0 ? finalImageMeta : null,
-          video_url: videoUrl,
+          video_url: finalVideoUrl,
+          video_meta: finalVideoUrl ? finalVideoMeta : null,
           comments_allowed: commentsAllowed,
           is_sensitive: isSensitive,
+          song: finalSong,
         };
 
         // Incluir poll_data si hay encuesta
@@ -617,7 +693,9 @@ export default function CreatePostModal({
           imageUrl: finalImageUrls[0] || imageUrl,
           imageUrls: finalImageUrls.length > 0 ? finalImageUrls : null,
           imageMeta: finalImageMeta.length > 0 ? finalImageMeta : null,
-          videoUrl,
+          videoUrl: finalVideoUrl,
+          videoMeta: finalVideoUrl ? finalVideoMeta : null,
+          song: finalSong,
           encryptedContent: encryptedResult?.ciphertext || null,
           encryptedIv: encryptedResult?.iv || null,
           allowedUsers: fullAllowedIds,
@@ -660,6 +738,9 @@ export default function CreatePostModal({
       setPreviewUrl(null);
       setPreviewType(null);
       setImageUrls(['']);
+      setSong(null);
+      setShowSongPicker(false);
+      setVideoUrl('');
       setShowImageSection(false);
       setIsEncrypted(false);
       setAllowedUsers([]);
@@ -714,7 +795,7 @@ export default function CreatePostModal({
             <button
               className="fc-modal-save"
               onClick={handleSubmit}
-              disabled={saving || (!content.trim() && getValidImageUrls().length === 0 && !showPoll)}
+              disabled={saving || (!content.trim() && getValidImageUrls().length === 0 && !showPoll && !song && !validVideoUrl)}
             >
               {isEncrypted && <FaLock className="fc-modal-save-lock" />}
               {saving ? t('create_post.saving') : isEditing ? t('create_post.save_changes') : t('create_post.post')}
@@ -871,6 +952,17 @@ export default function CreatePostModal({
               </button>
               </Tooltip>
 
+              {/* ── Song picker toggle ── */}
+              <Tooltip text={song ? t('create_post.remove_song') : t('create_post.add_song')} placement="bottom">
+              <button
+                type="button"
+                className={`create-post-toolbar-btn ${showSongPicker || song ? 'create-post-toolbar-btn--active' : ''}`}
+                onClick={() => setShowSongPicker(s => !s)}
+              >
+                <FaMusic />
+              </button>
+              </Tooltip>
+
               {/* ── Sensitive content toggle (disabled if no image) ── */}
               <Tooltip
                 text={
@@ -890,6 +982,31 @@ export default function CreatePostModal({
               </button>
               </Tooltip>
             </div>
+
+            {/* ── Canción adjunta (chip con quit) ── */}
+            {song && (
+              <div className="create-post-song">
+                <SongArtwork
+                  song={song}
+                  className="create-post-song-art"
+                  emptyClassName="create-post-song-art--empty"
+                  loading="lazy"
+                />
+                <span className="create-post-song-info">
+                  <span className="create-post-song-title">{song.title}</span>
+                  {song.artist && <span className="create-post-song-artist">{song.artist}</span>}
+                </span>
+                <button
+                  type="button"
+                  className="create-post-song-remove"
+                  onClick={() => setSong(null)}
+                  aria-label={t('create_post.remove_song')}
+                  title={t('create_post.remove_song')}
+                >
+                  <FaTimes />
+                </button>
+              </div>
+            )}
 
             {/* ── Formato markdown (fila propia debajo de las opciones del post) ── */}
             <div className="create-post-markdown-toolbar">
@@ -961,6 +1078,17 @@ export default function CreatePostModal({
               </button>
               </Tooltip>
             </div>
+
+            {/* ── Song picker panel ── */}
+            {showSongPicker && (
+              <SongPicker
+                onSelect={(picked) => {
+                  setSong(picked);
+                  setShowSongPicker(false);
+                }}
+                onClose={() => setShowSongPicker(false)}
+              />
+            )}
 
             {/* ── GIF picker panel ── */}
             {showGifPicker && (
@@ -1230,6 +1358,40 @@ export default function CreatePostModal({
                   </button>
                   </Tooltip>
                 )}
+
+                {/* ── Video solo por URL (el CDN aún no procesa video) ── */}
+                <div className="create-post-video-url">
+                  <div className="create-post-image-section-header">
+                    <FaVideo className="create-post-image-section-icon" />
+                    <span className="create-post-image-section-label">{t('create_post.video_url_title')}</span>
+                  </div>
+                  <div className="create-post-image-input-row">
+                    <input
+                      className="fc-modal-input create-post-image-input"
+                      type="url"
+                      value={videoUrl}
+                      onChange={(e) => setVideoUrl(e.target.value)}
+                      placeholder="https://.../video.mp4"
+                    />
+                    {videoUrl && (
+                      <button
+                        type="button"
+                        className="create-post-image-remove"
+                        onClick={() => setVideoUrl('')}
+                        aria-label={t('common.delete')}
+                        title={t('common.delete')}
+                      >
+                        <FaTimes />
+                      </button>
+                    )}
+                  </div>
+                  {videoUrl.trim() && !isAttachableVideoUrl(videoUrl) && (
+                    <p className="create-post-video-hint">{t('create_post.invalid_video_url')}</p>
+                  )}
+                  {validVideoUrl && !getEmbedUrl(validVideoUrl) && (
+                    <video src={validVideoUrl} className="create-post-video-preview" controls />
+                  )}
+                </div>
               </div>
             )}
 
@@ -1282,6 +1444,16 @@ export default function CreatePostModal({
                         <iframe src={getEmbedUrl(previewUrl)} title="Video preview" allowFullScreen />
                       ) : (
                         <video src={previewUrl} controls />
+                      )}
+                    </div>
+                  )}
+                  {/* Video adjuntado en el campo de URL */}
+                  {validVideoUrl && validVideoUrl !== previewUrl && (
+                    <div className="post-card-media">
+                      {getEmbedUrl(validVideoUrl) ? (
+                        <iframe src={getEmbedUrl(validVideoUrl)} title="Video preview" allowFullScreen />
+                      ) : (
+                        <video src={validVideoUrl} controls />
                       )}
                     </div>
                   )}

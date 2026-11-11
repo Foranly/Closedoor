@@ -30,7 +30,7 @@ import { getUserProfile } from '../services/userService';
 import { isBlocked, blockUser, unblockUser, unfollowBothWays, getCachedBlockStatus, cacheBlockStatus } from '../services/blockService';
 import FollowButton from '../Resources/Components/FollowButton';
 import ModalShell from '../Resources/Components/ModalShell';
-import { FaComment, FaSearch, FaArrowLeft, FaPlus, FaTimes, FaUserPlus, FaUsers, FaTrash, FaPalette, FaBan, FaThumbtack, FaCopy, FaEdit, FaCheck, FaSmile, FaReply, FaImage, FaMusic, FaUser, FaPhone, FaLock, FaSpinner,  FaEllipsisH, FaArrowDown, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt } from 'react-icons/fa';
+import { FaComment, FaSearch, FaArrowLeft, FaPlus, FaTimes, FaUserPlus, FaUsers, FaTrash, FaPalette, FaBan, FaThumbtack, FaCopy, FaEdit, FaCheck, FaSmile, FaReply, FaImage, FaMusic, FaUser, FaPhone, FaLock, FaSpinner,  FaEllipsisH, FaArrowDown, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt, FaVideo } from 'react-icons/fa';
 import Avatar from '../Resources/Components/Avatar';
 import Badge from '../Resources/Components/Badge';
 import Tooltip from '../Resources/Components/Tooltip';
@@ -42,7 +42,8 @@ import ChatCommunityCard from '../Resources/Components/ChatCommunityCard';
 import ChatSharedPostCard from '../Resources/Components/ChatSharedPostCard';
 import ChatAccountCard from '../Resources/Components/ChatAccountCard';
 import { withPreviewFallback } from '../services/musicService';
-import { getTimeAgo, IMG_RE, detectMediaFromContent, getImageStyle, sanitizeUrl } from '../services/helpers';
+import { getTimeAgo, IMG_RE, isAttachableVideoUrl, getEmbedUrl, detectMediaFromContent, getImageStyle, sanitizeUrl } from '../services/helpers';
+import PostVideoPlayer from '../Resources/Components/PostVideoPlayer';
 import { getClipboardImageFile } from '../services/clipboard';
 import NicknameModal from '../Resources/Components/NicknameModal';
 import BubbleColorModal from '../Resources/Components/BubbleColorModal';
@@ -112,6 +113,53 @@ function ChatCallEvent({ call, userId, t, locale }) {
       <span className="chat-call-event-time">{getTimeAgo(t, locale, call.created_at)}</span>
     </div>
   );
+}
+
+/**
+ * Imagen de una burbuja del chat. En cuanto conoce el tamaño real fija su
+ * ancho (respetando el ratio) para que la burbuja se ajuste a la imagen y no
+ * quede hueco a los lados en fotos verticales.
+ */
+const CHAT_IMG_MAX_W = 320;
+const CHAT_IMG_MAX_H = 260;
+
+function ChatImage({ src, alt, onClick }) {
+  const [width, setWidth] = useState(null);
+
+  const handleLoad = (e) => {
+    const { naturalWidth, naturalHeight } = e.currentTarget;
+    if (!naturalWidth || !naturalHeight) return;
+    const scale = Math.min(1, CHAT_IMG_MAX_W / naturalWidth, CHAT_IMG_MAX_H / naturalHeight);
+    setWidth(Math.round(naturalWidth * scale));
+  };
+
+  return (
+    <SafeImage
+      src={src}
+      alt={alt}
+      className="chat-message-media-img"
+      onClick={onClick}
+      onLoad={handleLoad}
+      style={width ? { width: `${width}px` } : undefined}
+    />
+  );
+}
+
+/**
+ * Etiqueta corta para el preview de una conversación o de un mensaje citado:
+ * si el texto contiene una imagen o un video, se muestra "Image" / "Video".
+ * Devuelve null si no hay media (el caller pinta el texto tal cual).
+ */
+function mediaPreviewLabel(text) {
+  if (!text) return null;
+  const { imageUrl, videoUrl } = detectMediaFromContent(text);
+  if (videoUrl) {
+    return <><FaVideo className="chat-list-item-preview-icon" /> Video</>;
+  }
+  if (imageUrl || /(giphy|tenor|klipy)\.com|(\.|\/)gif/i.test(text)) {
+    return <><FaImage className="chat-list-item-preview-icon" /> {/(giphy|tenor|klipy)\.com/i.test(text) ? 'GIF' : 'Image'}</>;
+  }
+  return null;
 }
 
 export default function Chat() {
@@ -1057,7 +1105,11 @@ export default function Chat() {
           delete localConvOverridesRef.current[convForThisEffect];
           updateConvPreview(
             convForThisEffect,
-            newMsg.shared_song ? '🎵 Shared a song' : (content || ''),
+            newMsg.shared_song
+              ? '🎵 Shared a song'
+              : detectMediaFromContent(content || '').videoUrl
+              ? '🎬 Video'
+              : (content || ''),
             newMsg.created_at,
             newMsg.sender_id !== user.id
           );
@@ -1376,12 +1428,13 @@ export default function Chat() {
   const startEditingMessage = useCallback((msg) => {
     if (!msg?.decryptedContent) return;
     editContentRef.current = msg.decryptedContent;
-    const { imageUrl } = detectMediaFromContent(msg.decryptedContent);
-    editMediaUrlRef.current = imageUrl || '';
-    // Strip image URL from text, so the user only edits the text portion
+    const { imageUrl, videoUrl } = detectMediaFromContent(msg.decryptedContent);
+    const mediaUrl = imageUrl || videoUrl || '';
+    editMediaUrlRef.current = mediaUrl;
+    // Strip media URL from text, so the user only edits the text portion
     let cleanText = msg.decryptedContent;
-    if (imageUrl) {
-      cleanText = cleanText.replace(imageUrl, '').replace(/\n{2,}/g, '\n').trim();
+    if (mediaUrl) {
+      cleanText = cleanText.replace(mediaUrl, '').replace(/\n{2,}/g, '\n').trim();
     }
     setEditMsgId(msg.id);
     setEditText(cleanText);
@@ -1864,11 +1917,17 @@ export default function Chat() {
   const handleMediaSend = useCallback(() => {
     const url = mediaUrl.trim();
     if (!url) return;
+    // El CDN no procesa video: solo se aceptan URLs de imagen o de video
+    // directo/YouTube/Vimeo.
+    if (!IMG_RE.test(url) && !isAttachableVideoUrl(url)) {
+      toast.error(t('chat.invalid_media_url'));
+      return;
+    }
     setMediaPreviewUrl(url);
     setShowMediaInput(false);
     setMediaUrl('');
     setTimeout(() => inputRef.current?.focus(), 50);
-  }, [mediaUrl]);
+  }, [mediaUrl, t]);
 
   // ── Subir imagen a CDN para el chat (compartido: input file + pegado Ctrl+V) ──
   const uploadChatImageFile = useCallback(async (file) => {
@@ -2410,7 +2469,12 @@ export default function Chat() {
       });
       // Update conversation preview immediately (optimistic), then sync in background
       // Preview optimista con el mismo texto que guarda chatService en la BD
-      updateConvPreview(convId, sharedSong ? '🎵 Shared a song' : content, sentMsg.created_at || new Date().toISOString());
+      const sentPreview = sharedSong
+        ? '🎵 Shared a song'
+        : detectMediaFromContent(content).videoUrl
+        ? '🎬 Video'
+        : content;
+      updateConvPreview(convId, sentPreview, sentMsg.created_at || new Date().toISOString());
       loadConvs();
       return sentMsg;
     } catch (err) {
@@ -3057,10 +3121,7 @@ export default function Chat() {
                       }
                       const previewText = o?.text ?? conv.last_message_text;
                       if (!previewText) return '';
-                      if (IMG_RE.test(previewText) || /(giphy|tenor|klipy)\.com|(\.|\/)gif/i.test(previewText)) {
-                        return <><FaImage className="chat-list-item-preview-icon" /> {/(giphy|tenor|klipy)\.com/i.test(previewText) ? 'GIF' : 'Image'}</>;
-                      }
-                      return previewText;
+                      return mediaPreviewLabel(previewText) || previewText;
                     })()}
                   </span>
                   {conv.is_pinned && (
@@ -3372,9 +3433,8 @@ export default function Chat() {
                                   }
                                   const txt = replied.decryptedContent || '';
                                   if (!txt) return <span>{t('chat.encrypted')}</span>;
-                                  if (IMG_RE.test(txt) || /(giphy|tenor|klipy)\.com|(\.|\/)gif/i.test(txt)) {
-                                    return <><FaImage className="chat-list-item-preview-icon" /> {/(giphy|tenor|klipy)\.com/i.test(txt) ? 'GIF' : 'Image'}</>;
-                                  }
+                                  const mediaLabel = mediaPreviewLabel(txt);
+                                  if (mediaLabel) return mediaLabel;
                                   return <>{txt.slice(0, 60)}{txt.length > 60 ? '...' : ''}</>;
                                 })()}
                               </span>
@@ -3405,9 +3465,10 @@ export default function Chat() {
                     {(() => {
                       const content = msg.decryptedContent || '';
                       if (!content) return null;
-                      const { imageUrl } = detectMediaFromContent(content);
-                      const textOnly = imageUrl ? content.replace(imageUrl, '').trim() : content;
-                      if (!textOnly && !imageUrl) {
+                      const { imageUrl, videoUrl } = detectMediaFromContent(content);
+                      const mediaUrl = imageUrl || videoUrl;
+                      const textOnly = mediaUrl ? content.replace(mediaUrl, '').trim() : content;
+                      if (!textOnly && !mediaUrl) {
                         return (
                           <p className="chat-message-text">
                             <RichText
@@ -3424,10 +3485,9 @@ export default function Chat() {
                       return (
                         <>
                           {imageUrl && IMG_RE.test(imageUrl) && (
-                            <SafeImage
+                            <ChatImage
                               src={imageUrl}
                               alt="Media"
-                              className="chat-message-media-img"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 // Collect all image URLs from all messages for gallery navigation
@@ -3443,6 +3503,22 @@ export default function Chat() {
                               }}
                             />
                           )}
+                          {/* Video por URL (viaja dentro del contenido cifrado, igual que las imágenes) */}
+                          {videoUrl && (
+                            <div className="chat-message-media-video">
+                              {getEmbedUrl(videoUrl) ? (
+                                <iframe
+                                  src={getEmbedUrl(videoUrl)}
+                                  className="chat-message-video-embed"
+                                  title="Video"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              ) : (
+                                <PostVideoPlayer src={videoUrl} />
+                              )}
+                            </div>
+                          )}
                           {textOnly && (
                           <p className="chat-message-text">
                             <RichText
@@ -3457,7 +3533,7 @@ export default function Chat() {
                         {/* ── Link preview for non-media URLs ── */}
                         {(() => {
                           const urls = textOnly ? textOnly.match(/(https?:\/\/[^\s<]+)/gi) || [] : [];
-                          const nonMediaUrls = urls.filter(u => !IMG_RE.test(u) && u !== imageUrl);
+                          const nonMediaUrls = urls.filter(u => !IMG_RE.test(u) && !isAttachableVideoUrl(u) && u !== imageUrl && u !== videoUrl);
                           if (nonMediaUrls.length === 0) return null;
                           return nonMediaUrls.slice(0, 1).map((url, i) => (
                             <LinkPreview key={i} url={url} onExternalLink={handleExternalLink} />
@@ -3602,6 +3678,19 @@ export default function Chat() {
               </div>
             ) : IMG_RE.test(mediaPreviewUrl) ? (
               <SafeImage src={mediaPreviewUrl} alt="Preview" className="chat-media-preview-img" />
+            ) : isAttachableVideoUrl(mediaPreviewUrl) ? (
+              <div className="chat-media-preview-video">
+                {getEmbedUrl(mediaPreviewUrl) ? (
+                  <iframe
+                    src={getEmbedUrl(mediaPreviewUrl)}
+                    className="chat-message-video-embed"
+                    title="Video"
+                    allowFullScreen
+                  />
+                ) : (
+                  <PostVideoPlayer src={mediaPreviewUrl} />
+                )}
+              </div>
             ) : (
               <span className="chat-media-preview-text">{mediaPreviewUrl}</span>
             )}
@@ -3885,9 +3974,8 @@ export default function Chat() {
                           {(() => {
                             const txt = msg.decryptedContent || '';
                             if (!txt) return <span>{t('chat.encrypted')}</span>;
-                            if (IMG_RE.test(txt) || /(giphy|tenor|klipy)\.com|(\.|\/)gif/i.test(txt)) {
-                              return <><FaImage className="chat-list-item-preview-icon" /> {/(giphy|tenor|klipy)\.com/i.test(txt) ? 'GIF' : 'Image'}</>;
-                            }
+                            const mediaLabel = mediaPreviewLabel(txt);
+                            if (mediaLabel) return mediaLabel;
                             return <>{txt.slice(0, 60)}{txt.length > 60 ? '...' : ''}</>;
                           })()}
                         </span>
@@ -3999,9 +4087,8 @@ export default function Chat() {
                           }
                           const txt = msg.decryptedContent || '';
                           if (!txt) return t('chat.encrypted');
-                          if (IMG_RE.test(txt) || /(giphy|tenor|klipy)\.com|(\.|\/)gif/i.test(txt)) {
-                            return <><FaImage className="chat-list-item-preview-icon" /> {/(giphy|tenor|klipy)\.com/i.test(txt) ? 'GIF' : 'Image'}</>;
-                          }
+                          const mediaLabel = mediaPreviewLabel(txt);
+                          if (mediaLabel) return mediaLabel;
                           return txt;
                         })()}
                       </span>
@@ -4208,6 +4295,7 @@ export default function Chat() {
                     />
                   </div>
                 )}
+
               </div>
             </div>
           </div>

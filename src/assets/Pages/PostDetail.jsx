@@ -40,14 +40,37 @@ import RichText from '../Resources/Components/RichText';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
 import Tooltip from '../Resources/Components/Tooltip';
 import CreatePostModal from '../Resources/Components/CreatePostModal';
+import PostVideoPlayer from '../Resources/Components/PostVideoPlayer';
 import useMentionAutocomplete from '../hooks/useMentionAutocomplete';
 import { getTimeAgo, formatClockTime, formatFullDate, IMG_RE, getEmbedUrl, getImageStyle, sanitizeUrl } from '../services/helpers';
 import { showRateLimitToast } from '../services/rateLimitNotice';
+import { getTimeAgo, formatClockTime, formatFullDate, IMG_RE, isAttachableVideoUrl, getEmbedUrl, getImageStyle, sanitizeUrl } from '../services/helpers';
 import { uploadImage, uploadWithLocalPreview } from '../services/cdnService';
 import { getClipboardImageFile } from '../services/clipboard';
 import usePageTitle from '../../hooks/usePageTitle';
 import '../Resources/Styles/post.css';
 import '../Resources/Styles/skeleton.css';
+
+/**
+ * Video de un comentario/respuesta. Archivo directo (.mp4/.webm/.ogg) usa el
+ * reproductor propio del post; YouTube/Vimeo va en iframe porque no se puede
+ * controlar desde fuera.
+ */
+function CommentVideo({ url, className }) {
+  const embed = getEmbedUrl(url);
+  if (embed) {
+    return (
+      <iframe
+        src={embed}
+        className={className || 'comment-card-video'}
+        title="Video"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+  return <PostVideoPlayer src={url} />;
+}
 
 export default function PostDetail() {
   const { postId } = useParams();
@@ -473,7 +496,7 @@ export default function PostDetail() {
 
     const trimmedMedia = commentMediaUrl.trim();
     const isImage = IMG_RE.test(trimmedMedia);
-    const isVideo = VID_RE.test(trimmedMedia);
+    const isVideo = isAttachableVideoUrl(trimmedMedia);
     const imageUrl = isImage ? trimmedMedia : null;
     const videoUrl = isVideo ? trimmedMedia : null;
     // Allow posting just media (GIF/image) without text
@@ -521,7 +544,7 @@ export default function PostDetail() {
 
     const trimmedMedia = replyMediaUrl.trim();
     const isImage = IMG_RE.test(trimmedMedia);
-    const isVideo = VID_RE.test(trimmedMedia);
+    const isVideo = isAttachableVideoUrl(trimmedMedia);
     const imageUrl = isImage ? trimmedMedia : null;
     const videoUrl = isVideo ? trimmedMedia : null;
     // Allow posting just media (GIF/image) without text
@@ -984,8 +1007,8 @@ export default function PostDetail() {
           )}
           {reply.video_url && (
             <div className="comment-card-media">
-              {reply.video_url.match(/\.(mp4|webm|ogg)(\?.*)?$/i) ? (
-                <video src={reply.video_url} controls className="comment-card-video" />
+              {isAttachableVideoUrl(reply.video_url) ? (
+                <CommentVideo url={reply.video_url} />
               ) : (
                 <SafeImage
                   src={reply.video_url}
@@ -1152,8 +1175,8 @@ export default function PostDetail() {
                   {replyMediaUrl && IMG_RE.test(replyMediaUrl) && (
                     <div className="comment-card-preview"><SafeImage src={replyMediaUrl} alt="Preview" hideOnError /></div>
                   )}
-                  {replyMediaUrl && VID_RE.test(replyMediaUrl) && (
-                    <div className="comment-card-preview"><video src={replyMediaUrl} controls /></div>
+                  {replyMediaUrl && isAttachableVideoUrl(replyMediaUrl) && (
+                    <div className="comment-card-preview"><CommentVideo url={replyMediaUrl} /></div>
                   )}
                 </div>
               )}
@@ -1271,8 +1294,8 @@ export default function PostDetail() {
           )}
           {comment.video_url && (
             <div className="comment-card-media">
-              {comment.video_url.match(/\.(mp4|webm|ogg)(\?.*)?$/i) ? (
-                <video src={comment.video_url} controls className="comment-card-video" />
+              {isAttachableVideoUrl(comment.video_url) ? (
+                <CommentVideo url={comment.video_url} />
               ) : (
                 <SafeImage
                   src={comment.video_url}
@@ -1446,8 +1469,8 @@ export default function PostDetail() {
                   {replyMediaUrl && IMG_RE.test(replyMediaUrl) && (
                     <div className="comment-card-preview"><SafeImage src={replyMediaUrl} alt="Preview" hideOnError /></div>
                   )}
-                  {replyMediaUrl && VID_RE.test(replyMediaUrl) && (
-                    <div className="comment-card-preview"><video src={replyMediaUrl} controls /></div>
+                  {replyMediaUrl && isAttachableVideoUrl(replyMediaUrl) && (
+                    <div className="comment-card-preview"><CommentVideo url={replyMediaUrl} /></div>
                   )}
                 </div>
               )}
@@ -1614,9 +1637,9 @@ export default function PostDetail() {
                       <SafeImage src={commentMediaUrl} alt="Preview" hideOnError />
                     </div>
                   )}
-                  {commentMediaUrl && VID_RE.test(commentMediaUrl) && (
+                  {commentMediaUrl && isAttachableVideoUrl(commentMediaUrl) && (
                     <div className="comment-card-preview">
-                      <video src={commentMediaUrl} controls />
+                      <CommentVideo url={commentMediaUrl} />
                     </div>
                   )}
                 </div>
