@@ -13,7 +13,7 @@ import GifPicker from './GifPicker';
 import SongPicker from './SongPicker';
 import SongArtwork from './SongArtwork';
 import { withPreviewFallback } from '../../services/musicService';
-import { IMG_RE, VID_RE, YOUTUBE_PATTERN, VIMEO_PATTERN, extractUrls, detectMediaFromContent, getRateLimitInfo, getEmbedUrl as getEmbedUrlHelper } from '../../services/helpers';
+import { IMG_RE, VID_RE, YOUTUBE_PATTERN, VIMEO_PATTERN, isAttachableVideoUrl, extractUrls, detectMediaFromContent, getRateLimitInfo, getEmbedUrl as getEmbedUrlHelper } from '../../services/helpers';
 import { getClipboardImageFile } from '../../services/clipboard';
 import ConfirmModal from './ConfirmModal';
 import PostMarkdown from './PostMarkdown';
