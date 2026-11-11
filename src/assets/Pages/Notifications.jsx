@@ -1,13 +1,15 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { NotificationContext } from '../../context/NotificationContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../services/i18n/useI18n';
 import { acceptFollowRequest, rejectFollowRequest } from '../services/followService';
-import { FaUserPlus, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaBullhorn, FaBell, FaLock, FaPoll, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaUserPlus, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaBullhorn, FaBell, FaLock, FaPoll, FaCheck, FaTimes, FaChevronDown } from 'react-icons/fa';
 import Avatar from '../Resources/Components/Avatar';
 import Tooltip from '../Resources/Components/Tooltip';
 import VirtualPostList from '../Resources/Components/VirtualPostList';
+import '../Resources/Styles/post.css';
 import '../Resources/Styles/notifications.css';
 import usePageTitle from '../../hooks/usePageTitle';
 import '../Resources/Styles/skeleton.css';
@@ -91,6 +93,25 @@ function getNotificationLink(notification) {
   return `/profile/${username}`;
 }
 
+// Agrupación de tipos para los filtros. Cada filtro puede abarcar varios
+// tipos (p. ej. "likes" incluye likes, dislikes y likes en comentarios).
+const NOTIFICATION_FILTERS = [
+  { id: 'all', types: null },
+  { id: 'follows', types: ['follow', 'follow_request', 'follow_request_accepted', 'follow_request_rejected'] },
+  { id: 'likes', types: ['like', 'dislike', 'comment_like'] },
+  { id: 'comments', types: ['comment', 'comment_reply'] },
+  { id: 'reposts', types: ['repost'] },
+  { id: 'mentions', types: ['mention', 'comment_mention'] },
+  { id: 'polls', types: ['poll_vote'] },
+  { id: 'encrypted', types: ['encrypted_add'] },
+];
+
+function matchesFilter(notification, filterId) {
+  const def = NOTIFICATION_FILTERS.find((f) => f.id === filterId);
+  if (!def || !def.types) return true;
+  return def.types.includes(notification.type);
+}
+
 function timeAgo(t, locale, dateString) {
   const now = new Date();
   const date = new Date(dateString);
@@ -125,11 +146,56 @@ export default function Notifications() {
   const { user, isAuthenticated } = useAuth();
   const [selectedIds, setSelectedIds] = useState([]);
   const [deletingIds, setDeletingIds] = useState(new Set());
+  const [filter, setFilter] = useState('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterDropdownStyle, setFilterDropdownStyle] = useState(null);
+  const filterTriggerRef = useRef(null);
+  const filterDropdownRef = useRef(null);
+
+  const filteredNotifications = useMemo(
+    () => notifications.filter((n) => matchesFilter(n, filter)),
+    [notifications, filter]
+  );
+
+  const handleFilterChange = (id) => {
+    setFilter(id);
+    // La selección se reinicia: solo tiene sentido sobre lo que se ve.
+    setSelectedIds([]);
+  };
 
   // Reset selection when notifications change (e.g., after delete)
   useEffect(() => {
     setSelectedIds((prev) => prev.filter((id) => notifications.some((n) => n.id === id)));
   }, [notifications]);
+
+  // Cerrar el dropdown al pulsar fuera (trigger o panel).
+  useEffect(() => {
+    if (!filterOpen) return undefined;
+    const onPointerDown = (e) => {
+      const inTrigger = filterTriggerRef.current && filterTriggerRef.current.contains(e.target);
+      const inDropdown = filterDropdownRef.current && filterDropdownRef.current.contains(e.target);
+      if (!inTrigger && !inDropdown) setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [filterOpen]);
+
+  // El panel va en portal con position: fixed (igual que el filtro de posts del
+  // perfil) para que no lo recorte ningún contenedor con overflow.
+  const handleToggleFilter = () => {
+    if (!filterOpen) {
+      const rect = filterTriggerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setFilterDropdownStyle({
+          position: 'fixed',
+          top: `${rect.bottom + 4}px`,
+          left: `${rect.left}px`,
+          zIndex: 9999,
+        });
+      }
+    }
+    setFilterOpen((prev) => !prev);
+  };
 
   if (!isAuthenticated) {
     return (
@@ -140,13 +206,14 @@ export default function Notifications() {
   }
 
   const allSelected =
-    notifications.length > 0 && selectedIds.length === notifications.length;
+    filteredNotifications.length > 0 &&
+    filteredNotifications.every((n) => selectedIds.includes(n.id));
 
   const handleSelectAll = () => {
     if (allSelected) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(notifications.map((n) => n.id));
+      setSelectedIds(filteredNotifications.map((n) => n.id));
     }
   };
 
@@ -202,6 +269,52 @@ export default function Notifications() {
     <div className="notifications-page">
       <div className="notifications-header">
         <div className="notifications-header-actions">
+          {!loading && notifications.length > 0 && (
+            <div className="notifications-filter">
+              <button
+                type="button"
+                ref={filterTriggerRef}
+                className="notifications-select-all-btn notifications-filter-btn"
+                onClick={handleToggleFilter}
+                aria-expanded={filterOpen}
+                aria-haspopup="listbox"
+              >
+                {t(`notifications.filter_${filter}`)}
+                <span
+                  className={`posts-tab-filter-toggle ${filterOpen ? 'posts-tab-filter-toggle--open' : ''}`}
+                >
+                  <FaChevronDown />
+                </span>
+              </button>
+
+              {filterOpen && filterDropdownStyle && createPortal(
+                <div
+                  ref={filterDropdownRef}
+                  className="posts-tab-filter-dropdown notifications-filter-dropdown"
+                  style={filterDropdownStyle}
+                  role="listbox"
+                >
+                  {NOTIFICATION_FILTERS.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      role="option"
+                      aria-selected={filter === f.id}
+                      className={`posts-tab-filter-item ${filter === f.id ? 'posts-tab-filter-item--active' : ''}`}
+                      onClick={() => {
+                        handleFilterChange(f.id);
+                        setFilterOpen(false);
+                      }}
+                    >
+                      {t(`notifications.filter_${f.id}`)}
+                    </button>
+                  ))}
+                </div>,
+                document.body
+              )}
+            </div>
+          )}
+
           {notifications.length > 0 && (
             <Tooltip text={t('notifications.select_all')} placement="bottom">
               <button
@@ -268,10 +381,17 @@ export default function Notifications() {
             {t('notifications.empty_sub')}
           </p>
         </div>
+      ) : filteredNotifications.length === 0 ? (
+        <div className="notifications-empty">
+          <div className="notifications-empty-icon"><FaBell /></div>
+          <p className="notifications-empty-text">
+            {t('notifications.filter_empty')}
+          </p>
+        </div>
       ) : (
         <div className="notifications-list">
           <VirtualPostList
-            posts={notifications}
+            posts={filteredNotifications}
             getKey={(n) => n.id}
             estimateHeight={96}
             renderItem={(notif) => (

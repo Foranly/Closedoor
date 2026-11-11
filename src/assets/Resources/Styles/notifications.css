@@ -86,6 +86,20 @@
   background: rgba(255, 70, 70, 0.3);
 }
 
+/* Filtro por tipo: botón con flecha en la fila de acciones. Reutiliza el
+   look de "Seleccionar todas" y el dropdown de posts del perfil. */
+.notifications-filter {
+  display: inline-flex;
+}
+
+.notifications-filter-btn {
+  gap: 6px;
+}
+
+.notifications-filter-dropdown {
+  min-width: 180px;
+}
+
 /* Loading */
 .notifications-loading {
   text-align: center;
