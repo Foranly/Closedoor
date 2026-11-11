@@ -894,7 +894,7 @@ export async function getCommunityPosts(communityId, { sort = 'recent', timeRang
     'id', 'user_id', 'content', 'image_url', 'image_urls', 'video_url',
     'is_pinned', 'pinned_at', 'is_encrypted', 'is_sensitive',
     'likes_count', 'dislikes_count', 'comments_count', 'reposts_count', 'views_count',
-    'created_at', 'updated_at', 'mentions', 'obfuscated_display', 'comments_allowed', 'poll_data',
+    'created_at', 'updated_at', 'mentions', 'obfuscated_display', 'comments_allowed', 'poll_data', 'song',
     'profiles!posts_user_id_fkey (id, username, displayname, avatar_url, roles, is_private, avatar_position)',
   ].join(',');
 

@@ -32,6 +32,8 @@ import Avatar from './Avatar';
 import PostMarkdown from './PostMarkdown';
 import { closeUnbalancedMarkers } from '../../services/postMarkdown';
 import LinkPreview from './LinkPreview';
+import PostSongCard from './PostSongCard';
+import PostVideoPlayer from './PostVideoPlayer';
 import { useI18n } from '../../services/i18n/useI18n';
 import { DEFAULT_AVATAR, getTimeAgo, formatClockTime, formatFullDate, getEmbedUrl as getEmbedUrlHelper, isVideoUrl as isVideoUrlHelper, IMG_RE, VID_RE, VID_RE_EXTENDED, getImageStyle, sanitizeUrl } from '../../services/helpers';import { decode as encryptDecode,
   decryptForUser,
@@ -1198,12 +1200,7 @@ const PostCard = React.memo(function PostCard({
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <video
-                  src={post.video_url}
-                  className="post-card-video"
-                  controls
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <PostVideoPlayer src={post.video_url} />
               )}
             </div>
           )}
@@ -1243,17 +1240,15 @@ const PostCard = React.memo(function PostCard({
                   onClick={(e) => openGallery(e, 0)}
                 />
               ) : (
-                <video
-                  src={inlineMedia.url}
-                  className="post-card-video"
-                  controls
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <PostVideoPlayer src={inlineMedia.url} />
               )}
             </div>
           )}
 
           </div>{/* ── end post-card-media-wrapper ── */}
+
+          {/* ── Canción adjunta (reproductor global: stream completo en escritorio, preview de 30 s en web) ── */}
+          {post.song?.title && <PostSongCard song={post.song} />}
 
           {/* Actions */}
           <div className="post-card-actions">

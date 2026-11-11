@@ -88,3 +88,16 @@
     opacity: 0;
     pointer-events: none;
 }
+
+/* Preview del video pegado por URL antes de enviarlo */
+.chat-media-picker-video-preview {
+    padding: 8px;
+}
+
+.chat-media-picker-video-preview .post-video-player {
+    margin-bottom: 0;
+}
+
+.chat-media-picker-video-preview .post-video-player-el {
+    max-height: 160px;
+}

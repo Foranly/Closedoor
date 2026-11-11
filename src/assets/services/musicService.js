@@ -117,6 +117,43 @@ export function songKey(song) {
 }
 
 /**
+ * Normaliza una canción para GUARDARLA en una columna jsonb (posts.song).
+ *
+ * Solo se persisten campos conocidos y URLs http(s): el jsonb lo escribe el
+ * cliente, así que no se guarda un blob arbitrario. Devuelve null si no hay
+ * título (sin título no hay nada que reproducir).
+ */
+export function normalizeSongPayload(song) {
+  if (!song || typeof song !== 'object') return null;
+  const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const httpUrl = (v) => {
+    if (typeof v !== 'string' || !v.trim()) return '';
+    try {
+      const url = new URL(v);
+      return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : '';
+    } catch {
+      return '';
+    }
+  };
+
+  const title = text(song.title, 200);
+  if (!title) return null;
+
+  const duration = Number(song.duration);
+  return {
+    provider: text(song.provider, 20) || 'unknown',
+    trackId: text(song.trackId, 100),
+    title,
+    artist: text(song.artist, 200),
+    album: text(song.album, 200),
+    artwork: httpUrl(song.artwork),
+    previewUrl: httpUrl(song.previewUrl),
+    externalUrl: httpUrl(song.externalUrl),
+    duration: Number.isFinite(duration) && duration > 0 ? Math.round(duration) : 0,
+  };
+}
+
+/**
  * URL de la miniatura de una canción, lista para pintar.
  *
  * `artwork` es un campo que se GUARDA (jsonb `messages.shared_song`, canción
