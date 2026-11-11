@@ -156,6 +156,8 @@
   "common.delete": "削除",
   "common.edit": "編集",
   "common.error": "エラー",
+  "common.rate_limited": "操作が速すぎます。少し待ってからもう一度お試しください。",
+  "common.rate_limited_wait": "操作が速すぎます。{seconds} 秒後に再試行できます。",
   "common.loading": "読み込み中...",
   "common.next": "次へ",
   "common.password": "パスワード",

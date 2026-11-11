@@ -10,7 +10,10 @@ import SafeImage from './SafeImage';
 import Avatar from './Avatar';
 import Badge from './Badge';
 import GifPicker from './GifPicker';
-import { IMG_RE, VID_RE, YOUTUBE_PATTERN, VIMEO_PATTERN, extractUrls, detectMediaFromContent, getEmbedUrl as getEmbedUrlHelper } from '../../services/helpers';
+import SongPicker from './SongPicker';
+import SongArtwork from './SongArtwork';
+import { withPreviewFallback } from '../../services/musicService';
+import { IMG_RE, VID_RE, YOUTUBE_PATTERN, VIMEO_PATTERN, extractUrls, detectMediaFromContent, getRateLimitInfo, getEmbedUrl as getEmbedUrlHelper } from '../../services/helpers';
 import { getClipboardImageFile } from '../../services/clipboard';
 import ConfirmModal from './ConfirmModal';
 import PostMarkdown from './PostMarkdown';
@@ -672,7 +675,14 @@ export default function CreatePostModal({
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
-      setError(err.message || t('create_post.save_error'));
+      const limitInfo = getRateLimitInfo(err);
+      setError(
+        limitInfo
+          ? (limitInfo.retryAfter
+            ? t('common.rate_limited_wait', { seconds: limitInfo.retryAfter })
+            : t('common.rate_limited'))
+          : (err.message || t('create_post.save_error'))
+      );
     } finally {
       setSaving(false);
     }

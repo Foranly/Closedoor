@@ -156,6 +156,8 @@
   "common.delete": "Удалить",
   "common.edit": "Редактировать",
   "common.error": "Ошибка",
+  "common.rate_limited": "Слишком быстро. Подождите немного и попробуйте снова.",
+  "common.rate_limited_wait": "Слишком быстро. Повторить можно через {seconds} с.",
   "common.loading": "Загрузка...",
   "common.next": "Далее",
   "common.password": "Пароль",
