@@ -1,7 +1,7 @@
 import { supabase, dbPublic } from './supabaseclient';
 import { getItem, setItem, removeItem } from './secureStorage';
 import { encryptForUsers, decryptForUser } from './alphabetEncryption';
-import { sanitizeContent } from './helpers';
+import { sanitizeContent, detectMediaFromContent } from './helpers';
 
 // ── Conversation ──
 
@@ -382,12 +382,15 @@ export async function sendMessage(conversationId, senderId, content, participant
   const data = { ...msg, profiles: senderProfile };
 
   // Update conversation last_message_text with obfuscated preview
+  const videoPreview = detectMediaFromContent(cleanContent).videoUrl;
   const obfuscatedPreview = sharedPostId
     ? '📌 Shared a post'
     : sharedCommunityId
     ? '🏘️ Community invite'
     : cleanSharedSong
     ? '🎵 Shared a song'
+    : videoPreview
+    ? '🎬 Video'
     : (cleanContent.length > 80 ? cleanContent.slice(0, 80) + '...' : cleanContent);
   await supabase
     .from('conversations')

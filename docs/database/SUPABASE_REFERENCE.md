@@ -163,6 +163,8 @@ CREATE TABLE posts (
   obfuscated_display TEXT,
   -- Encuestas
   poll_data JSONB,
+  -- Cancion adjunta (migracion 090)
+  song JSONB,
   -- Programacion
   scheduled_at TIMESTAMPTZ,
   -- Timestamps
@@ -473,6 +475,7 @@ erDiagram
         TEXT encrypted_iv
         UUID[] allowed_users
         JSONB poll_data
+        JSONB song
         TIMESTAMPTZ scheduled_at
     }
 

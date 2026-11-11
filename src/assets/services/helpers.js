@@ -196,6 +196,14 @@ export function getEmbedUrl(url) {
   return null;
 }
 
+// ── Video adjuntable por URL (sin subida: el CDN no procesa video) ──
+// Archivo directo o enlace de YouTube/Vimeo, siempre http(s).
+export function isAttachableVideoUrl(url) {
+  const value = String(url || '').trim();
+  return /^https?:\/\//i.test(value)
+    && (VID_RE.test(value) || YOUTUBE_PATTERN.test(value) || VIMEO_PATTERN.test(value));
+}
+
 // ── Check if URL is a video ──
 export function isVideoUrl(url) {
   if (!url) return false;
