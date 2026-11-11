@@ -1,6 +1,8 @@
 import { useRef } from 'react';
-import { FaImage, FaUpload, FaSpinner, FaTimes } from 'react-icons/fa';
+import { FaImage, FaUpload, FaSpinner, FaTimes, FaVideo } from 'react-icons/fa';
 import { useI18n } from '../../services/i18n/useI18n';
+import { isAttachableVideoUrl, getEmbedUrl } from '../../services/helpers';
+import PostVideoPlayer from './PostVideoPlayer';
 // Shell compartida con los selectores de GIF y de canciones: el contenedor de
 // subida de imágenes queda idéntico al resto de paneles embebidos del composer
 // (borde, radios, superficies, header y buscador).
@@ -43,7 +45,11 @@ export default function MediaPicker({
           {uploading ? <FaSpinner className="fc-spin" /> : <FaUpload size={12} />}
         </button>
         <div className="gif-picker-search-wrap">
-          <FaImage className="gif-picker-search-icon" size={12} />
+          {isAttachableVideoUrl(url) ? (
+            <FaVideo className="gif-picker-search-icon" size={12} />
+          ) : (
+            <FaImage className="gif-picker-search-icon" size={12} />
+          )}
           <input
             className="gif-picker-search-input"
             type="url"
@@ -78,6 +84,21 @@ export default function MediaPicker({
       </div>
 
       <div className="gif-picker-results chat-media-picker-results">
+        {/* Video por URL: se envía como mensaje y se reproduce en la burbuja */}
+        {isAttachableVideoUrl(url) && (
+          <div className="chat-media-picker-video-preview">
+            {getEmbedUrl(url.trim()) ? (
+              <iframe
+                src={getEmbedUrl(url.trim())}
+                className="chat-message-video-embed"
+                title="Video"
+                allowFullScreen
+              />
+            ) : (
+              <PostVideoPlayer src={url.trim()} />
+            )}
+          </div>
+        )}
         <button
           type="button"
           className="chat-media-picker-drop"
