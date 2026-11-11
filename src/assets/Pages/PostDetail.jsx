@@ -44,7 +44,6 @@ import PostVideoPlayer from '../Resources/Components/PostVideoPlayer';
 import useMentionAutocomplete from '../hooks/useMentionAutocomplete';
 import { getTimeAgo, formatClockTime, formatFullDate, IMG_RE, getEmbedUrl, getImageStyle, sanitizeUrl } from '../services/helpers';
 import { showRateLimitToast } from '../services/rateLimitNotice';
-import { getTimeAgo, formatClockTime, formatFullDate, IMG_RE, isAttachableVideoUrl, getEmbedUrl, getImageStyle, sanitizeUrl } from '../services/helpers';
 import { uploadImage, uploadWithLocalPreview } from '../services/cdnService';
 import { getClipboardImageFile } from '../services/clipboard';
 import usePageTitle from '../../hooks/usePageTitle';
