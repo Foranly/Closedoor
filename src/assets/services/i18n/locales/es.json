@@ -932,6 +932,7 @@
   "upload.uploading": "Subiendo imagen...",
   "changelog.badge": "Novedades",
   "changelog.accept": "¡Entendido!",
+  "changelog.release": "Versión",
   "desktop.prompt_title": "Escucha la canción completa",
   "desktop.prompt_body": "En el navegador las canciones del perfil suenan como preview de 30 segundos: YouTube solo entrega la canción completa a conexiones en las que confía. La app de escritorio la resuelve en tu propio equipo, así que suena entera.",
   "desktop.prompt_never": "No volver a mostrar",
