@@ -466,10 +466,6 @@ export default function Chat() {
   const messagesRef = useRef(messages); // ref sincronizada para evitar race conditions con Realtime
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
-  // ══ DEBUG: track every messages state change ══
-  useEffect(() => {
-    console.log(`[CHAT MSGS] state changed: conv=${activeConvId} owner=${messagesOwnerRef.current} count=${messages.length} firstId=${messages[0]?.id ?? 'none'} lastId=${messages[messages.length - 1]?.id ?? 'none'}`);
-  }, [messages]);
   // ── Overrides locales para preview de conversaciones (persisten a loadConvs) ──
   const localConvOverridesRef = useRef({});
   const overridesRestoredRef = useRef(false);
@@ -657,7 +653,6 @@ export default function Chat() {
     if (prevConvIdRef.current === activeConvId) {
       return;
     }
-    console.log(`[CHAT LAYOUT] activeConvId=${activeConvId} prev=${prevConvIdRef.current}`);
 
     // Save current messages to the OLD conversation's cache before switching
     if (prevConvIdRef.current && messagesOwnerRef.current === prevConvIdRef.current) {
@@ -686,7 +681,6 @@ export default function Chat() {
       const isStale = lastMsgAt && fetchedAt && new Date(lastMsgAt) > new Date(fetchedAt);
       if (isStale) {
         // Mostrar mensajes cacheados inmediatamente SIN skeleton
-        console.log(`[CHAT LAYOUT] ${activeConvId}: STALE cache, showing ${cached.length} msgs, bg fetch`);
         setMessages(cached);
         setMsgsLoading(false); // false para NO mostrar el skeleton
         staleBackgroundFetchRef.current = true; // evita que sync effect guarde datos stale
@@ -694,7 +688,6 @@ export default function Chat() {
         setOldestMessageDate(null);
         // skipMsgLoadRef se deja en false para que msgEffect haga el fetch
       } else {
-        console.log(`[CHAT LAYOUT] ${activeConvId}: FRESH cache, ${cached.length} msgs, skipFetch`);
         setMessages(cached);
         setMsgsLoading(false);
         if (cached.length > 0 && cachedMeta?.hasMoreMessages === false) {
@@ -708,7 +701,6 @@ export default function Chat() {
         skipMsgLoadRef.current = true;
       }
     } else {
-      console.log(`[CHAT LAYOUT] ${activeConvId}: NO cache, clearing messages`);
       setMessages([]);
       setMsgsLoading(true);
       setHasMoreMessages(true);
@@ -953,7 +945,6 @@ export default function Chat() {
   // ── Load messages when active conversation changes ──
   useEffect(() => {
     if (!activeConvId) return;
-    console.log(`[CHAT EFFECT] RUN conv=${activeConvId} skipFetch=${skipMsgLoadRef.current} owner=${messagesOwnerRef.current}`);
     // Skip DB ops for pending conversations (temp IDs like "pending_xxx" are not real UUIDs)
     if (activeConvId.startsWith('pending_')) {
       setMsgsLoading(false);
@@ -979,7 +970,6 @@ export default function Chat() {
           let hasMore = false;
           let cursor = null;
           const fetchLimit = INITIAL_BATCH_LIMIT + 1; // request one extra to detect 'more'
-          console.log(`[CHAT FETCH] START conv=${convForThisEffect}`);
 
           do {
             attempts += 1;
@@ -1031,7 +1021,6 @@ export default function Chat() {
           // writing to state/cache would corrupt the new conversation's data.
           // Only cache the result; don't overwrite the live state.
           if (messagesOwnerRef.current !== convForThisEffect || aborted) {
-            console.log(`[CHAT FETCH] GUARD HIT conv=${convForThisEffect} owner=${messagesOwnerRef.current} aborted=${aborted} → caching only`);
             messagesCacheRef.current[convForThisEffect] = finalMessages;
             if (!messagesCacheRef.current._meta) messagesCacheRef.current._meta = {};
             messagesCacheRef.current._meta[convForThisEffect] = {
@@ -1041,7 +1030,6 @@ export default function Chat() {
             };
             return;
           }
-          console.log(`[CHAT FETCH] OK conv=${convForThisEffect} msgs=${finalMessages.length} → setMessages`);
           messagesCacheRef.current[convForThisEffect] = finalMessages;
           messagesOwnerRef.current = convForThisEffect;
           setMessages(finalMessages);
@@ -1073,7 +1061,6 @@ export default function Chat() {
         // Guard: messages state may already belong to a different conversation
         // (useLayoutEffect sets the new state before useEffect cleanup runs)
         if (messagesOwnerRef.current !== convForThisEffect) {
-          console.log(`[CHAT RT] BLOCKED owner=${messagesOwnerRef.current} !== conv=${convForThisEffect} msg_id=${newMsg.id}`);
           return;
         }
         const content = await decryptMessage(newMsg, user.id);
@@ -1242,10 +1229,8 @@ export default function Chat() {
     // ABSOLUTE GUARD: verify messages actually belong to this conversation.
     // Prevents a stale async fetch from writing wrong data to the active cache.
     if (messages.length > 0 && messages[0].conversation_id && messages[0].conversation_id !== activeConvId) {
-      console.log(`[CHAT SYNC] BLOCKED conv_id mismatch: active=${activeConvId} msg_conv_id=${messages[0].conversation_id}`);
       return;
     }
-    console.log(`[CHAT SYNC] WRITE activeConv=${activeConvId} msgs=${messages.length} owner=${messagesOwnerRef.current}`);
     messagesCacheRef.current[activeConvId] = messages;
     // Update fetchedAt + pagination state for staleness check on next conversation switch
     if (!messagesCacheRef.current._meta) messagesCacheRef.current._meta = {};
