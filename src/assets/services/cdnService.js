@@ -18,6 +18,98 @@ import { getItem, setItem, removeItem } from './secureStorage';
 import { supabase } from './supabaseclient';
 
 const CDN_BASE = import.meta.env.VITE_CDN_URL || '';
+
+// ── Límites de subida (cliente) ──
+// El CDN también valida/auth, pero esto corta el spam antes de gastar red:
+// tamaño máximo por tipo y cuántas imágenes por minuto puede subir un usuario.
+// (Los videos no se suben: van siempre por URL, y su frecuencia la limita el
+// rate limit de posts de la migración 092.)
+const MB = 1024 * 1024;
+const UPLOAD_WINDOW_MS = 60 * 1000;
+const UPLOAD_LIMITS = {
+  avatar: { maxBytes: 8 * MB, perMinute: 5 },
+  banner: { maxBytes: 12 * MB, perMinute: 5 },
+  post: { maxBytes: 15 * MB, perMinute: 10 },
+  chat: { maxBytes: 10 * MB, perMinute: 20 },
+};
+
+const UPLOAD_LIMIT_MESSAGES = {
+  es: {
+    tooLarge: 'La imagen pesa {size} MB y el máximo es {max} MB.',
+    rate: 'Has subido demasiadas imágenes. Espera {seconds} s antes de subir otra.',
+  },
+  en: {
+    tooLarge: 'The image is {size} MB and the limit is {max} MB.',
+    rate: 'Too many uploads. Wait {seconds}s before uploading another image.',
+  },
+  pt: {
+    tooLarge: 'A imagem tem {size} MB e o limite é {max} MB.',
+    rate: 'Muitos envios. Aguarde {seconds}s antes de enviar outra imagem.',
+  },
+  ru: {
+    tooLarge: 'Изображение весит {size} МБ, максимум — {max} МБ.',
+    rate: 'Слишком много загрузок. Подождите {seconds} с перед следующей.',
+  },
+  ja: {
+    tooLarge: '画像は {size} MB です。上限は {max} MB です。',
+    rate: 'アップロードが多すぎます。次の画像まで {seconds} 秒お待ちください。',
+  },
+};
+
+function uploadLimitText(key, params) {
+  let locale = 'es';
+  try {
+    locale = getItem('fc_locale') || 'es';
+  } catch { /* sin storage: español */ }
+  const dict = UPLOAD_LIMIT_MESSAGES[locale] || UPLOAD_LIMIT_MESSAGES.es;
+  let text = dict[key] || UPLOAD_LIMIT_MESSAGES.es[key];
+  for (const [k, v] of Object.entries(params)) {
+    text = text.replaceAll(`{${k}}`, String(v));
+  }
+  return text;
+}
+
+function readUploadTimes(userId, type) {
+  try {
+    const raw = getItem(`fc_media_uploads_${userId}_${type}`);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((t) => typeof t === 'number') : [];
+  } catch {
+    return [];
+  }
+}
+
+function recordUpload(userId, type) {
+  try {
+    const now = Date.now();
+    const times = readUploadTimes(userId, type)
+      .filter((t) => now - t < UPLOAD_WINDOW_MS)
+      .concat(now);
+    setItem(`fc_media_uploads_${userId}_${type}`, JSON.stringify(times));
+  } catch { /* sin storage: el límite se aplica igualmente por sesión */ }
+}
+
+/**
+ * Valida tamaño y frecuencia antes de tocar la red. Lanza un Error con el
+ * mensaje ya traducido (el locale sale de secureStorage, igual que useI18n).
+ */
+function assertUploadAllowed(file, userId, type) {
+  const limits = UPLOAD_LIMITS[type] || UPLOAD_LIMITS.post;
+
+  if (file.size > limits.maxBytes) {
+    throw new Error(uploadLimitText('tooLarge', {
+      size: (file.size / MB).toFixed(1),
+      max: Math.round(limits.maxBytes / MB),
+    }));
+  }
+
+  const now = Date.now();
+  const recent = readUploadTimes(userId, type).filter((t) => now - t < UPLOAD_WINDOW_MS);
+  if (recent.length >= limits.perMinute) {
+    const wait = Math.max(1, Math.ceil((recent[0] + UPLOAD_WINDOW_MS - now) / 1000));
+    throw new Error(uploadLimitText('rate', { seconds: wait }));
+  }
+}
 const CACHE_PREFIX = 'cdn_upload_';
 
 /**
@@ -260,11 +352,8 @@ export async function uploadImage(file, userId, type) {
     throw new Error(`Unsupported file type: ${file.type}. Allowed: JPEG, PNG, GIF, WebP`);
   }
 
-  // Validate file size (max 20MB)
-  const maxSize = 20 * 1024 * 1024;
-  if (file.size > maxSize) {
-    throw new Error(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max: 20MB`);
-  }
+  // Tamaño máximo y frecuencia por usuario/tipo (mensaje ya traducido)
+  assertUploadAllowed(file, userId, type);
 
   // ── Check local cache first (instant return for re-uploads) ──
   const cached = await getCachedUpload(userId, type, file);
@@ -313,6 +402,18 @@ export async function uploadImage(file, userId, type) {
   }
 
   if (!data.success) {
+    // Límites del CDN (la decisión real, no solo el chequeo del cliente).
+    if (data.error === 'rate_limited') {
+      const wait = data.retry_after || response.headers.get('Retry-After') || 60;
+      throw new Error(uploadLimitText('rate', { seconds: wait }));
+    }
+    if (response.status === 413) {
+      const limits = UPLOAD_LIMITS[type] || UPLOAD_LIMITS.post;
+      throw new Error(uploadLimitText('tooLarge', {
+        size: (file.size / MB).toFixed(1),
+        max: Math.round(limits.maxBytes / MB),
+      }));
+    }
     // reason llega del CDN (token expirado, kid rotado, firma inválida…)
     throw new Error(data.reason || data.error || 'Upload failed');
   }
@@ -327,6 +428,9 @@ export async function uploadImage(file, userId, type) {
     height: data.height,
     sizeKB: data.size_kb,
   };
+
+  // Contar la subida real (los hits de caché no gastan red ni cuentan)
+  recordUpload(userId, type);
 
   // Cache the result so re-uploading the same file is instant
   setCachedUpload(userId, type, file, result).catch(() => {});

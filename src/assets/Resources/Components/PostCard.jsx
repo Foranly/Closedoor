@@ -33,7 +33,8 @@ import PostMarkdown from './PostMarkdown';
 import { closeUnbalancedMarkers } from '../../services/postMarkdown';
 import LinkPreview from './LinkPreview';
 import { useI18n } from '../../services/i18n/useI18n';
-import { DEFAULT_AVATAR, getTimeAgo, formatClockTime, formatFullDate, getEmbedUrl as getEmbedUrlHelper, isVideoUrl as isVideoUrlHelper, IMG_RE, VID_RE, VID_RE_EXTENDED, getImageStyle, sanitizeUrl } from '../../services/helpers';import { decode as encryptDecode,
+import { DEFAULT_AVATAR, getTimeAgo, formatClockTime, formatFullDate, getEmbedUrl as getEmbedUrlHelper, isVideoUrl as isVideoUrlHelper, IMG_RE, VID_RE, VID_RE_EXTENDED, getImageStyle, sanitizeUrl } from '../../services/helpers';
+import { showRateLimitToast } from '../../services/rateLimitNotice';import { decode as encryptDecode,
   decryptForUser,
   getCachedDecryptedContent,
   setCachedDecryptedContent,
@@ -421,6 +422,7 @@ const PostCard = React.memo(function PostCard({
         setDislikesCount(prevDislikesCount);
       }
       console.error('Like error:', err);
+      showRateLimitToast(t, err);
     }
   }, [user, liked, disliked, likesCount, dislikesCount, post.id, post.commentId, replyInfo, onLikeToggle, navigate, t]);
 
@@ -474,6 +476,7 @@ const PostCard = React.memo(function PostCard({
         setLikesCount(prevLikesCount);
       }
       console.error('Dislike error:', err);
+      showRateLimitToast(t, err);
     }
   }, [user, disliked, liked, dislikesCount, likesCount, post.id, post.commentId, replyInfo, onDislikeToggle, navigate, t]);
 
@@ -508,6 +511,7 @@ const PostCard = React.memo(function PostCard({
       setReposted(wasReposted);
       setRepostsCount(prevRepostsCount);
       console.error('Repost error:', err);
+      showRateLimitToast(t, err);
     }
   }, [user, reposted, repostsCount, post.id, onRepostToggle, navigate, t]);
 

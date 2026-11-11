@@ -35,11 +35,36 @@ import (
 
 // ── Configuration ──
 const (
-	maxUploadSize = 20 << 20 // 20MB
+	maxUploadSize = 20 << 20 // 20MB (tope absoluto del body)
 	webpQuality   = 90       // WebP quality
 	thumbQuality  = 88       // WebP quality del thumbnail de feed
 	thumbWidth    = 640      // ancho máximo del thumbnail de feed
 )
+
+// Límites de subida por tipo. El cliente (cdnService) aplica los mismos antes
+// de subir para dar feedback inmediato, pero la decisión real es esta: sin
+// ellos, bastaba con llamar a /cdn/upload directamente para saltarse el front.
+//
+// Los videos NO se suben al CDN (solo se adjuntan por URL y su frecuencia la
+// limita el rate limit de posts de la migración 092); si llega un archivo de
+// video se rechaza con un mensaje explícito.
+var uploadTypeLimits = map[string]int64{
+	"avatar": 8 << 20,
+	"banner": 12 << 20,
+	"post":   15 << 20,
+	"chat":   10 << 20,
+}
+
+// Subidas por minuto y usuario para cada tipo (token bucket).
+var uploadTypeRates = map[string]int{
+	"avatar": 5,
+	"banner": 5,
+	"post":   10,
+	"chat":   20,
+}
+
+// uploadTypeLimiters se inicializa en main() a partir de uploadTypeRates.
+var uploadTypeLimiters map[string]*rateLimiter
 
 // ── Image record stored in JSON index ──
 type ImageRecord struct {
@@ -376,12 +401,38 @@ func handleUpload(idx *ImageIndex) http.HandlerFunc {
 			return
 		}
 
+		// Cuota por usuario y tipo (los límites globales ya se aplicaron en los
+		// middlewares). Evita que un solo usuario agote el CDN en bucle.
+		if lim := uploadTypeLimiters[imgType]; lim != nil {
+			if ok, retry := lim.Allow(userID); !ok {
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Retry-After", strconv.Itoa(retry))
+				w.WriteHeader(http.StatusTooManyRequests)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"success": false, "error": "rate_limited", "retry_after": retry,
+				})
+				return
+			}
+		}
+
 		file, header, err := r.FormFile("file")
 		if err != nil {
 			uploadError(w, http.StatusBadRequest, "No file provided")
 			return
 		}
 		defer file.Close()
+
+		// El CDN solo procesa imágenes: los videos se adjuntan por URL.
+		if strings.HasPrefix(strings.ToLower(header.Header.Get("Content-Type")), "video/") {
+			uploadError(w, http.StatusUnsupportedMediaType, "Video uploads are not supported: attach videos by URL")
+			return
+		}
+
+		// Tamaño máximo por tipo (el body completo ya está limitado a 20MB).
+		if maxBytes, ok := uploadTypeLimits[imgType]; ok && header.Size > maxBytes {
+			uploadError(w, http.StatusRequestEntityTooLarge, fmt.Sprintf("File too large for %s (max %dMB)", imgType, maxBytes/(1<<20)))
+			return
+		}
 
 		// ── Verificación de contenido real: sniff de magic bytes ──
 		head := make([]byte, 512)
@@ -968,11 +1019,16 @@ func requireAuth(userLimiter *rateLimiter, next http.HandlerFunc) http.HandlerFu
 			return
 		}
 		// Rate limit por usuario (el por IP ya se consumió en rateLimit)
-		if userLimiter != nil && !userLimiter.Allow(sub) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusTooManyRequests)
-			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "rate_limited"})
-			return
+		if userLimiter != nil {
+			if ok, retry := userLimiter.Allow(sub); !ok {
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Retry-After", strconv.Itoa(retry))
+				w.WriteHeader(http.StatusTooManyRequests)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"success": false, "error": "rate_limited", "retry_after": retry,
+				})
+				return
+			}
 		}
 		next(w, r.WithContext(context.WithValue(r.Context(), ctxUserKey{}, sub)))
 	}
@@ -1008,7 +1064,10 @@ func newRateLimiter(perMinute int) *rateLimiter {
 	return rl
 }
 
-func (rl *rateLimiter) Allow(key string) bool {
+// Allow consume un token del bucket. Si no hay, devuelve también los segundos
+// que faltan para poder reintentar (para el header Retry-After y el contador
+// del cliente).
+func (rl *rateLimiter) Allow(key string) (bool, int) {
 	now := time.Now()
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -1022,9 +1081,16 @@ func (rl *rateLimiter) Allow(key string) bool {
 	b.last = now
 	if b.tokens >= 1 {
 		b.tokens--
-		return true
+		return true, 0
 	}
-	return false
+	retry := 1
+	if rl.limit > 0 {
+		retry = int(math.Ceil((1 - b.tokens) / (rl.limit / 60.0)))
+	}
+	if retry < 1 {
+		retry = 1
+	}
+	return false, retry
 }
 
 // clientIP: detrás de un único proxy confiable (Vercel), el ÚLTIMO salto de
@@ -1053,10 +1119,13 @@ func rateLimit(rl *rateLimiter) func(http.HandlerFunc) http.HandlerFunc {
 			if sub := userFromCtx(r); sub != "" {
 				key += "|" + sub
 			}
-			if !rl.Allow(key) {
+			if ok, retry := rl.Allow(key); !ok {
 				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Retry-After", strconv.Itoa(retry))
 				w.WriteHeader(http.StatusTooManyRequests)
-				json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "rate_limited"})
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"success": false, "error": "rate_limited", "retry_after": retry,
+				})
 				return
 			}
 			next(w, r)
@@ -1263,6 +1332,18 @@ func main() {
 	uploadLimiter := newRateLimiter(uploadRate)
 	userLimiter := newRateLimiter(uploadRate)
 	serveLimiter := newRateLimiter(serveRate)
+
+	// Cuotas por usuario y tipo de media (tamaño y subidas/minuto).
+	uploadTypeLimiters = make(map[string]*rateLimiter, len(uploadTypeRates))
+	for t, perMinute := range uploadTypeRates {
+		uploadTypeLimiters[t] = newRateLimiter(perMinute)
+	}
+	log.Printf("   Límites de media: avatar %dMB/%dmin · banner %dMB/%dmin · post %dMB/%dmin · chat %dMB/%dmin · video: solo por URL",
+		uploadTypeLimits["avatar"]/(1<<20), uploadTypeRates["avatar"],
+		uploadTypeLimits["banner"]/(1<<20), uploadTypeRates["banner"],
+		uploadTypeLimits["post"]/(1<<20), uploadTypeRates["post"],
+		uploadTypeLimits["chat"]/(1<<20), uploadTypeRates["chat"],
+	)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /cdn/upload", rateLimit(uploadLimiter)(requireAuth(userLimiter, handleUpload(idx))))
