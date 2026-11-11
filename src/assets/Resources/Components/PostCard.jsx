@@ -779,6 +779,12 @@ const PostCard = React.memo(function PostCard({
 
   const inlineMedia = useMemo(() => detectInlineMedia(post.content), [post.content, post.image_url, post.video_url]);
 
+  // Dimensiones guardadas al publicar: el reproductor reserva el hueco exacto
+  // desde el primer render y el feed no salta al cargar los metadatos.
+  const videoRatio = post.video_meta?.width && post.video_meta?.height
+    ? post.video_meta.width / post.video_meta.height
+    : 0;
+
   return (
     <article
       className={`post-card ${deleting ? 'post-card--deleting' : ''} ${compact ? 'post-card--compact' : ''}`}
@@ -1200,7 +1206,7 @@ const PostCard = React.memo(function PostCard({
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <PostVideoPlayer src={post.video_url} />
+                <PostVideoPlayer src={post.video_url} ratio={videoRatio} />
               )}
             </div>
           )}
@@ -1240,7 +1246,7 @@ const PostCard = React.memo(function PostCard({
                   onClick={(e) => openGallery(e, 0)}
                 />
               ) : (
-                <PostVideoPlayer src={inlineMedia.url} />
+                <PostVideoPlayer src={inlineMedia.url} ratio={videoRatio} />
               )}
             </div>
           )}

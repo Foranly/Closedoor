@@ -116,6 +116,36 @@ function ChatCallEvent({ call, userId, t, locale }) {
 }
 
 /**
+ * Imagen de una burbuja del chat. En cuanto conoce el tamaño real fija su
+ * ancho (respetando el ratio) para que la burbuja se ajuste a la imagen y no
+ * quede hueco a los lados en fotos verticales.
+ */
+const CHAT_IMG_MAX_W = 320;
+const CHAT_IMG_MAX_H = 260;
+
+function ChatImage({ src, alt, onClick }) {
+  const [width, setWidth] = useState(null);
+
+  const handleLoad = (e) => {
+    const { naturalWidth, naturalHeight } = e.currentTarget;
+    if (!naturalWidth || !naturalHeight) return;
+    const scale = Math.min(1, CHAT_IMG_MAX_W / naturalWidth, CHAT_IMG_MAX_H / naturalHeight);
+    setWidth(Math.round(naturalWidth * scale));
+  };
+
+  return (
+    <SafeImage
+      src={src}
+      alt={alt}
+      className="chat-message-media-img"
+      onClick={onClick}
+      onLoad={handleLoad}
+      style={width ? { width: `${width}px` } : undefined}
+    />
+  );
+}
+
+/**
  * Etiqueta corta para el preview de una conversación o de un mensaje citado:
  * si el texto contiene una imagen o un video, se muestra "Image" / "Video".
  * Devuelve null si no hay media (el caller pinta el texto tal cual).
@@ -3453,10 +3483,9 @@ export default function Chat() {
                       return (
                         <>
                           {imageUrl && IMG_RE.test(imageUrl) && (
-                            <SafeImage
+                            <ChatImage
                               src={imageUrl}
                               alt="Media"
-                              className="chat-message-media-img"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 // Collect all image URLs from all messages for gallery navigation

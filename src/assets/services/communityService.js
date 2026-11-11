@@ -891,7 +891,7 @@ export async function updateCommunity(communityId, updates) {
  */
 export async function getCommunityPosts(communityId, { sort = 'recent', timeRange = 'all', limit = 30, offset = 0 } = {}) {
   const feedSelect = [
-    'id', 'user_id', 'content', 'image_url', 'image_urls', 'video_url',
+    'id', 'user_id', 'content', 'image_url', 'image_urls', 'video_url', 'video_meta',
     'is_pinned', 'pinned_at', 'is_encrypted', 'is_sensitive',
     'likes_count', 'dislikes_count', 'comments_count', 'reposts_count', 'views_count',
     'created_at', 'updated_at', 'mentions', 'obfuscated_display', 'comments_allowed', 'poll_data', 'song',
