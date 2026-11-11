@@ -4010,3 +4010,47 @@ dialog.fc-modal.chat-followers-modal {
     font-size: 0.72rem;
     color: var(--color-text-muted, #6b7280);
 }
+
+/* ── Video en el chat (se envía como URL, igual que las imágenes) ── */
+/* Ocupa todo el ancho de la burbuja: el alto lo marca el ratio real del
+   video (aspect-ratio que pone PostVideoPlayer), así no queda hueco a los
+   lados ni se deforma. */
+.chat-message-media-video {
+    width: 100%;
+    max-width: 100%;
+    margin-top: 4px;
+}
+
+.chat-message-media-video .post-video-player {
+    width: 100%;
+    margin-bottom: 0;
+    border-radius: 12px;
+}
+
+.chat-message-media-video .post-video-player-el {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: contain;
+}
+
+.chat-media-preview-video {
+    max-width: 260px;
+}
+
+.chat-media-preview-video .post-video-player {
+    margin-bottom: 0;
+}
+
+.chat-media-preview-video .post-video-player-el {
+    max-height: 160px;
+}
+
+.chat-message-video-embed {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    display: block;
+    background: #000;
+}
