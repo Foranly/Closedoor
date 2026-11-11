@@ -4015,24 +4015,20 @@ dialog.fc-modal.chat-followers-modal {
 }
 
 /* ── Video en el chat (se envía como URL, igual que las imágenes) ── */
-/* Ocupa todo el ancho de la burbuja: el alto lo marca el ratio real del
-   video (aspect-ratio que pone PostVideoPlayer), así no queda hueco a los
-   lados ni se deforma. */
+/* Ancho mínimo = el que necesitan los controles para caber en una línea.
+   La burbuja ya no se encoge con videos verticales: mantiene este ancho y el
+   sobrante se rellena en negro alrededor del video. */
 .chat-message-media-video {
-    width: fit-content;
+    width: 320px;
     max-width: 100%;
     margin-top: 4px;
 }
 
-/* Alto fijo + aspect-ratio real del video = ancho exacto, y la burbuja se
-   ajusta al video (sin huecos laterales). */
+/* Alto fijo y ancho del contenedor: el ratio real lo aplica el <video> con
+   object-fit, así que ni se deforma ni se recorta. */
 .chat-message-media-video .post-video-player {
-    width: auto;
+    width: 100%;
     height: 260px;
-    /* Mínimo: el ancho que necesitan los controles para no partirse en dos
-       líneas. En videos verticales la burbuja no se queda más estrecha que
-       esto y el sobrante se rellena en negro (object-fit: contain). */
-    min-width: min(320px, 100%);
     max-width: 100%;
     margin-bottom: 0;
     border-radius: 12px;
@@ -4042,10 +4038,27 @@ dialog.fc-modal.chat-followers-modal {
     width: 100%;
     height: 100%;
     max-height: none;
-    /* Horizontales: el ancho lo manda la burbuja y el alto el ratio, así que
-       el video se centra con barras negras arriba y abajo. */
+    /* El video se centra dentro del hueco fijo; horizontales quedan con barras
+       negras arriba y abajo, verticales a los lados. */
     object-fit: contain;
     background: #000;
+}
+
+/* Controles algo más compactos para que entren en una sola línea en la
+   burbuja (barra de progreso arriba + fila única de botones). */
+.chat-message-media-video .post-video-player-controls {
+    gap: 2px;
+    padding: 14px 6px 6px;
+}
+
+.chat-message-media-video .post-video-player-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 0.72rem;
+}
+
+.chat-message-media-video .post-video-player-volume-range {
+    width: 44px;
 }
 
 /* Minimizado y pantalla completa mandan su propio tamaño. */
