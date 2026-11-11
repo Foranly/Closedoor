@@ -923,6 +923,7 @@
   "upload.uploading": "Uploading image...",
   "changelog.badge": "What's new",
   "changelog.accept": "Got it!",
+  "changelog.release": "Release",
   "desktop.prompt_title": "Listen to the full song",
   "desktop.prompt_body": "Profile songs play as a 30-second preview in the browser: YouTube only serves the full track to connections it trusts. The desktop app resolves it on your own computer, so it plays all the way through.",
   "desktop.prompt_never": "Don't show again",

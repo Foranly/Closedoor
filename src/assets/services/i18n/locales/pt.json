@@ -923,6 +923,7 @@
   "upload.uploading": "Enviando imagem...",
   "changelog.badge": "Novidades",
   "changelog.accept": "Entendi!",
+  "changelog.release": "Versão",
   "desktop.prompt_title": "Escute a música completa",
   "desktop.prompt_body": "No navegador as músicas do perfil tocam como prévia de 30 segundos: o YouTube só entrega a faixa completa a conexões em que confia. O app de desktop resolve no seu próprio computador, então a música toca inteira.",
   "desktop.prompt_never": "Não mostrar novamente",

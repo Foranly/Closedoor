@@ -22,6 +22,18 @@ export const CHANGELOG_SEEN_KEY = 'fc_changelog_seen';
 
 export const RELEASES = [
   {
+    id: '2026-11-11',
+    date: '2026-11-11',
+    title: 'Videos in posts and chats, and a filter for notifications',
+    items: [
+      'Posts, comments and chats now play videos and show images at their real proportions: the space is reserved before they load, so nothing jumps while you scroll.',
+      'Videos inside a chat keep a minimum width, so the player controls stay on a single line, and the clip is centred with black bars instead of being cropped.',
+      'The video player no longer has a restart button: play/pause and the 10-second jumps already take you back to the start.',
+      'Notifications can now be filtered by type: follows, likes, comments, reposts, mentions, polls and encrypted posts.',
+      'Likes, comments and reposts are rate limited: if you go too fast the app tells you how long to wait instead of failing silently.',
+    ],
+  },
+  {
     id: '2026-11-10',
     date: '2026-11-10',
     title: 'Comment threads, call history and a floating composer',

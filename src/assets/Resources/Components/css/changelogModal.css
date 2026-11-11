@@ -23,6 +23,36 @@
     gap: 6px;
 }
 
+/* Selector de versión: permite leer releases anteriores en el mismo modal. */
+.changelog-modal-release {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.changelog-modal-release-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--color-text-muted, #6b7280);
+}
+
+.changelog-modal-release-select {
+    padding: 5px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border, #2a2a2a);
+    background: var(--color-surface-hover, #252525);
+    color: var(--color-text, #fff);
+    font-size: 0.78rem;
+    font-family: inherit;
+    cursor: pointer;
+    min-width: 0;
+    max-width: 72%;
+    text-overflow: ellipsis;
+}
+
 .changelog-modal-title {
     margin: 0;
     font-size: 1.05rem;
