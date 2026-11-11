@@ -32,6 +32,8 @@ import Avatar from './Avatar';
 import PostMarkdown from './PostMarkdown';
 import { closeUnbalancedMarkers } from '../../services/postMarkdown';
 import LinkPreview from './LinkPreview';
+import PostSongCard from './PostSongCard';
+import PostVideoPlayer from './PostVideoPlayer';
 import { useI18n } from '../../services/i18n/useI18n';
 import { DEFAULT_AVATAR, getTimeAgo, formatClockTime, formatFullDate, getEmbedUrl as getEmbedUrlHelper, isVideoUrl as isVideoUrlHelper, IMG_RE, VID_RE, VID_RE_EXTENDED, getImageStyle, sanitizeUrl } from '../../services/helpers';
 import { showRateLimitToast } from '../../services/rateLimitNotice';import { decode as encryptDecode,
@@ -781,6 +783,12 @@ const PostCard = React.memo(function PostCard({
 
   const inlineMedia = useMemo(() => detectInlineMedia(post.content), [post.content, post.image_url, post.video_url]);
 
+  // Dimensiones guardadas al publicar: el reproductor reserva el hueco exacto
+  // desde el primer render y el feed no salta al cargar los metadatos.
+  const videoRatio = post.video_meta?.width && post.video_meta?.height
+    ? post.video_meta.width / post.video_meta.height
+    : 0;
+
   return (
     <article
       className={`post-card ${deleting ? 'post-card--deleting' : ''} ${compact ? 'post-card--compact' : ''}`}
@@ -1202,12 +1210,7 @@ const PostCard = React.memo(function PostCard({
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <video
-                  src={post.video_url}
-                  className="post-card-video"
-                  controls
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <PostVideoPlayer src={post.video_url} ratio={videoRatio} />
               )}
             </div>
           )}
@@ -1247,17 +1250,15 @@ const PostCard = React.memo(function PostCard({
                   onClick={(e) => openGallery(e, 0)}
                 />
               ) : (
-                <video
-                  src={inlineMedia.url}
-                  className="post-card-video"
-                  controls
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <PostVideoPlayer src={inlineMedia.url} ratio={videoRatio} />
               )}
             </div>
           )}
 
           </div>{/* ── end post-card-media-wrapper ── */}
+
+          {/* ── Canción adjunta (reproductor global: stream completo en escritorio, preview de 30 s en web) ── */}
+          {post.song?.title && <PostSongCard song={post.song} />}
 
           {/* Actions */}
           <div className="post-card-actions">

@@ -146,6 +146,7 @@ CREATE TABLE posts (
   image_url TEXT,
   image_urls JSONB DEFAULT '[]'::jsonb,
   video_url TEXT,
+  video_meta JSONB,          -- { width, height } del video (reserva el hueco en el feed)
   mentions JSONB DEFAULT '{}'::jsonb,
   is_pinned BOOLEAN DEFAULT false,
   pinned_at TIMESTAMPTZ,
@@ -163,6 +164,8 @@ CREATE TABLE posts (
   obfuscated_display TEXT,
   -- Encuestas
   poll_data JSONB,
+  -- Cancion adjunta (migracion 090)
+  song JSONB,
   -- Programacion
   scheduled_at TIMESTAMPTZ,
   -- Timestamps
@@ -461,6 +464,7 @@ erDiagram
         TEXT image_url
         JSONB image_urls
         TEXT video_url
+        JSONB video_meta
         JSONB mentions
         BOOLEAN is_pinned
         INTEGER likes_count
@@ -473,6 +477,7 @@ erDiagram
         TEXT encrypted_iv
         UUID[] allowed_users
         JSONB poll_data
+        JSONB song
         TIMESTAMPTZ scheduled_at
     }
 
