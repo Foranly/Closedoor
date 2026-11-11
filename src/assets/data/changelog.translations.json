@@ -168,5 +168,207 @@
         "そのカード内のフォロワーとフォローしているカウンターは、変更されるとすぐに更新されます。"
       ]
     }
+  },
+  "2026-11-11:5x9q5g": {
+    "es": {
+      "title": "Vídeos en publicaciones y chats, y filtro para notificaciones",
+      "items": [
+        "Las publicaciones, comentarios y chats ahora reproducen vídeos y muestran imágenes en sus proporciones reales: el espacio se reserva antes de que se carguen, por lo que nada salta mientras te desplazas.",
+        "Los vídeos dentro de un chat mantienen un ancho mínimo, por lo que los controles del reproductor permanecen en una sola línea y el clip se centra con barras negras en lugar de recortarse.",
+        "El reproductor de vídeo ya no tiene botón de reinicio: reproducir/pausar y los saltos de 10 segundos ya te devuelven al inicio.",
+        "Las notificaciones ahora se pueden filtrar por tipo: seguimiento, me gusta, comentarios, reenvíos, menciones, encuestas y publicaciones cifradas.",
+        "Los Me gusta, los comentarios y las publicaciones tienen una tasa limitada: si vas demasiado rápido, la aplicación te indica cuánto tiempo debes esperar en lugar de fallar silenciosamente."
+      ]
+    },
+    "pt": {
+      "title": "Vídeos em postagens e chats e filtro para notificações",
+      "items": [
+        "Postagens, comentários e bate-papos agora reproduzem vídeos e mostram imagens em suas proporções reais: o espaço é reservado antes de serem carregados, para que nada salte enquanto você rola.",
+        "Os vídeos dentro de um bate-papo mantêm uma largura mínima, de modo que os controles do player permaneçam em uma única linha e o clipe seja centralizado com barras pretas em vez de ser cortado.",
+        "O player de vídeo não tem mais botão de reiniciar: reproduzir/pausar e os saltos de 10 segundos já levam você de volta ao início.",
+        "As notificações agora podem ser filtradas por tipo: seguidores, curtidas, comentários, repostagens, menções, enquetes e postagens criptografadas.",
+        "Curtidas, comentários e repostagens têm taxa limitada: se você for muito rápido, o aplicativo informará quanto tempo esperar, em vez de falhar silenciosamente."
+      ]
+    },
+    "ru": {
+      "title": "Видео в публикациях и чатах, а также фильтр для уведомлений.",
+      "items": [
+        "Сообщения, комментарии и чаты теперь воспроизводят видео и показывают изображения в их реальных размерах: пространство резервируется до их загрузки, поэтому при прокрутке ничего не прыгает.",
+        "Видео внутри чата имеют минимальную ширину, поэтому элементы управления проигрывателем остаются на одной линии, а клип центрируется черными полосами, а не обрезается.",
+        "В видеоплеере больше нет кнопки перезапуска: воспроизведение/пауза и 10-секундные переходы уже возвращают вас к началу.",
+        "Уведомления теперь можно фильтровать по типу: подписки, лайки, комментарии, репосты, упоминания, опросы и зашифрованные публикации.",
+        "Количество лайков, комментариев и репостов ограничено: если вы идете слишком быстро, приложение сообщит вам, как долго ждать, а не молча потерпит неудачу."
+      ]
+    },
+    "ja": {
+      "title": "投稿とチャット内のビデオ、および通知のフィルター",
+      "items": [
+        "投稿、コメント、チャットでは、実際の比率でビデオが再生され、画像が表示されるようになりました。スペースはロード前に予約されるため、スクロール中に何もジャンプしません。",
+        "チャット内のビデオは最小幅を維持するため、プレーヤーのコントロールは 1 行に留まり、クリップはトリミングされずに黒いバーで中央に配置されます。",
+        "ビデオプレーヤーには再起動ボタンがなくなりました。再生/一時停止し、10 秒間のジャンプで最初に戻ります。",
+        "通知をタイプ別にフィルターできるようになりました: フォロー、いいね、コメント、再投稿、メンション、投票、暗号化された投稿。",
+        "「いいね！」、コメント、再投稿にはレート制限があります。速すぎると、アプリは何も言わずに失敗するのではなく、どれくらい待つかを通知します。"
+      ]
+    }
+  },
+  "2026-10-16:twf9o0": {
+    "es": {
+      "title": "Canciones completas en la aplicación de escritorio.",
+      "items": [
+        "Las canciones del perfil se reproducen como una vista previa de 30 segundos en el navegador: YouTube solo ofrece la pista completa a las conexiones en las que confía, y un servidor nunca califica.",
+        "Ahora hay una aplicación de escritorio que resuelve la canción desde tu propia conexión, por lo que se reproduce hasta el final.",
+        "Nueva página de descarga con el instalador para tu plataforma.",
+        "Ahora puedes pegar una imagen directamente en un comentario o responder con Ctrl+V.",
+        "Cuando reproduces una canción en el navegador, la aplicación te ofrece la versión de escritorio; puedes descartarla definitivamente."
+      ]
+    },
+    "pt": {
+      "title": "Músicas completas no aplicativo de desktop",
+      "items": [
+        "As músicas do perfil são reproduzidas como uma prévia de 30 segundos no navegador: o YouTube só fornece a faixa completa para conexões em que confia, e um servidor nunca se qualifica.",
+        "Agora existe um aplicativo de desktop que resolve a música a partir da sua própria conexão, para que ela seja reproduzida do começo ao fim.",
+        "Nova página de download com o instalador da sua plataforma.",
+        "Agora você pode colar uma imagem diretamente em um comentário ou responder com Ctrl+V.",
+        "Quando você toca uma música no navegador, o aplicativo oferece a versão desktop — você pode dispensá-la definitivamente."
+      ]
+    },
+    "ru": {
+      "title": "Полные песни в настольном приложении",
+      "items": [
+        "Песни профиля воспроизводятся в браузере в виде 30-секундного предварительного просмотра: YouTube передает полную дорожку только тем соединениям, которым он доверяет, а сервер никогда не проходит проверку.",
+        "Теперь есть настольное приложение, которое воспроизводит песню через ваше собственное соединение, поэтому она воспроизводится до конца.",
+        "Новая страница загрузки с установщиком для вашей платформы.",
+        "Теперь вы можете вставить изображение прямо в комментарий или ответить, нажав Ctrl+V.",
+        "Когда вы проигрываете песню в браузере, приложение предлагает вам настольную версию — вы можете отказаться от нее навсегда."
+      ]
+    },
+    "ja": {
+      "title": "デスクトップ アプリの全曲",
+      "items": [
+        "プロフィール曲はブラウザで 30 秒のプレビューとして再生されます。YouTube は信頼できる接続にのみ完全なトラックを提供し、サーバーが適格であることはありません。",
+        "現在は、独自の接続から曲を解決するデスクトップ アプリがあり、最後まで再生されます。",
+        "プラットフォーム用のインストーラーを含む新しいダウンロード ページ。",
+        "画像をコメントに直接貼り付けたり、Ctrl+V で返信したりできるようになりました。",
+        "ブラウザで曲を再生すると、アプリはデスクトップ バージョンを提供しますが、それは永久に無視できます。"
+      ]
+    }
+  },
+  "2026-10-10+2:4x09xw": {
+    "es": {
+      "title": "La canción de tu perfil, ahora transmitida de verdad",
+      "items": [
+        "La canción que fijes en tu perfil ahora reproduce la pista en sí, no solo la vista previa de 30 segundos.",
+        "Puedes buscar dentro de la pista mientras se transmite.",
+        "El audio se resuelve dentro de la propia aplicación, por lo que funciona igual en producción y localmente.",
+        "Si una canción no se puede reproducir en su totalidad, la tarjeta vuelve automáticamente a la vista previa."
+      ]
+    },
+    "pt": {
+      "title": "Sua música de perfil, agora transmitida de verdade",
+      "items": [
+        "A música que você fixa em seu perfil agora reproduz a faixa em si, não apenas a prévia de 30 segundos.",
+        "Você pode pesquisar na faixa enquanto ela é transmitida.",
+        "O áudio é resolvido dentro do próprio aplicativo, por isso funciona da mesma forma em produção e localmente.",
+        "Se uma música não puder ser reproduzida por completo, o cartão volta automaticamente para a visualização."
+      ]
+    },
+    "ru": {
+      "title": "Песня из вашего профиля теперь звучит по-настоящему",
+      "items": [
+        "Песня, которую вы прикрепляете в своем профиле, теперь воспроизводит саму дорожку, а не только 30-секундный предварительный просмотр.",
+        "Вы можете искать трек во время его трансляции.",
+        "Звук обрабатывается внутри самого приложения, поэтому он работает одинаково как в рабочей среде, так и локально.",
+        "Если песню невозможно воспроизвести полностью, карта автоматически возвращается к предварительному просмотру."
+      ]
+    },
+    "ja": {
+      "title": "あなたのプロフィールソングが本格的にストリーミング配信中",
+      "items": [
+        "プロフィールにピン留めした曲は、30 秒のプレビューだけでなく、トラック自体も再生されるようになりました。",
+        "ストリーミング中にトラック内をシークできます。",
+        "オーディオはアプリ自体の内部で解決されるため、本番環境でもローカルでも同様に動作します。",
+        "曲を完全に再生できない場合、カードは自動的にプレビューに戻ります。"
+      ]
+    }
+  },
+  "2026-10-10:is2cuf": {
+    "es": {
+      "title": "Rebaja en publicaciones",
+      "items": [
+        "Las publicaciones ahora admiten rebajas: negrita, cursiva, tachado, código en línea, listas, citas, encabezados, tablas y bloques de código.",
+        "Un nuevo grupo de formato en la barra de herramientas del compositor inserta la sintaxis por usted.",
+        "Las menciones y los hashtags siguen funcionando dentro del texto formateado."
+      ]
+    },
+    "pt": {
+      "title": "Markdown em postagens",
+      "items": [
+        "As postagens agora suportam marcação: negrito, itálico, tachado, código embutido, listas, aspas, títulos, tabelas e blocos de código.",
+        "Um novo grupo de formatação na barra de ferramentas do compositor insere a sintaxe para você.",
+        "Menções e hashtags continuam funcionando dentro do texto formatado."
+      ]
+    },
+    "ru": {
+      "title": "Уценка в постах",
+      "items": [
+        "Сообщения теперь поддерживают уценку: жирный шрифт, курсив, зачеркивание, встроенный код, списки, кавычки, заголовки, таблицы и блоки кода.",
+        "Новая группа форматирования на панели инструментов композитора вставляет синтаксис за вас.",
+        "Упоминания и хэштеги продолжают работать внутри форматированного текста."
+      ]
+    },
+    "ja": {
+      "title": "投稿のマークダウン",
+      "items": [
+        "投稿では、マークダウン (太字、斜体、取り消し線、インライン コード、リスト、引用符、見出し、表、コード ブロック) がサポートされるようになりました。",
+        "Composer ツールバーの新しい書式設定グループにより、構文が挿入されます。",
+        "メンションとハッシュタグは、書式設定されたテキスト内で引き続き機能します。"
+      ]
+    }
+  },
+  "2026-08-24+2:jozhxh": {
+    "es": {
+      "title": "Imágenes, invitaciones y estados mejorados",
+      "items": [
+        "Las imágenes publicadas ahora se muestran con su relación de aspecto real, sin recortar.",
+        "Las fotos del feed cargan una versión optimizada: menos datos, pero la misma calidad al abrirlas.",
+        "Correcciones en invitaciones comunitarias desde el chat.",
+        "Estados de actividad más estables y precisos (en línea/ocupado/ausente).",
+        "Se mejoraron los estilos para Explorar, comunidades, chats y notificaciones.",
+        "El encabezado de la barra lateral adopta un estilo específico al navegar por los chats."
+      ]
+    },
+    "pt": {
+      "title": "Imagens, convites e status aprimorados",
+      "items": [
+        "As imagens postadas agora são exibidas com sua proporção real, sem cortes.",
+        "As fotos do feed carregam uma versão otimizada: menos dados, mas a mesma qualidade quando abertas.",
+        "Correções nos convites da comunidade do chat.",
+        "Status de atividade mais estáveis ​​e precisos (on-line/ocupado/ausente).",
+        "Os estilos de Explorar, comunidades, bate-papos e notificações foram aprimorados.",
+        "O cabeçalho da barra lateral adota um estilo específico ao navegar pelos chats."
+      ]
+    },
+    "ru": {
+      "title": "Улучшенные изображения, приглашения и статусы",
+      "items": [
+        "Изображения сообщений теперь отображаются с их фактическим соотношением сторон, без обрезки.",
+        "Фотографии в ленте загружаются в оптимизированном варианте: меньше данных, но то же качество при открытии.",
+        "Исправления в приглашениях сообщества из чата.",
+        "Более стабильные и точные статусы активности (онлайн/занят/отсутствует).",
+        "Были улучшены стили для Explore, сообществ, чатов и уведомлений.",
+        "Заголовок боковой панели имеет особый стиль при навигации по чатам."
+      ]
+    },
+    "ja": {
+      "title": "強化された画像、招待状、ステータス",
+      "items": [
+        "投稿画像は切り取られることなく、実際のアスペクト比で表示されるようになりました。",
+        "フィード内の写真は最適化されたバージョンで読み込まれます。データ量は少なくなりますが、開いたときの品質は同じです。",
+        "チャットからのコミュニティへの招待を修正しました。",
+        "より安定して正確なアクティビティ ステータス (オンライン / ビジー / 外出中)。",
+        "Explore、コミュニティ、チャット、通知のスタイルが改善されました。",
+        "サイドバーのヘッダーは、チャット内を移動するときに特定のスタイルを採用します。"
+      ]
+    }
   }
 }

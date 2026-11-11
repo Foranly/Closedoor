@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { RELEASES, getReleaseFingerprint } from '../src/assets/data/changelog.js';
 
 const LOCALES = ['es', 'pt', 'ru', 'ja']; // 'en' es la fuente, no se traduce
-const MAX_RELEASES = 3; // mantener traducciones solo de los últimos N releases
+const MAX_RELEASES = RELEASES.length; // todas: el modal permite navegar a cualquier release
 const CACHE_PATH = fileURLToPath(
   new URL('../src/assets/data/changelog.translations.json', import.meta.url)
 );
