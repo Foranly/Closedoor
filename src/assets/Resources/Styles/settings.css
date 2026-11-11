@@ -28,7 +28,9 @@
 .settings-card--split {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  /* stretch (no flex-start): el separador vive en el border-left del panel y
+     debe medir todo el alto de la card, no solo el del contenido de opciones. */
+  align-items: stretch;
 }
 
 /* ── Left Navigation Panel ── */

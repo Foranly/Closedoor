@@ -55,7 +55,7 @@ import Badge from "../Resources/Components/Badge";
 import Avatar from "../Resources/Components/Avatar";
 import Tooltip from "../Resources/Components/Tooltip";
 import { getPlatformIcon, getPlatformName } from "../services/socialPlatforms";
-import { FaFeather, FaBookmark, FaLock, FaEllipsisH, FaBan, FaClock, FaHeart, FaRetweet, FaChevronDown, FaShareAlt, FaComment, FaTag, FaPlus } from 'react-icons/fa';
+import { FaFeather, FaBookmark, FaLock, FaEllipsisH, FaBan, FaClock, FaHeart, FaRetweet, FaChevronDown, FaShareAlt, FaComment, FaCommentDots, FaTag, FaPlus } from 'react-icons/fa';
 import FollowButton from "../Resources/Components/FollowButton";
 import { blockUser, unblockUser, isBlocked, cacheBlockStatus, getCachedBlockStatus, unfollowBothWays } from "../services/blockService";
 import { useI18n } from "../services/i18n/useI18n";
@@ -1841,6 +1841,21 @@ function Profile() {
                                         }
                                     }}
                                 />
+                                {/* Abrir chat con esta persona: el Chat lo recibe por
+                                    URL (?u=) y usa una conversación pendiente, así no se
+                                    crea nada en la base hasta enviar el primer mensaje. */}
+                                {user && !isBlockedByMe && (
+                                    <Tooltip text={t('profile.message_btn')}>
+                                        <button
+                                            type="button"
+                                            className="profile-message-btn"
+                                            onClick={() => navigate(`/Chat?u=${activeProfile.id}`)}
+                                            aria-label={t('profile.message_btn')}
+                                        >
+                                            <FaCommentDots aria-hidden="true" />
+                                        </button>
+                                    </Tooltip>
+                                )}
                                 {/* ── 3-dots context menu ── */}
                                 {user && (
                                   <div className="profile-actions-menu" ref={contextMenuRef}>
