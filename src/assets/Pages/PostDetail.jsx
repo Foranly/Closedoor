@@ -42,6 +42,8 @@ import Tooltip from '../Resources/Components/Tooltip';
 import CreatePostModal from '../Resources/Components/CreatePostModal';
 import PostVideoPlayer from '../Resources/Components/PostVideoPlayer';
 import useMentionAutocomplete from '../hooks/useMentionAutocomplete';
+import { getTimeAgo, formatClockTime, formatFullDate, IMG_RE, getEmbedUrl, getImageStyle, sanitizeUrl } from '../services/helpers';
+import { showRateLimitToast } from '../services/rateLimitNotice';
 import { getTimeAgo, formatClockTime, formatFullDate, IMG_RE, isAttachableVideoUrl, getEmbedUrl, getImageStyle, sanitizeUrl } from '../services/helpers';
 import { uploadImage, uploadWithLocalPreview } from '../services/cdnService';
 import { getClipboardImageFile } from '../services/clipboard';
@@ -516,6 +518,7 @@ export default function PostDetail() {
       setCommentShowMedia(false);
     } catch (err) {
       console.error('Error creating comment:', err);
+      showRateLimitToast(t, err);
       if (err.message === 'comment_permission_denied') {
         const reason = err.permissionReason;
         if (reason === 'followers_only' || reason === 'comments_disabled') {
@@ -563,6 +566,7 @@ export default function PostDetail() {
       cancelReply();
     } catch (err) {
       console.error('Error creating reply:', err);
+      showRateLimitToast(t, err);
     } finally {
       setSubmittingReply(false);
     }

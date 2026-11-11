@@ -10,6 +10,7 @@ import {
   getCachedFollowStatus,
 } from '../../services/followService';
 import { useI18n } from '../../services/i18n/useI18n';
+import { showRateLimitToast } from '../../services/rateLimitNotice';
 import ConfirmModal from './ConfirmModal';
 import './css/followButton.css';
 
@@ -88,6 +89,7 @@ export default function FollowButton({ targetUserId, isPrivate, onFollowChange }
       await checkStatus();
     } catch (err) {
       console.warn('Follow action error:', err);
+      showRateLimitToast(t, err);
       // Re-check anyway to recover from any inconsistency
       checkStatus();
     } finally {
@@ -126,6 +128,7 @@ export default function FollowButton({ targetUserId, isPrivate, onFollowChange }
       await checkStatus();
     } catch (err) {
       console.warn('Unfollow error:', err);
+      showRateLimitToast(t, err);
       checkStatus();
     } finally {
       setLoading(false);
