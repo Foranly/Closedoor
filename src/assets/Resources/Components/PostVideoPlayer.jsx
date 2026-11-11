@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  FaPlay, FaPause, FaUndo, FaBackward, FaForward, FaRedo,
+  FaPlay, FaPause, FaBackward, FaForward, FaRedo,
   FaVolumeUp, FaVolumeDown, FaVolumeMute, FaExpand, FaCompress,
   FaExpandArrowsAlt, FaWindowMinimize,
 } from 'react-icons/fa';
@@ -154,14 +154,6 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
     setCurrentTime(next);
   }, [duration]);
 
-  const restart = useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.currentTime = 0;
-    setCurrentTime(0);
-    video.play().catch(() => {});
-  }, []);
-
   const toggleLoop = useCallback(() => {
     setLoop((prev) => {
       const next = !prev;
@@ -275,16 +267,6 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
           title={t('post.video_seek_forward')}
         >
           <FaForward />
-        </button>
-
-        <button
-          type="button"
-          className="post-video-player-btn"
-          onClick={restart}
-          aria-label={t('post.video_restart')}
-          title={t('post.video_restart')}
-        >
-          <FaUndo />
         </button>
 
         <span className="post-video-player-time">
