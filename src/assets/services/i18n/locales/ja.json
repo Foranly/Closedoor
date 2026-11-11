@@ -923,6 +923,7 @@
   "upload.uploading": "画像をアップロード中...",
   "changelog.badge": "新機能",
   "changelog.accept": "了解しました！",
+  "changelog.release": "バージョン",
   "desktop.prompt_title": "楽曲を最後まで再生",
   "desktop.prompt_body": "ブラウザではプロフィールの曲は30秒のプレビューで再生されます。YouTube は信頼できる接続にしか楽曲全体を配信しないためです。デスクトップアプリはご自身のパソコンで解決するので、曲が最後まで再生されます。",
   "desktop.prompt_never": "今後表示しない",
