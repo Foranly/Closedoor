@@ -1536,6 +1536,16 @@
     cursor: pointer;
 }
 
+/* ── Video player in same line as before ── */
+.chat-message-media-video .post-video-player {
+    width: auto;
+    height: 260px;
+    max-width: 100%;
+    margin-top: 0;
+    margin-bottom: 0;
+    border-radius: 12px;
+}
+
 /* ── Typing indicator (absolutely positioned inside .chat-messages-input, floats above it) ── */
 .chat-typing-indicator {
     display: flex;
