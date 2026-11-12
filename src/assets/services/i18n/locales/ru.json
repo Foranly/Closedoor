@@ -52,6 +52,8 @@
   "chat.background": "Фон чата",
   "chat.background_empty": "Без фона",
   "chat.background_hint": "Видно только вам",
+  "chat.background_hint_group": "Увидят все участники группы",
+  "chat.background_changed_by": "{name} изменил(а) фон группы",
   "chat.background_remove": "Убрать фон",
   "chat.background_saved": "Фон чата сохранён",
   "chat.background_upload": "Загрузить изображение",

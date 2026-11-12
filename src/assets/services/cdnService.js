@@ -37,22 +37,27 @@ const UPLOAD_LIMIT_MESSAGES = {
   es: {
     tooLarge: 'La imagen pesa {size} MB y el máximo es {max} MB.',
     rate: 'Has subido demasiadas imágenes. Espera {seconds} s antes de subir otra.',
+    server: 'No se puede subir la imagen: el servidor de imágenes no tiene la verificación de sesión configurada.',
   },
   en: {
     tooLarge: 'The image is {size} MB and the limit is {max} MB.',
     rate: 'Too many uploads. Wait {seconds}s before uploading another image.',
+    server: 'The image cannot be uploaded: the image server has no session verification configured.',
   },
   pt: {
     tooLarge: 'A imagem tem {size} MB e o limite é {max} MB.',
     rate: 'Muitos envios. Aguarde {seconds}s antes de enviar outra imagem.',
+    server: 'Não é possível enviar a imagem: o servidor de imagens não tem a verificação de sessão configurada.',
   },
   ru: {
     tooLarge: 'Изображение весит {size} МБ, максимум — {max} МБ.',
     rate: 'Слишком много загрузок. Подождите {seconds} с перед следующей.',
+    server: 'Не удалось загрузить изображение: на сервере изображений не настроена проверка сессии.',
   },
   ja: {
     tooLarge: '画像は {size} MB です。上限は {max} MB です。',
     rate: 'アップロードが多すぎます。次の画像まで {seconds} 秒お待ちください。',
+    server: '画像をアップロードできません: 画像サーバーにセッション検証が設定されていません。',
   },
 };
 
@@ -402,6 +407,11 @@ export async function uploadImage(file, userId, type) {
   }
 
   if (!data.success) {
+    // Servidor sin credenciales JWT (fail-closed): sin esto el toast mostraba
+    // el código crudo `server_not_configured`.
+    if (data.error === 'server_not_configured') {
+      throw new Error(uploadLimitText('server', {}));
+    }
     // Límites del CDN (la decisión real, no solo el chequeo del cliente).
     if (data.error === 'rate_limited') {
       const wait = data.retry_after || response.headers.get('Retry-After') || 60;
