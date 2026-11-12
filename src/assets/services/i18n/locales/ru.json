@@ -1030,5 +1030,6 @@
   "settings.info_repo": "Репозиторий",
   "settings.info_org": "Организация",
   "settings.info_author": "Автор",
+  "settings.info_logo": "Логотип",
   "settings.info_terms": "Открыть условия использования"
 }
