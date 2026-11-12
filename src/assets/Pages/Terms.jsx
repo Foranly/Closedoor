@@ -32,10 +32,6 @@ export default function Terms() {
 
   return (
     <article className="terms-page">
-      <button type="button" className="terms-back" onClick={goBack}>
-        <FaArrowLeft aria-hidden="true" />
-        {t('terms.back')}
-      </button>
 
       <header className="terms-header">
         <h1 className="terms-title">{t('terms.title')}</h1>
