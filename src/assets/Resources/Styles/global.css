@@ -129,10 +129,13 @@ a {
     padding-left: 240px;
     min-height: 100vh;
     align-items: flex-start;
-    transition: padding-left 0.3s ease, max-width 0.3s ease;
+    transition: padding-left 0.3s ease, padding-right 0.3s ease, max-width 0.3s ease;
 }
 
-body:has(.sidebar--collapsed) .app-layout {
+/* `:not(.sidebar--users)`: el rail derecho comparte las clases del sidebar, así
+   que sin esto su estado de colapso movería el padding izquierdo del header
+   (y el contenido saltaría al pasar el ratón por el rail). */
+body:has(.sidebar--collapsed:not(.sidebar--users)) .app-layout {
     padding-left: 106px;
 }
 
@@ -166,7 +169,7 @@ body:has(.sidebar--collapsed) .app-layout {
     padding-left: 222px !important;
 }
 
-body:has(.sidebar--collapsed) .app-layout--chat {
+body:has(.sidebar--collapsed:not(.sidebar--users)) .app-layout--chat {
     /* 76px sidebar colapsado + 12px left margin */
     padding-left: 88px !important;
 }
@@ -177,6 +180,19 @@ body:has(.sidebar--collapsed) .app-layout--chat {
     width: 100% !important;
     display: flex;
     flex-direction: column;
+}
+
+/* ── Rail derecho de miembros del grupo (UsersRail) ──
+   Espejo del padding-left del sidebar, solo en /chat: el rail únicamente se
+   monta ahí (y solo en escritorio, así que en móvil estas reglas nunca
+   aplican). 12px de margen + ancho del rail + 12px de separación con las cards
+   del chat. */
+body:has(.sidebar--users) .app-layout--chat {
+    padding-right: 234px !important;
+}
+
+body:has(.sidebar--users.sidebar--collapsed) .app-layout--chat {
+    padding-right: 100px !important;
 }
 
 /* ==========================================
