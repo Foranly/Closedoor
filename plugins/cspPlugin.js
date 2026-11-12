@@ -60,6 +60,10 @@ function buildCSP() {
     // externos) cae siempre a la paleta por defecto.
     'https://wsrv.nl',
     'https://api.klipy.com',
+    // Endpoint interno de Google Translate (services/postTranslation): el
+    // respaldo que traduce los posts en navegadores sin `Translator`
+    // (Brave/Firefox/Safari). El endpoint responde con CORS abierto.
+    'https://clients5.google.com',
     'https://challenges.cloudflare.com',
     // LiveKit Cloud (el server devuelve la URL real en /api/livekit-token)
     'https://*.livekit.cloud', 'wss://*.livekit.cloud',
