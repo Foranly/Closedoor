@@ -12,6 +12,7 @@ import {
   getOrCreateConversation,
   deleteMessage,
   deleteMessageForMe,
+  removeMessageForEveryone,
   editMessage,
   pinMessage,
   addReaction,
@@ -42,6 +43,7 @@ import FollowButton from '../Resources/Components/FollowButton';
 import ModalShell from '../Resources/Components/ModalShell';
 import { FaComment, FaSearch, FaArrowLeft, FaPlus, FaTimes, FaUserPlus, FaUsers, FaTrash, FaPalette, FaBan, FaThumbtack, FaCopy, FaEdit, FaCheck, FaSmile, FaReply, FaImage, FaMusic, FaUser, FaPhone, FaLock, FaSpinner, FaCamera, FaUserShield,  FaEllipsisH, FaArrowDown, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt, FaVideo, FaSignOutAlt } from 'react-icons/fa';
 import Avatar from '../Resources/Components/Avatar';
+import UsersRail from '../Resources/Components/UsersRail';
 import Badge from '../Resources/Components/Badge';
 import Tooltip from '../Resources/Components/Tooltip';
 import GifPicker from '../Resources/Components/GifPicker';
@@ -2427,6 +2429,47 @@ export default function Chat() {
     }
   }, [msgMenu.msg, activeConvId, updateConvPreview]);
 
+  // Dueño/admin de un grupo retira un mensaje ajeno: se sustituye por un aviso
+  // que dice quién lo hizo (no se borra la fila, ver migración 097).
+  const handleRemoveMessageForEveryone = useCallback(async () => {
+    const msg = msgMenu.msg;
+    const convId = activeConvId;
+    setMsgMenu({ open: false, x: 0, y: 0, msg: null });
+    if (!msg || !user?.id || !convId) return;
+    try {
+      await removeMessageForEveryone(msg.id, user.id);
+      const removedAt = new Date().toISOString();
+      const currentMsgs = messagesRef.current;
+      const wasLast = msg.id === currentMsgs[currentMsgs.length - 1]?.id;
+      setMessages((prev) => prev.map((m) => (m.id === msg.id
+        ? {
+          ...m,
+          ciphertext: '',
+          iv: '',
+          removed_by: user.id,
+          removed_at: removedAt,
+          is_pinned: false,
+          reactions: {},
+          decryptedContent: null,
+        }
+        : m)));
+      if (wasLast) {
+        const previewText = t('chat.message_removed');
+        updateConvPreview(convId, previewText, msg.created_at);
+        await supabase
+          .from('conversations')
+          .update({
+            last_message_text: previewText,
+            last_message_at: msg.created_at,
+            updated_at: removedAt,
+          })
+          .eq('id', convId);
+      }
+    } catch (err) {
+      console.error('Error removing message:', err);
+    }
+  }, [msgMenu.msg, activeConvId, user, updateConvPreview, t]);
+
   const handleDeleteMessageForMe = useCallback(async () => {
     const msg = msgMenu.msg;
     const convId = activeConvId;
@@ -3921,6 +3964,54 @@ export default function Chat() {
             const senderProfile = isActiveGroup
               ? (msg.profiles || activeConv?.members?.find((m) => m.id === msg.sender_id) || null)
               : otherUser;
+            const groupInfo = messageGroupMap[msg.id] || {};
+            const groupClass = groupInfo.groupClass || 'chat-message-bubble--solo';
+            const showAvatar = groupInfo.showAvatar !== false;
+            // Mensaje retirado por un admin del grupo: la burbuja sigue en su
+            // sitio (avatar y alineación intactos) pero el contenido se sustituye
+            // por el texto de que se eliminó (el cifrado se vacía, ver 097).
+            if (msg.removed_by) {
+              const removerProfile = msg.removed_by === user.id
+                ? null
+                : activeConv?.members?.find((m) => m.id === msg.removed_by);
+              // Si no se resuelve el nombre (perfil aún sin cargar), texto genérico.
+              const removerName = msg.removed_by === user.id
+                ? (user?.user_metadata?.displayname || user?.user_metadata?.username || '')
+                : (removerProfile ? getDisplayName(removerProfile) : '');
+              return (
+                <div
+                  key={msg.id}
+                  data-msg-id={msg.id}
+                  className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'}`}
+                >
+                  <div className={`chat-message-row ${isOwn ? 'chat-message-row--own' : 'chat-message-row--other'}`}>
+                    {!isOwn && showAvatar && (
+                      <Avatar
+                        src={senderProfile?.avatar_url}
+                        alt={senderProfile?.username || '?'}
+                        className="chat-message-avatar"
+                      />
+                    )}
+                    {!isOwn && !showAvatar && <div className="chat-message-avatar-spacer" />}
+                    <div className={`chat-message-bubble ${groupClass} chat-message-bubble--removed`}>
+                      {isActiveGroup && !isOwn && showAvatar && senderProfile && (
+                        <span
+                          className="chat-message-sender"
+                          style={senderProfile.accent_color ? { color: senderProfile.accent_color } : undefined}
+                        >
+                          {getDisplayName(senderProfile)}
+                        </span>
+                      )}
+                      <p className="chat-message-text chat-message-text--removed">
+                        {removerName
+                          ? t('chat.message_removed_by', { name: removerName })
+                          : t('chat.message_removed')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
             // Avisos de sistema (cambio de fondo del grupo): línea centrada, sin
             // burbuja ni avatar. El contenido descifrado es un código, no texto.
             if (msg.is_system) {
@@ -3934,9 +4025,6 @@ export default function Chat() {
               );
             }
             const isEditing = editMsgId === msg.id;
-            const groupInfo = messageGroupMap[msg.id] || {};
-            const groupClass = groupInfo.groupClass || 'chat-message-bubble--solo';
-            const showAvatar = groupInfo.showAvatar !== false;
             const reactions = msg.reactions || {};
             // Group reactions by emoji for stacking
             const groupedReactions = {};
@@ -4398,6 +4486,14 @@ export default function Chat() {
 
   return (
     <div className="chat-page">
+      {/* Rail derecho con los miembros: solo en grupos (el componente se oculta
+          en móvil y aparta el layout con `body:has(.sidebar--users)`). */}
+      {isActiveGroup && (
+        <UsersRail
+          conversationId={activeConvId}
+          memberVersion={activeConv?.members?.length || 0}
+        />
+      )}
       {/* ── Voice call overlay: ahora lo renderiza CallContext (global, cualquier ruta) ── */}
       <div className={`chat-list${!showList ? ' chat-list--hide-mobile' : ''}`}>
         {renderConversationListContent()}
@@ -4822,6 +4918,12 @@ export default function Chat() {
                 <FaThumbtack />
                 <span>{msgMenu.msg.is_pinned ? t('post.unpin') : t('post.pin')}</span>
               </button>
+              {activeConv?.isGroup && (activeConv.myRole === 'owner' || activeConv.myRole === 'admin') && !msgMenu.msg.removed_by && (
+                <button className="chat-context-menu-btn chat-context-menu-btn--danger" onClick={handleRemoveMessageForEveryone}>
+                  <FaTrash />
+                  <span>{t('chat.delete_for_everyone')}</span>
+                </button>
+              )}
               <button className="chat-context-menu-btn" onClick={handleDeleteMessageForMe}>
                 <FaTrash />
                 <span>{t('chat.delete_for_me')}</span>

@@ -1,0 +1,163 @@
+/* ==========================================
+   UsersRail — copia del .sidebar (header.css) anclada a la derecha.
+   El componente usa las mismas clases que el header (`sidebar`, `sidebar-link`,
+   `sidebar-nav`, `sidebar-footer`, `sidebar-mode-menu`…), así que superficie,
+   anchos, animación de colapso, hover y menú de modos vienen de header.css.
+   Aquí solo está lo que cambia al espejarlo y el contenido de cada fila.
+   ========================================== */
+
+/* Doble clase para ganar a `.sidebar { left: 0 }` y animar `right` en vez de `left`. */
+.sidebar.sidebar--users {
+    left: auto;
+    right: 0;
+    /* Menos aire entre el título y la lista que en el sidebar (gap 20). */
+    gap: 8px;
+    transition: width 0.3s ease, padding 0.3s ease, background 0.2s ease,
+                backdrop-filter 0.2s ease, border 0.2s ease,
+                top 0.3s ease, right 0.3s ease, height 0.3s ease,
+                border-radius 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* /chat: la misma card flotante del sidebar (top 12, mismo radio en las cuatro
+   esquinas, misma sombra), pero en el borde derecho. El aire con las cards del
+   chat lo da el padding-right del layout (234/100 = 12 + ancho del rail + 12). */
+.sidebar.sidebar--users.sidebar--chat {
+    left: auto;
+    right: 12px;
+}
+
+/* Sin el padding-bottom extra del sidebar: el gap ya separa el título. */
+.sidebar--users .sidebar-brand,
+.sidebar--users.sidebar--collapsed .sidebar-brand {
+    padding-bottom: 0;
+}
+
+/* ---- Marca: mismo hueco que el logo del sidebar (36px) ---- */
+.sidebar--users .sidebar-brand .sidebar-icon {
+    width: 36px;
+    height: 36px;
+    margin-left: 4px;
+    font-size: 1.05rem;
+}
+
+/* ---- Filas de usuario ---- */
+/* Lista más compacta que la del sidebar (el rail es una lista de gente, no un
+   menú): menos hueco entre filas y menos padding vertical. */
+.sidebar--users .sidebar-nav {
+    gap: 2px;
+}
+
+/* Mismo padding horizontal que el sidebar pero con la caja del avatar (36px):
+   así el centro del avatar coincide con el del logo y el del footer. */
+.sidebar--users .sidebar-nav .sidebar-link {
+    padding: 5px 4px;
+}
+
+.sidebar--users .sidebar-nav .sidebar-icon {
+    width: 36px;
+    height: 36px;
+}
+
+/* ProfileHoverCard y Tooltip envuelven la fila en un <span>. */
+.users-rail-item-wrap {
+    display: block;
+    width: 100%;
+}
+
+.users-rail-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--color-surface-hover, #252525);
+}
+
+/* Texto animado: misma regla que `.sidebar-link span` en header.css (se replica
+   aquí porque la fila lleva dos líneas y por eso es un <div>, no un <span>). */
+.users-rail-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 220px;
+    margin-left: 12px;
+    transition: opacity 0.2s ease, visibility 0.3s ease, max-width 0.3s ease, margin-left 0.3s ease;
+    font-size: 0.95rem;
+}
+
+.sidebar--users.sidebar--collapsed .users-rail-text {
+    opacity: 0;
+    visibility: hidden;
+    max-width: 0;
+    min-width: 0;
+    margin-left: 0;
+    flex-shrink: 1;
+}
+
+.users-rail-nick,
+.users-rail-handle {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.users-rail-nick {
+    line-height: 1.3;
+    color: var(--color-text, #ffffff);
+}
+
+.users-rail-handle {
+    font-size: 0.78rem;
+    line-height: 1.3;
+    color: var(--color-text-muted, #6b7280);
+}
+
+/* ---- Separadores por rol ---- */
+.users-rail-group-title {
+    margin: 0;
+    padding: 8px 8px 1px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-muted, #6b7280);
+    white-space: nowrap;
+    overflow: hidden;
+    max-height: 26px;
+    transition: opacity 0.2s ease, visibility 0.3s ease, max-height 0.3s ease, padding 0.3s ease;
+}
+
+.sidebar--users.sidebar--collapsed .users-rail-group-title {
+    opacity: 0;
+    visibility: hidden;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* ---- Vacío ---- */
+.users-rail-empty {
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: var(--color-text-secondary, #9ca3af);
+}
+
+.sidebar--users.sidebar--collapsed .users-rail-empty {
+    display: none;
+}
+
+/* ---- Cruz con el header ----
+   El rail comparte clases con el sidebar, así que cuando el SIDEBAR está
+   plegado y el rail no, las reglas `.sidebar--collapsed …` de header.css
+   ocultarían también el texto del rail. Aquí se restauran esos estados. */
+.sidebar--users:not(.sidebar--collapsed) .minicard_profile .user_nick,
+.sidebar--users:not(.sidebar--collapsed) .sidebar-footer-label {
+    opacity: 1;
+    visibility: visible;
+    max-width: 220px;
+    margin-left: 12px;
+}

@@ -55,7 +55,7 @@ async function loadCard(userId) {
  * - La card va en un portal y es interactiva (seguir, abrir el perfil).
  * - Se oculta al salir, al hacer scroll o con Escape.
  */
-export default function ProfileHoverCard({ userId, children, className = '' }) {
+export default function ProfileHoverCard({ userId, children, className = '', placement = 'auto' }) {
   const { user } = useAuth();
   const { showAccent } = useI18n();
   const [card, setCard] = useState(null);
@@ -107,12 +107,28 @@ export default function ProfileHoverCard({ userId, children, className = '' }) {
     const spaceAbove = rect.top - CARD_GAP - 12;
     const placeAbove = spaceBelow < 260 && spaceAbove > spaceBelow;
     const maxHeight = Math.max(placeAbove ? spaceAbove : spaceBelow, 180);
-    const style = placeAbove
+    let style = placeAbove
       ? { left, width, maxHeight, bottom: window.innerHeight - rect.top + CARD_GAP }
       : { left, width, maxHeight, top: rect.bottom + CARD_GAP };
 
+    // `placement="left"`: la card sale hacia la izquierda, alineada con la fila
+    // (rails/paneles pegados al borde derecho: debajo taparía la lista).
+    if (placement === 'left') {
+      const roomLeft = rect.left - 12;
+      if (roomLeft >= 220) {
+        const leftPos = Math.max(rect.left - width - CARD_GAP, 12);
+        const topPos = Math.max(12, Math.min(rect.top, window.innerHeight - 240));
+        style = { left: leftPos, width, maxHeight: window.innerHeight - topPos - 12, top: topPos };
+      } else {
+        // Sin sitio a la izquierda: se comporta como siempre.
+        style = placeAbove
+          ? { left, width, maxHeight, bottom: window.innerHeight - rect.top + CARD_GAP }
+          : { left, width, maxHeight, top: rect.bottom + CARD_GAP };
+      }
+    }
+
     setCard({ ...entry, style });
-  }, [userId]);
+  }, [userId, placement]);
 
   const handleEnter = useCallback(() => {
     cancelHide();

@@ -41,6 +41,7 @@ export default function Tooltip({ text, children, style, className, placement = 
 
   const isBottom = placement === 'bottom';
   const isRight = placement === 'right';
+  const isLeft = placement === 'left';
 
   // ── Portal target: .fc-modal-overlays inside nearest <dialog>, else document.body ──
   // The overlay container has position:fixed;inset:0;overflow:visible;pointer-events:none
@@ -65,13 +66,18 @@ export default function Tooltip({ text, children, style, className, placement = 
         top: rect.top + rect.height / 2,
         left: rect.right + 8,
       });
+    } else if (isLeft) {
+      setPosition({
+        top: rect.top + rect.height / 2,
+        left: rect.left - 8,
+      });
     } else {
       setPosition({
         top: isBottom ? rect.bottom + 6 : rect.top - 6,
         left: rect.left + rect.width / 2,
       });
     }
-  }, [isBottom, isRight]);
+  }, [isBottom, isRight, isLeft]);
 
   // Update position on scroll / resize while visible
   // Throttled with requestAnimationFrame to avoid layout thrashing
@@ -99,7 +105,7 @@ export default function Tooltip({ text, children, style, className, placement = 
   // Keep the tooltip inside the viewport horizontally. Titlebar buttons (close)
   // sit against the right edge, so a centered tooltip would be clipped.
   useLayoutEffect(() => {
-    if (!visible || isRight || !tooltipRef.current) return;
+    if (!visible || isRight || isLeft || !tooltipRef.current) return;
     const rect = tooltipRef.current.getBoundingClientRect();
     const margin = 8;
     const viewportWidth = document.documentElement.clientWidth;
@@ -109,7 +115,7 @@ export default function Tooltip({ text, children, style, className, placement = 
     if (Math.abs(delta) > 0.5) {
       setPosition((prev) => ({ ...prev, left: prev.left + delta }));
     }
-  }, [visible, position.left, isRight]);
+  }, [visible, position.left, isRight, isLeft]);
 
   const handleMouseEnter = useCallback(() => {
     if (suppress) return;
@@ -142,6 +148,21 @@ export default function Tooltip({ text, children, style, className, placement = 
       borderTop: '5px solid transparent',
       borderBottom: '5px solid transparent',
       borderRight: '5px solid rgba(30, 30, 35, 0.95)',
+    };
+  } else if (isLeft) {
+    // El tooltip se coloca a la izquierda del elemento (p. ej. el rail derecho).
+    visibleTransform = 'translate(-100%, -50%)';
+    hiddenTransform = 'translate(calc(-100% + 2px), -50%)';
+    arrowStyle = {
+      position: 'absolute',
+      right: -4,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      width: 0,
+      height: 0,
+      borderTop: '5px solid transparent',
+      borderBottom: '5px solid transparent',
+      borderLeft: '5px solid rgba(30, 30, 35, 0.95)',
     };
   } else {
     visibleTransform = isBottom

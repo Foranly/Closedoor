@@ -204,7 +204,7 @@ export async function getConversations(userId) {
   // 1. Get all conversation IDs + pin status where user is a participant
   const { data: myParts, error: partError } = await supabase
     .from('chat_participants')
-    .select('conversation_id, is_pinned, pinned_at')
+    .select('conversation_id, is_pinned, pinned_at, role')
     .eq('user_id', userId);
 
   if (partError) {
@@ -277,7 +277,7 @@ export async function getConversations(userId) {
   // 6. Build pin map: conversation_id → { is_pinned, pinned_at }
   const pinMap = {};
   for (const p of myParts || []) {
-    pinMap[p.conversation_id] = { is_pinned: p.is_pinned || false, pinned_at: p.pinned_at || null };
+    pinMap[p.conversation_id] = { is_pinned: p.is_pinned || false, pinned_at: p.pinned_at || null, role: p.role || 'member' };
   }
 
   // 7. Build results + apply sort: pinned first (oldest→newest), then unpinned
@@ -300,6 +300,9 @@ export async function getConversations(userId) {
       members: memberIds.map((id) => profilesMap[id]).filter(Boolean),
       is_pinned: pin.is_pinned,
       pinned_at: pin.pinned_at,
+      // Rol del usuario actual en la conversación (en grupos decide quién
+      // puede retirar mensajes ajenos).
+      myRole: pin.role || 'member',
       otherUser: otherProfile ? {
         ...otherProfile,
         followerCount: followerCounts[otherUserId] || 0,
@@ -591,6 +594,7 @@ export async function getMessages(conversationId, limit = 50, before = null) {
  * Decrypt a message for the current user
  */
 export async function decryptMessage(message, currentUserId) {
+  if (message.removed_by) return null;
   if (!message.encrypted_for?.includes(currentUserId)) return null;
   return decryptForUser(
     message.ciphertext,
@@ -795,6 +799,29 @@ export async function deleteMessage(messageId) {
 }
 
 /**
+ * Retira un mensaje ajeno (solo dueño/admin del grupo, se limita en la UI).
+ *
+ * No se borra la fila: se vacía el cifrado y se guarda quién lo retiró, así el
+ * hilo muestra «Ana eliminó este mensaje» en el mismo sitio (migración 097).
+ */
+export async function removeMessageForEveryone(messageId, removedBy) {
+  if (!messageId || !removedBy) return;
+
+  const { error } = await supabase
+    .from('messages')
+    .update({
+      ciphertext: '',
+      iv: '',
+      removed_by: removedBy,
+      removed_at: new Date().toISOString(),
+      is_pinned: false,
+      reactions: {},
+    })
+    .eq('id', messageId);
+  if (error) throw error;
+}
+
+/**
  * Delete a message "for me" (adds user to deleted_for array)
  */
 export async function deleteMessageForMe(messageId, userId) {
@@ -966,6 +993,57 @@ export function subscribeToConversations(userId, onUpdate) {
       }
     )
     .subscribe();
+}
+
+/**
+ * Cambios en los participantes de UNA conversación: altas, bajas y cambios de
+ * rol. `subscribeToConversations` filtra por `user_id`, así que no se entera
+ * cuando cambia otro miembro; esto sí. Devuelve el canal (o null).
+ */
+export function subscribeToConversationParticipants(conversationId, onChange) {
+  if (!conversationId || typeof onChange !== 'function') return () => {};
+  const channel = supabase
+    .channel(`chat-participants-${conversationId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'chat_participants',
+        filter: `conversation_id=eq.${conversationId}`,
+      },
+      () => onChange()
+    )
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}
+
+// Secuencia para no repetir nombre de canal entre suscripciones simultáneas.
+let profileWatchSeq = 0;
+
+/**
+ * Ediciones de perfil (displayname, username, avatar…) de los usuarios dados:
+ * el rail de miembros se refresca sin recargar la página. Requiere que
+ * `profiles` esté en la publicación de Supabase Realtime (migración 098).
+ */
+export function subscribeToProfilesUpdates(userIds = [], onChange) {
+  const ids = [...new Set((userIds || []).filter(Boolean))];
+  if (ids.length === 0 || typeof onChange !== 'function') return () => {};
+  profileWatchSeq += 1;
+  const channel = supabase
+    .channel(`profiles-watch-${profileWatchSeq}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=in.(${ids.join(',')})`,
+      },
+      () => onChange()
+    )
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
 }
 
 // ── Typing indicator (Realtime Broadcast, no DB table needed) ──
