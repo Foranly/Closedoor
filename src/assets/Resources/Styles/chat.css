@@ -2897,6 +2897,12 @@ dialog.fc-modal.chat-followers-modal {
     margin-bottom: 3px;
 }
 
+/* Mensaje retirado por un admin: la burbuja se queda, el texto es el aviso. */
+.chat-message-text--removed {
+    font-style: italic;
+    opacity: 0.65;
+}
+
 /* Aviso de sistema en el hilo (p. ej. «Ana cambió el fondo del grupo»). */
 .chat-system-notice {
     align-self: center;
