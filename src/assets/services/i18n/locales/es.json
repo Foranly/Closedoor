@@ -1030,5 +1030,6 @@
   "settings.info_repo": "Repositorio",
   "settings.info_org": "Organización",
   "settings.info_author": "Creador",
+  "settings.info_logo": "Logo",
   "settings.info_terms": "Ver términos de uso"
 }
