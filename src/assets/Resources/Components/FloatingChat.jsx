@@ -45,7 +45,22 @@ function readCachedConvs(userId) {
 }
 
 function peerName(conv) {
+  // En grupos no hay «otro usuario»: manda el nombre del grupo y, si no tiene,
+  // los primeros miembros para que la fila no quede vacía.
+  if (conv?.isGroup) {
+    const title = (conv.title || '').trim();
+    if (title) return title;
+    const names = (conv.members || [])
+      .map((m) => m.displayname || m.username)
+      .filter(Boolean);
+    return names.length ? names.slice(0, 2).join(', ') : '…';
+  }
   return conv?.otherUser?.displayname || conv?.otherUser?.username || '…';
+}
+
+// Avatar del hilo: el del grupo o el de la otra persona en un 1:1.
+function peerAvatar(conv) {
+  return conv?.isGroup ? (conv.avatar_url || null) : (conv?.otherUser?.avatar_url || null);
 }
 
 /**
@@ -428,7 +443,11 @@ export default function FloatingChat() {
 
   const send = useCallback(async () => {
     const text = input.trim();
-    if (!text || !activeId || !userId || sending || !activeConv?.otherUser?.id) return;
+    // Destinatarios: el otro usuario en un 1:1, todos los miembros en un grupo.
+    const recipients = activeConv?.isGroup
+      ? (activeConv.memberIds || [])
+      : (activeConv?.otherUser?.id ? [activeConv.otherUser.id] : []);
+    if (!text || !activeId || !userId || sending || recipients.length === 0) return;
     const tempId = crypto.randomUUID();
     const optimistic = {
       id: tempId,
@@ -442,7 +461,7 @@ export default function FloatingChat() {
     setInput('');
     setSending(true);
     try {
-      const sent = await sendMessage(activeId, userId, text, [activeConv.otherUser.id]);
+      const sent = await sendMessage(activeId, userId, text, recipients);
       // El INSERT de realtime puede llegar antes que esta respuesta: se quita
       // el mensaje optimista y no se duplica el que ya esté en la lista.
       setMessages((prev) => {
@@ -566,7 +585,7 @@ export default function FloatingChat() {
         <div className="fc-panel" role="dialog" aria-label={t('chat.title') || 'Chat'}>
           <div
             className="fc-panel-header"
-            style={{ '--fc-user-accent': open && activeConv?.otherUser?.accent_color || undefined }}
+            style={{ '--fc-user-accent': open && (activeConv?.isGroup ? undefined : activeConv?.otherUser?.accent_color) || undefined }}
           >
             {view === 'thread' ? (
               <>
@@ -579,14 +598,14 @@ export default function FloatingChat() {
                   <FaChevronLeft />
                 </button>
                 <Avatar
-                  src={activeConv?.otherUser?.avatar_url}
+                  src={peerAvatar(activeConv)}
                   alt={peerName(activeConv)}
                   className="fc-panel-peer-avatar"
-                  userId={activeConv?.otherUser?.id}
+                  userId={activeConv?.isGroup ? undefined : activeConv?.otherUser?.id}
                 />
                 <div className="fc-panel-peer">
                   <span className="fc-panel-peer-name">{peerName(activeConv)}</span>
-                  {activeConv?.otherUser?.username && (
+                  {!activeConv?.isGroup && activeConv?.otherUser?.username && (
                     <span className="fc-panel-peer-handle">@{activeConv.otherUser.username}</span>
                   )}
                 </div>
@@ -632,14 +651,14 @@ export default function FloatingChat() {
                     type="button"
                     key={conv.id}
                     className="fc-item"
-                    style={{ '--fc-user-accent': conv.otherUser?.accent_color || undefined }}
+                    style={{ '--fc-user-accent': conv.isGroup ? undefined : (conv.otherUser?.accent_color || undefined) }}
                     onClick={() => openThread(conv)}
                   >
                     <Avatar
-                      src={conv.otherUser?.avatar_url}
+                      src={peerAvatar(conv)}
                       alt={peerName(conv)}
                       className="fc-item-avatar"
-                      userId={conv.otherUser?.id}
+                      userId={conv.isGroup ? undefined : conv.otherUser?.id}
                     />
                     <div className="fc-item-body">
                       <span className="fc-item-top">
@@ -724,15 +743,15 @@ export default function FloatingChat() {
             type="button"
             key={conv.id}
             className="fc-dock-recent"
-            style={{ '--fc-user-accent': conv.otherUser?.accent_color || undefined }}
+            style={{ '--fc-user-accent': conv.isGroup ? undefined : (conv.otherUser?.accent_color || undefined) }}
             onClick={() => openThread(conv)}
             title={peerName(conv)}
           >
             <Avatar
-              src={conv.otherUser?.avatar_url}
+              src={peerAvatar(conv)}
               alt={peerName(conv)}
               className="fc-dock-recent-avatar"
-              userId={conv.otherUser?.id}
+              userId={conv.isGroup ? undefined : conv.otherUser?.id}
             />
             {conv.unreadCount > 0 && (
               <span className="fc-dock-recent-badge">{conv.unreadCount > 9 ? '9+' : conv.unreadCount}</span>
