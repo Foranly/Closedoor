@@ -52,6 +52,8 @@
   "chat.background": "チャットの背景",
   "chat.background_empty": "背景なし",
   "chat.background_hint": "あなたにだけ表示されます",
+  "chat.background_hint_group": "グループ全員に表示されます",
+  "chat.background_changed_by": "{name} がグループの背景を変更しました",
   "chat.background_remove": "背景を削除",
   "chat.background_saved": "チャットの背景を保存しました",
   "chat.background_upload": "画像をアップロード",
