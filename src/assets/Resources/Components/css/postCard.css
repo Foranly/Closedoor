@@ -348,6 +348,27 @@
     text-decoration: underline;
 }
 
+/* ── Aviso de traducción ("Traducido del inglés · Ver original") ── */
+.post-card-translation {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #6b7280);
+}
+
+.post-card-translation-toggle {
+    display: inline-block;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.15s ease;
+    user-select: none;
+}
+
+.post-card-translation-toggle:hover {
+    color: var(--color-text, #ffffff);
+    text-decoration: underline;
+}
+
 /* ---- Media ---- */
 
 .post-card-media {
