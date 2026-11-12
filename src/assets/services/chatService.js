@@ -56,6 +56,144 @@ export async function getOrCreateConversation(currentUserId, otherUserId) {
   return convId;
 }
 
+// ── Grupos ──
+
+// Límite de miembros por grupo. Con el cifrado actual cada mensaje se cifra
+// una vez por destinatario, así que grupos enormes multiplican el coste de
+// envío; 50 es holgado para la app y mantiene el envío instantáneo.
+export const GROUP_MAX_MEMBERS = 50;
+
+/**
+ * Crea un grupo y devuelve su id. El creador queda como 'owner'.
+ * `memberIds` no debe incluir al creador.
+ */
+export async function createGroupConversation(creatorId, memberIds = [], title = '') {
+  if (!creatorId) throw new Error('creator_required');
+
+  const members = [...new Set(memberIds.filter((id) => id && id !== creatorId))];
+  if (members.length === 0) throw new Error('group_needs_members');
+  if (members.length + 1 > GROUP_MAX_MEMBERS) throw new Error('group_too_large');
+
+  const cleanTitle = (title || '').trim().slice(0, 80);
+
+  // UUID en cliente: tras el INSERT la fila no es legible por RLS hasta que
+  // exista la participación del creador (mismo motivo que en los 1:1).
+  const convId = crypto.randomUUID();
+
+  const { error: convError } = await supabase.from('conversations').insert({
+    id: convId,
+    kind: 'group',
+    title: cleanTitle || null,
+    created_by: creatorId,
+  });
+  if (convError) throw convError;
+
+  const { error: partError } = await supabase.from('chat_participants').insert([
+    { conversation_id: convId, user_id: creatorId, role: 'owner' },
+    ...members.map((id) => ({ conversation_id: convId, user_id: id, role: 'member' })),
+  ]);
+  if (partError) throw partError;
+
+  return convId;
+}
+
+/** Miembros actuales de una conversación: [{ user_id, role, joined_at }]. */
+export async function getConversationMembers(conversationId) {
+  const { data, error } = await supabase
+    .from('chat_participants')
+    .select('user_id, role, joined_at')
+    .eq('conversation_id', conversationId);
+  if (error) throw error;
+  return data || [];
+}
+
+/** Perfiles de los miembros, para pintar la lista del grupo. */
+export async function getConversationMembersWithProfiles(conversationId) {
+  const members = await getConversationMembers(conversationId);
+  if (members.length === 0) return [];
+
+  const { data: profiles } = await dbPublic
+    .from('profiles')
+    .select('id, username, displayname, avatar_url, avatar_position, user_status, user_status_updated_at')
+    .in('id', members.map((m) => m.user_id));
+
+  const byId = {};
+  for (const p of profiles || []) byId[p.id] = p;
+
+  return members
+    .map((m) => ({ ...m, profile: byId[m.user_id] || null }))
+    .sort((a, b) => {
+      const rank = { owner: 0, admin: 1, member: 2 };
+      return (rank[a.role] ?? 3) - (rank[b.role] ?? 3);
+    });
+}
+
+/**
+ * Añade miembros a un grupo. Va por RPC: la política INSERT de
+ * chat_participants está abierta para los 1:1, y la función comprueba que quien
+ * llama es miembro y que la conversación es un grupo.
+ */
+export async function addGroupMembers(conversationId, userIds = []) {
+  const ids = [...new Set(userIds.filter(Boolean))];
+  if (ids.length === 0) return 0;
+
+  const { error } = await supabase.rpc('add_group_members', {
+    conv_id: conversationId,
+    member_ids: ids,
+  });
+  if (error) throw error;
+
+  await supabase
+    .from('conversations')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', conversationId);
+
+  return ids.length;
+}
+
+/** Saca a alguien del grupo (solo owner/admin). */
+export async function removeGroupMember(conversationId, userId) {
+  const { error } = await supabase.rpc('remove_group_member', {
+    conv_id: conversationId,
+    target: userId,
+  });
+  if (error) throw error;
+}
+
+/** Asciende a admin o devuelve a miembro (solo el dueño del grupo). */
+export async function setGroupMemberRole(conversationId, userId, role) {
+  if (!conversationId || !userId) return;
+  if (role !== 'admin' && role !== 'member') throw new Error('invalid_role');
+
+  const { error } = await supabase.rpc('set_group_member_role', {
+    conv_id: conversationId,
+    target: userId,
+    new_role: role,
+  });
+  if (error) throw error;
+}
+
+/** Abandona el grupo: se borra solo la propia participación. */
+export async function leaveGroupConversation(conversationId, userId) {
+  const { error } = await supabase
+    .from('chat_participants')
+    .delete()
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
+/** Renombra el grupo o le cambia el avatar. */
+export async function updateGroupConversation(conversationId, { title, avatarUrl } = {}) {
+  const patch = {};
+  if (title !== undefined) patch.title = (title || '').trim().slice(0, 80) || null;
+  if (avatarUrl !== undefined) patch.avatar_url = avatarUrl || null;
+  if (Object.keys(patch).length === 0) return;
+
+  const { error } = await supabase.from('conversations').update(patch).eq('id', conversationId);
+  if (error) throw error;
+}
+
 /**
  * Get all conversations for the current user
  * Uses separate queries instead of embedded joins for reliability
@@ -97,16 +235,16 @@ export async function getConversations(userId) {
     .select('conversation_id, user_id')
     .in('conversation_id', convIds);
 
-  // Build a map: conversation_id → other user's profile
-  const otherUserIds = {};
+  // Build a map: conversation_id → [otros user_ids] (en grupos, varios)
+  const membersByConv = {};
   for (const p of allParticipants || []) {
     if (p.user_id !== userId) {
-      otherUserIds[p.conversation_id] = p.user_id;
+      (membersByConv[p.conversation_id] ||= []).push(p.user_id);
     }
   }
 
   // 4. Fetch ALL profiles in one batch query
-  const uniqueUserIds = [...new Set(Object.values(otherUserIds).filter(Boolean))];
+  const uniqueUserIds = [...new Set(Object.values(membersByConv).flat().filter(Boolean))];
   let profilesMap = {};
   if (uniqueUserIds.length > 0) {
     const { data: profiles } = await dbPublic
@@ -116,6 +254,7 @@ export async function getConversations(userId) {
     for (const p of profiles || []) {
       profilesMap[p.id] = p;
     }
+    cacheSenderProfiles(profiles);
   }
 
   // 5. Fetch follower counts for all other users in one batch
@@ -143,13 +282,22 @@ export async function getConversations(userId) {
 
   // 7. Build results + apply sort: pinned first (oldest→newest), then unpinned
   const convResults = convs.map((conv) => {
-    const otherUserId = otherUserIds[conv.id];
+    const memberIds = membersByConv[conv.id] || [];
+    const isGroup = conv.kind === 'group';
+
+    // En los 1:1 `otherUser` es la contraparte (lo que ya consumía la UI).
+    // En grupos se expone `members`; `otherUser` queda null a propósito para
+    // que nada lo use como "el otro" de un grupo.
+    const otherUserId = isGroup ? null : memberIds[0];
     const otherProfile = otherUserId ? (profilesMap[otherUserId] || null) : null;
     const pin = pinMap[conv.id] || { is_pinned: false, pinned_at: null };
     const unread = getUnreadCount(conv.id, userId);
 
     return {
       ...conv,
+      isGroup,
+      memberIds,
+      members: memberIds.map((id) => profilesMap[id]).filter(Boolean),
       is_pinned: pin.is_pinned,
       pinned_at: pin.pinned_at,
       otherUser: otherProfile ? {
@@ -431,6 +579,7 @@ export async function getMessages(conversationId, limit = 50, before = null) {
   for (const p of profiles || []) {
     profileMap[p.id] = p;
   }
+  cacheSenderProfiles(profiles);
 
   return msgs.map(m => ({
     ...m,
@@ -517,6 +666,20 @@ export async function getDecryptedMessages(conversationId, currentUserId, limit 
 // removeChannel) cuando se va el último.
 const messageChannels = new Map();
 
+// Perfiles de emisores ya vistos. Sin esto, cada mensaje entrante espera una
+// consulta a `profiles` antes de avisar a la UI: la burbuja aparecía al
+// instante pero sin nombre ni avatar (y en grupos el nombre llegaba «unos ms
+// después»). Con la caché el mensaje se pinta completo desde el primer render.
+// `getMessages`/`getConversations` la siembran con perfiles frescos.
+const senderProfileCache = new Map();
+const SENDER_PROFILE_COLUMNS = 'id, username, displayname, avatar_url, avatar_position, user_status, user_status_updated_at';
+
+function cacheSenderProfiles(profiles) {
+  for (const p of profiles || []) {
+    if (p?.id) senderProfileCache.set(p.id, p);
+  }
+}
+
 /** Trae el mensaje ya con el perfil del emisor (mismo shape que antes). */
 async function fetchMessageWithProfile(messageId) {
   const { data: msg } = await supabase
@@ -526,12 +689,16 @@ async function fetchMessageWithProfile(messageId) {
     .single();
   if (!msg) return null;
 
+  const cached = senderProfileCache.get(msg.sender_id) || null;
+  if (cached) return { ...msg, profiles: cached };
+
   const { data: profile } = await dbPublic
     .from('profiles')
-    .select('id, username, displayname, avatar_url, avatar_position, user_status, user_status_updated_at')
+    .select(SENDER_PROFILE_COLUMNS)
     .eq('id', msg.sender_id)
     .maybeSingle();
 
+  if (profile) senderProfileCache.set(profile.id, profile);
   return { ...msg, profiles: profile };
 }
 
