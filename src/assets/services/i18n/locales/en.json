@@ -52,6 +52,8 @@
   "chat.background": "Chat background",
   "chat.background_empty": "No background",
   "chat.background_hint": "Only you will see it",
+  "chat.background_hint_group": "Everyone in the group will see it",
+  "chat.background_changed_by": "{name} changed the group background",
   "chat.background_remove": "Remove background",
   "chat.background_saved": "Chat background saved",
   "chat.background_upload": "Upload image",

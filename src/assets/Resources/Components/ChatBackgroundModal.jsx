@@ -4,7 +4,7 @@ import { FaImage, FaSpinner, FaTimes, FaTrash, FaUpload } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../../hooks/useAuth';
 import { useI18n } from '../../services/i18n/useI18n';
-import { setChatBackground } from '../../services/chatService';
+import { setChatBackground, normalizeBackgroundUrl } from '../../services/chatService';
 import { clearColorsCache } from '../../services/colorExtractor';
 import { uploadImage } from '../../services/cdnService';
 import '../Styles/chat.css';
@@ -25,10 +25,13 @@ import './css/modal.css';
  * Props:
  *  - conversationId: id de la conversación.
  *  - currentUrl: fondo actual ('' = sin fondo).
+ *  - shared: true en grupos — el fondo es de la conversación y lo ven todos.
+ *    En ese caso el guardado lo hace quien lo abre (onSaved), que además deja
+ *    el aviso en el hilo; aquí no se escribe la preferencia personal.
  *  - onClose: () => void
  *  - onSaved: (url: string) => void — '' cuando se quita el fondo.
  */
-export default function ChatBackgroundModal({ conversationId, currentUrl = '', onClose, onSaved }) {
+export default function ChatBackgroundModal({ conversationId, currentUrl = '', shared = false, onClose, onSaved }) {
   const { t } = useI18n();
   const { user } = useAuth();
   const [image, setImage] = useState(currentUrl || '');
@@ -83,12 +86,14 @@ export default function ChatBackgroundModal({ conversationId, currentUrl = '', o
     if (!user?.id || !conversationId) return;
     setSaving(true);
     try {
-      const savedUrl = await setChatBackground(user.id, conversationId, image);
+      const savedUrl = shared
+        ? (normalizeBackgroundUrl(image) || '')
+        : await setChatBackground(user.id, conversationId, image);
       // El acento se cachea por URL y NO caduca (las imágenes no cambian): la
       // única invalidación es cambiar el fondo, así que aquí —y solo aquí— se
       // borra la paleta de la nueva imagen para que se extraiga de cero.
       if (savedUrl && savedUrl !== (currentUrl || '')) clearColorsCache(savedUrl);
-      onSaved?.(savedUrl || '');
+      await onSaved?.(savedUrl || '');
       toast.success(t('chat.background_saved') || 'Chat background saved');
       onClose?.();
     } catch (err) {
@@ -97,7 +102,7 @@ export default function ChatBackgroundModal({ conversationId, currentUrl = '', o
     } finally {
       setSaving(false);
     }
-  }, [user?.id, conversationId, image, currentUrl, onSaved, onClose, t]);
+  }, [user?.id, conversationId, shared, image, currentUrl, onSaved, onClose, t]);
 
   if (!conversationId) return null;
 
@@ -158,7 +163,11 @@ export default function ChatBackgroundModal({ conversationId, currentUrl = '', o
             disabled={saving || uploading}
           />
 
-          <p className="chat-bg-hint">{t('chat.background_hint') || 'Only you will see it'}</p>
+          <p className="chat-bg-hint">
+            {shared
+              ? (t('chat.background_hint_group') || 'Everyone in the group will see it')
+              : (t('chat.background_hint') || 'Only you will see it')}
+          </p>
         </div>
 
         <div className="chat-nickname-modal-footer">

@@ -23,6 +23,8 @@ import {
   getNicknames, getCachedNicknames, cacheNicknames,
   getBubbleColors, getCachedBubbleColors, cacheBubbleColors,
   getChatBackgrounds,
+  setGroupChatBackground,
+  sendGroupBackgroundNotice,
   getPinnedMessages, getDecryptedMessages,
   createGroupConversation,
   getConversationMembersWithProfiles,
@@ -954,8 +956,16 @@ export default function Chat() {
     };
   }, [user?.id]);
 
-  // Fondo de la conversación abierta ('' si no tiene): privado del usuario.
-  const activeChatBackground = (activeConvId && chatBackgrounds[activeConvId]) || '';
+  // Fondo de la conversación abierta ('' si no tiene). En grupos es el fondo
+  // COMPARTIDO de la conversación (migración 096): lo ven todos los miembros.
+  // En los 1:1 sigue siendo privado del usuario (chat_background_settings).
+  const activeChatBackground = (() => {
+    if (!activeConvId) return '';
+    const conv = conversations.find((c) => c.id === activeConvId);
+    return conv?.isGroup
+      ? (conv.chat_background_url || '')
+      : (chatBackgrounds[activeConvId] || '');
+  })();
 
   // ── Acento del fondo (color dominante) ──
   // Se extrae de la propia imagen con colorExtractor (cachea por URL en
@@ -3911,6 +3921,18 @@ export default function Chat() {
             const senderProfile = isActiveGroup
               ? (msg.profiles || activeConv?.members?.find((m) => m.id === msg.sender_id) || null)
               : otherUser;
+            // Avisos de sistema (cambio de fondo del grupo): línea centrada, sin
+            // burbuja ni avatar. El contenido descifrado es un código, no texto.
+            if (msg.is_system) {
+              // Si el contenido no se pudo descifrar (o es un código futuro), no
+              // se pinta nada antes que una burbuja vacía.
+              if (msg.decryptedContent !== 'background_changed') return null;
+              return (
+                <div key={msg.id} className="chat-system-notice">
+                  {t('chat.background_changed_by', { name: getDisplayName(senderProfile) })}
+                </div>
+              );
+            }
             const isEditing = editMsgId === msg.id;
             const groupInfo = messageGroupMap[msg.id] || {};
             const groupClass = groupInfo.groupClass || 'chat-message-bubble--solo';
@@ -3956,7 +3978,12 @@ export default function Chat() {
                     {/* El nombre solo encabeza los mensajes de otros: en los
                         propios ya se sabe quién escribe. */}
                     {isActiveGroup && !isOwn && showAvatar && senderProfile && (
-                      <span className="chat-message-sender">{getDisplayName(senderProfile)}</span>
+                      <span
+                        className="chat-message-sender"
+                        style={senderProfile.accent_color ? { color: senderProfile.accent_color } : undefined}
+                      >
+                        {getDisplayName(senderProfile)}
+                      </span>
                     )}
                     {msg.is_pinned && (
                       <div className="chat-message-pin-badge">
@@ -5041,22 +5068,43 @@ export default function Chat() {
         );
       })()}
 
-      {/* Fondo del chat: modal ligado a la conversación abierta (privado) */}
-      {chatBackgroundModal.open && chatBackgroundModal.convId && (
-        <ChatBackgroundModal
-          conversationId={chatBackgroundModal.convId}
-          currentUrl={chatBackgrounds[chatBackgroundModal.convId] || ''}
-          onClose={() => setChatBackgroundModal({ open: false, convId: null })}
-          onSaved={(url) => {
-            setChatBackgrounds((prev) => {
-              const next = { ...prev };
-              if (url) next[chatBackgroundModal.convId] = url;
-              else delete next[chatBackgroundModal.convId];
-              return next;
-            });
-          }}
-        />
-      )}
+      {/* Fondo del chat: modal ligado a la conversación abierta. En 1:1 es
+          privado; en grupos se guarda en la conversación y lo ven todos. */}
+      {chatBackgroundModal.open && chatBackgroundModal.convId && (() => {
+        const bgConvId = chatBackgroundModal.convId;
+        const bgConv = conversations.find((c) => c.id === bgConvId);
+        const bgIsGroup = bgConv?.isGroup === true;
+        return (
+          <ChatBackgroundModal
+            conversationId={bgConvId}
+            currentUrl={bgIsGroup
+              ? (bgConv?.chat_background_url || '')
+              : (chatBackgrounds[bgConvId] || '')}
+            shared={bgIsGroup}
+            onClose={() => setChatBackgroundModal({ open: false, convId: null })}
+            onSaved={async (url) => {
+              if (bgIsGroup) {
+                const saved = await setGroupChatBackground(bgConvId, user?.id, url);
+                setConversations((prev) => prev.map((c) => (c.id === bgConvId ? { ...c, chat_background_url: saved } : c)));
+                // Aviso en el hilo de quién lo cambió (se cifra y llega por
+                // realtime a los demás; también les refresca la conversación).
+                try {
+                  await sendGroupBackgroundNotice(bgConvId, user?.id, bgConv?.memberIds || []);
+                } catch (err) {
+                  console.warn('Error sending group background notice:', err);
+                }
+                return;
+              }
+              setChatBackgrounds((prev) => {
+                const next = { ...prev };
+                if (url) next[bgConvId] = url;
+                else delete next[bgConvId];
+                return next;
+              });
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
