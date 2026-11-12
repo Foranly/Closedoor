@@ -30,6 +30,7 @@ import SafeImage from './SafeImage';
 import { getCdnThumbUrl } from '../../services/cdnService';
 import Avatar from './Avatar';
 import PostMarkdown from './PostMarkdown';
+import usePostTranslation from '../../../hooks/usePostTranslation';
 import { closeUnbalancedMarkers } from '../../services/postMarkdown';
 import LinkPreview from './LinkPreview';
 import PostSongCard from './PostSongCard';
@@ -51,6 +52,17 @@ import Tooltip from './Tooltip';
 import './css/postCard.css';
 
 const TRUNCATE_LENGTH = 500;
+
+// Nombre del idioma en el idioma de la UI ("inglés", "German"...). Intl.DisplayNames
+// cubre cualquier idioma que devuelva la traducción, no solo los 5 de la app.
+function languageName(code, locale) {
+  if (!code) return '';
+  try {
+    return new Intl.DisplayNames([locale], { type: 'language' }).of(code) || code;
+  } catch {
+    return code;
+  }
+}
 
 const PostCard = React.memo(function PostCard({
   post,
@@ -370,6 +382,10 @@ const PostCard = React.memo(function PostCard({
   const displayContent = isEncrypted
     ? decryptedContent  // nunca hacer fallback a post.content
     : post.content;
+
+  // ── Traducción del texto (API del navegador; se queda en el original si no
+  //    está disponible o el post ya está en el idioma del usuario) ──
+  const translation = usePostTranslation(displayContent);
 
   const handleCancelDelete = useCallback(() => setConfirmDelete(false), []);
   const handleCancelExternal = useCallback(() => setConfirmExternalLink(null), []);
@@ -1020,7 +1036,8 @@ const PostCard = React.memo(function PostCard({
                 <FaLock style={{ marginRight: 4, fontSize: '0.65rem' }} /> {t('post.encrypted_hidden_placeholder')}
               </span>
             ) : (() => {
-              const text = displayContent || '';
+              // Texto traducido (o el original si no hay traducción activa).
+              const text = translation.text || '';
               const shouldTruncate = !fullContent && text.length > TRUNCATE_LENGTH;
               const truncateAt = shouldTruncate
                 ? text.lastIndexOf(' ', TRUNCATE_LENGTH) || TRUNCATE_LENGTH
@@ -1035,6 +1052,33 @@ const PostCard = React.memo(function PostCard({
                     skipUrls={getSkipUrls(post)}
                     onExternalLink={handleExternalLink}
                   />
+                  {translation.translated && (
+                    <span className="post-card-translation">
+                      {translation.from
+                        ? `${t('post.translated_from', { language: languageName(translation.from, locale) })} · `
+                        : ''}
+                      <span
+                        className="post-card-translation-toggle"
+                        onClick={(e) => { e.stopPropagation(); translation.toggleOriginal(); }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); translation.toggleOriginal(); } }}
+                      >
+                        {translation.showOriginal ? t('post.see_translation') : t('post.see_original')}
+                      </span>
+                    </span>
+                  )}
+                  {translation.failed && (
+                    <span
+                      className="post-card-translation-toggle"
+                      onClick={(e) => { e.stopPropagation(); translation.retry(); }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); translation.retry(); } }}
+                    >
+                      {t('post.translate')}
+                    </span>
+                  )}
                   {shouldTruncate && (
                     <span
                       className="post-card-show-more"
