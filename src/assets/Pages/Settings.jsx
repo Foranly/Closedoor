@@ -17,7 +17,8 @@ import ProgramLogo from '../Resources/Components/ProgramLogo';
 import { getActivitySettings, readActivityHistory, clearActivityHistory, persistActivity, persistProgramActivity, programFromProfile } from '../services/activityService';
 import { supabase } from '../services/supabaseclient';
 import { getNicknames, getCachedNicknames, cacheNicknames, setNickname, removeNickname } from '../services/chatService';
-import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop, FaBars, FaInfoCircle, FaSyncAlt, FaDownload, FaUsers, FaFileAlt } from 'react-icons/fa';
+import { ensureTranslationPrefs, getTranslationPrefs, hasLocalTranslator, setTranslationPrefs, subscribeTranslationPrefs } from '../services/postTranslation';
+import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop, FaBars,  FaInfoCircle, FaSyncAlt, FaDownload, FaUsers, FaFileAlt, FaLanguage } from 'react-icons/fa';
 import { MdLogout } from 'react-icons/md';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
@@ -84,6 +85,64 @@ const LANGUAGES = [
   { value: 'ja', Flag: FlagJa },
   { value: 'pt', Flag: FlagPt },
 ];
+
+/* Selector de idioma reutilizable (mismo estilo que el de la app): la opción
+   con value '' es la automática y usa `autoLabel` en vez de un idioma. */
+function LanguageSelect({ value, options, autoLabel, onChange, t }) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleOutside = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [open]);
+
+  const current = options.find((option) => option.value === value);
+  const CurrentFlag = current?.Flag;
+
+  return (
+    <div className="settings-select-wrapper" ref={wrapperRef}>
+      <button
+        type="button"
+        className="settings-select-trigger"
+        onClick={() => setOpen((s) => !s)}
+      >
+        {CurrentFlag ? <CurrentFlag /> : <FaGlobe />}
+        <span className="settings-select-label">
+          {current?.value ? t(`settings.${current.value}`) : autoLabel}
+        </span>
+        <FaChevronDown className={`settings-select-arrow ${open ? 'settings-select-arrow--open' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="settings-select-dropdown">
+          {options.map((option) => {
+            const OptionFlag = option.Flag;
+            return (
+              <button
+                key={option.value || 'auto'}
+                type="button"
+                className={`settings-select-option ${option.value === value ? 'settings-select-option--active' : ''}`}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+              >
+                {OptionFlag ? <OptionFlag /> : <FaGlobe />}
+                <span>{option.value ? t(`settings.${option.value}`) : autoLabel}</span>
+                {option.value === value && <FaCheck className="settings-select-check" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const CATEGORIES = [
   { id: 'account', icon: FaLock, titleKey: 'settings.category_account', descKey: 'settings.category_account_desc' },
@@ -676,6 +735,14 @@ export default function Settings() {
   const zoomAvailable = isWindowZoomAvailable();
   const [zoomPercent, setZoomPercent] = useState(100);
   const [languageExpanded, setLanguageExpanded] = useState(false);
+  // ── Traducción de posts (API de traducción del navegador) ──
+  const [translationPrefs, setTranslationPrefsState] = useState(getTranslationPrefs);
+  const localTranslator = hasLocalTranslator();
+  useEffect(() => {
+    const unsubscribe = subscribeTranslationPrefs(setTranslationPrefsState);
+    ensureTranslationPrefs();
+    return unsubscribe;
+  }, []);
   const [appearanceExpanded, setAppearanceExpanded] = useState(false);
   const [accentExpanded, setAccentExpanded] = useState(false);
   const [cardsExpanded, setCardsExpanded] = useState(false);
@@ -1422,6 +1489,63 @@ export default function Settings() {
               </div>
               </div>
               )}
+
+              <div className="settings-row-divider" />
+
+              {/* ── Traducción de posts ──
+                  En Chrome/Edge traduce el modelo del navegador (en el
+                  dispositivo). En Brave/Firefox/Safari, que no exponen
+                  `Translator`, se usa el endpoint interno de Google: el texto
+                  del post sale del dispositivo, y el aviso lo dice. */}
+              <div className="settings-row">
+                <div className="settings-row-header">
+                  <span className="settings-section-icon"><FaLanguage /></span>
+                  <div>
+                    <h2 className="settings-section-title">{t('settings.translation_title')}</h2>
+                    <p className="settings-section-desc">
+                      {localTranslator
+                        ? t('settings.translation_desc')
+                        : t('settings.translation_desc_online')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="settings-accent-list">
+                <div className="settings-row">
+                  <div className="settings-row-header">
+                    <span className="settings-section-icon"><FaFileAlt /></span>
+                    <div>
+                      <h2 className="settings-section-title">{t('settings.translation_source')}</h2>
+                      <p className="settings-section-desc">{t('settings.translation_source_desc')}</p>
+                    </div>
+                  </div>
+                  <LanguageSelect
+                    value={translationPrefs.source}
+                    options={[{ value: '', Flag: null }, ...LANGUAGES]}
+                    autoLabel={t('settings.translation_source_auto')}
+                    onChange={(value) => setTranslationPrefs({ source: value })}
+                    t={t}
+                  />
+                </div>
+
+                <div className="settings-row">
+                  <div className="settings-row-header">
+                    <span className="settings-section-icon"><FaFileAlt /></span>
+                    <div>
+                      <h2 className="settings-section-title">{t('settings.translation_target')}</h2>
+                      <p className="settings-section-desc">{t('settings.translation_target_desc')}</p>
+                    </div>
+                  </div>
+                  <LanguageSelect
+                    value={translationPrefs.target}
+                    options={[{ value: '', Flag: null }, ...LANGUAGES]}
+                    autoLabel={t('settings.translation_target_auto')}
+                    onChange={(value) => setTranslationPrefs({ target: value })}
+                    t={t}
+                  />
+                </div>
+              </div>
 
               <div className="settings-row-divider" />
 
