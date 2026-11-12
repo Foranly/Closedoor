@@ -100,7 +100,7 @@ que desactivaba toda la protección XSS!
 | Directiva | Configuración |
 |---|---|
 | `script-src` | `'self'` + `https://challenges.cloudflare.com` — **sin `unsafe-inline` ni `unsafe-eval`** |
-| `connect-src` | Supabase (REST + Realtime `wss://`), iTunes, Klipy, Turnstile, LiveKit (`*.livekit.cloud`). La canción del perfil y las búsquedas van por rutas **same-origin** (`/api/music/stream`, `/api/music-search`), así que `'self'` las cubre: **sin hosts de túnel** (el music server yt-dlp se eliminó) |
+| `connect-src` | Supabase (REST + Realtime `wss://`), iTunes, Klipy, Turnstile, LiveKit (`*.livekit.cloud`), Google Translate (`clients5.google.com`, traducción de posts en navegadores sin traductor integrado). La canción del perfil y las búsquedas van por rutas **same-origin** (`/api/music/stream`, `/api/music-search`), así que `'self'` las cubre: **sin hosts de túnel** (el music server yt-dlp se eliminó) |
 | `style-src` | `'self'` + `'unsafe-inline'` (obligatorio: inlineCssPlugin + estilos inline de React) |
 | `frame-src` | Turnstile + YouTube + Vimeo |
 | `worker-src` `'self'` · `object-src 'none'` · `base-uri 'self'` · `form-action 'self'` | — |
