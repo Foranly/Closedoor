@@ -261,6 +261,18 @@ function InfoSettings({ t }) {
             Frantt21
           </a>
         </div>
+        <div className="settings-info-row">
+          <span className="settings-info-label">{t('settings.info_logo')}</span>
+          <a
+            className="settings-info-value settings-info-value--link"
+            href="https://www.instagram.com/rietthh/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Rietthh
+          </a>
+        </div>
+
       </div>
 
       <div className="settings-info-actions">
