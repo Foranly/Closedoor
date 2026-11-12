@@ -24,13 +24,21 @@ import {
   getBubbleColors, getCachedBubbleColors, cacheBubbleColors,
   getChatBackgrounds,
   getPinnedMessages, getDecryptedMessages,
+  createGroupConversation,
+  getConversationMembersWithProfiles,
+  addGroupMembers,
+  leaveGroupConversation,
+  removeGroupMember,
+  setGroupMemberRole,
+  updateGroupConversation,
+  GROUP_MAX_MEMBERS,
 } from '../services/chatService';
 import { getFollowing } from '../services/followService';
-import { getUserProfile } from '../services/userService';
+import { getUserProfile, getCachedProfile } from '../services/userService';
 import { isBlocked, blockUser, unblockUser, unfollowBothWays, getCachedBlockStatus, cacheBlockStatus } from '../services/blockService';
 import FollowButton from '../Resources/Components/FollowButton';
 import ModalShell from '../Resources/Components/ModalShell';
-import { FaComment, FaSearch, FaArrowLeft, FaPlus, FaTimes, FaUserPlus, FaUsers, FaTrash, FaPalette, FaBan, FaThumbtack, FaCopy, FaEdit, FaCheck, FaSmile, FaReply, FaImage, FaMusic, FaUser, FaPhone, FaLock, FaSpinner,  FaEllipsisH, FaArrowDown, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt, FaVideo } from 'react-icons/fa';
+import { FaComment, FaSearch, FaArrowLeft, FaPlus, FaTimes, FaUserPlus, FaUsers, FaTrash, FaPalette, FaBan, FaThumbtack, FaCopy, FaEdit, FaCheck, FaSmile, FaReply, FaImage, FaMusic, FaUser, FaPhone, FaLock, FaSpinner, FaCamera, FaUserShield,  FaEllipsisH, FaArrowDown, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt, FaVideo, FaSignOutAlt } from 'react-icons/fa';
 import Avatar from '../Resources/Components/Avatar';
 import Badge from '../Resources/Components/Badge';
 import Tooltip from '../Resources/Components/Tooltip';
@@ -56,7 +64,7 @@ import ConfirmModal from '../Resources/Components/ConfirmModal';
 import LinkPreview from '../Resources/Components/LinkPreview';
 import { toast } from 'react-toastify';
 import { supabase } from '../services/supabaseclient';
-import { uploadImage } from '../services/cdnService';
+import { uploadImage, uploadWithLocalPreview } from '../services/cdnService';
 import usePageTitle from '../../hooks/usePageTitle';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 import '../Resources/Styles/chat.css';
@@ -198,9 +206,34 @@ export default function Chat() {
   const [searchQuery, setSearchQuery] = useState('');
   // Vista del panel izquierdo: lista de chats o historial de llamadas.
   const [listView, setListView] = useState('chats'); // 'chats' | 'calls'
+  // Filtro de la lista de conversaciones: todo, solo grupos o solo personas.
+  // Se recuerda entre sesiones, como las conversaciones ocultas.
+  const [convFilter, setConvFilter] = useState(() => {
+    const saved = getItem('chatConvFilter');
+    return ['all', 'groups', 'people'].includes(saved) ? saved : 'all';
+  });
+  useEffect(() => { setItem('chatConvFilter', convFilter); }, [convFilter]);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followers, setFollowers] = useState([]);
   const [followersLoading, setFollowersLoading] = useState(false);
+
+  // ── Grupos ──
+  // El selector de usuarios (modal «nuevo chat») hace también de «crear
+  // grupo» y de «añadir miembros»: mismo listado de seguidos, distinta acción.
+  const [pickerMode, setPickerMode] = useState('chat'); // 'chat' | 'create' | 'add'
+  const [groupSelected, setGroupSelected] = useState([]);
+  const [groupTitle, setGroupTitle] = useState('');
+  const [groupBusy, setGroupBusy] = useState(false);
+  const [addTargetConv, setAddTargetConv] = useState(null);
+  const [groupInfo, setGroupInfo] = useState({ open: false, members: [], loading: false });
+  const [confirmLeaveGroup, setConfirmLeaveGroup] = useState(false);
+  // Avatar del grupo: preview local mientras sube + flag de subida en curso.
+  const [groupAvatarPreview, setGroupAvatarPreview] = useState('');
+  const [groupAvatarUploading, setGroupAvatarUploading] = useState(false);
+  // Miembro cuyo rol se está cambiando (spinner en su fila).
+  const [roleBusyId, setRoleBusyId] = useState(null);
+  // Al cambiar de chat se descarta el preview del grupo anterior.
+  useEffect(() => { setGroupAvatarPreview(''); }, [activeConvId]);
 
   // Mobile: show conversation list or messages
   const [showList, setShowList] = useState(true);
@@ -294,6 +327,26 @@ export default function Chat() {
     const nick = nicknames[otherUser.id];
     return nick || otherUser.displayname || otherUser.username || t('common.unknown');
   }, [nicknames]);
+
+  // ── Grupos: título y avatar de una conversación ──
+  // En un grupo el título es el nombre puesto al crearlo; si no hay, se listan
+  // los miembros (sin uno mismo) para que la fila nunca quede «Desconocido».
+  const getConvTitle = (conv) => {
+    if (!conv) return t('common.unknown');
+    if (!conv.isGroup) return getDisplayName(conv.otherUser);
+    const title = (conv.title || '').trim();
+    if (title) return title;
+    const names = (conv.members || []).map((m) => getDisplayName(m)).filter(Boolean);
+    if (names.length === 0) return t('chat.group_untitled') || 'Grupo';
+    return names.length > 3
+      ? `${names.slice(0, 3).join(', ')}…`
+      : names.join(', ');
+  };
+
+  const getConvAvatar = (conv) => {
+    if (!conv) return null;
+    return conv.isGroup ? (conv.avatar_url || null) : (conv.otherUser?.avatar_url || null);
+  };
 
   // Context menu state (conversation list)
   const [contextMenu, setContextMenu] = useState({ open: false, x: 0, y: 0, convId: null });
@@ -488,7 +541,10 @@ export default function Chat() {
   const draftsRef = useRef({}); // borradores del input por conversation ID
   const prevConvIdRef = useRef(null);
   const messagesOwnerRef = useRef(null); // tracks which conversation the current `messages` state belongs to
-  const [otherUserTyping, setOtherUserTyping] = useState(false);
+  // Quiénes escriben: en grupos puede haber varios a la vez.
+  const [typingUserIds, setTypingUserIds] = useState([]);
+  // Nombres resueltos para quienes escriben y no están en `members`.
+  const [typingProfileNames, setTypingProfileNames] = useState({});
   // ── Shared post data cache (state to trigger re-render) ──
   const [sharedPosts, setSharedPosts] = useState({});
   // ── Shared community data cache ──
@@ -721,7 +777,13 @@ export default function Chat() {
     if (!user?.id) return;
     try {
       const convs = await getConversations(user.id);
-      setConversations(convs);
+      // Un grupo recién creado aún no tiene mensajes y getConversations no lo
+      // devuelve; sin esto, el siguiente refresh (lo dispara el propio INSERT
+      // de mi participación) lo hacía desaparecer de la lista.
+      setConversations((prev) => {
+        const pendingGroups = prev.filter((c) => c._pending && c.isGroup && !convs.some((n) => n.id === c.id));
+        return pendingGroups.length > 0 ? [...pendingGroups, ...convs] : convs;
+      });
       // Load nicknames (cache-first — DB fetch refreshes cache)
       getNicknames(user.id).then((map) => {
         setNicknames(map);
@@ -1144,18 +1206,25 @@ export default function Chat() {
   // ── Typing indicator: subscribe to other user's typing events ──
   useEffect(() => {
     if (!activeConvId || !user?.id) return;
-    setOtherUserTyping(false);
+    setTypingUserIds([]);
 
     const unsub = subscribeToTyping(
       activeConvId,
       user.id,
-      () => setOtherUserTyping(true),
-      () => setOtherUserTyping(false)
+      (payload) => {
+        const uid = payload?.userId;
+        if (!uid) return;
+        setTypingUserIds((prev) => (prev.includes(uid) ? prev : [...prev, uid]));
+      },
+      (payload) => {
+        const uid = payload?.userId;
+        setTypingUserIds((prev) => (uid ? prev.filter((id) => id !== uid) : []));
+      }
     );
 
     return () => {
       unsub();
-      setOtherUserTyping(false);
+      setTypingUserIds([]);
     };
   }, [activeConvId, user?.id]);
 
@@ -1566,17 +1635,28 @@ export default function Chat() {
   // Filter out hidden + searched conversations from the list
   const visibleConversations = React.useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const byType = (c) => convFilter === 'all'
+      || (convFilter === 'groups' ? !!c.isGroup : !c.isGroup);
     if (!q) {
-      return conversations.filter(c => !hiddenConvIds.includes(c.id));
+      return conversations.filter(c => !hiddenConvIds.includes(c.id) && byType(c));
     }
     return conversations.filter(c => {
       if (hiddenConvIds.includes(c.id)) return false;
+      if (!byType(c)) return false;
+      // En grupos también cuenta el nombre del grupo y el de sus miembros.
+      if (c.isGroup) {
+        const title = (c.title || '').toLowerCase();
+        const memberNames = (c.members || [])
+          .map(m => `${m.displayname || ''} ${m.username || ''}`.toLowerCase())
+          .join(' ');
+        return title.includes(q) || memberNames.includes(q);
+      }
       const name = (c.otherUser?.displayname || c.otherUser?.username || '').toLowerCase();
       const uname = (c.otherUser?.username || '').toLowerCase();
       const nick = (nicknames[c.otherUser?.id] || '').toLowerCase();
       return name.includes(q) || uname.includes(q) || nick.includes(q);
     });
-  }, [conversations, hiddenConvIds, searchQuery, nicknames]);
+  }, [conversations, hiddenConvIds, searchQuery, nicknames, convFilter]);
 
   // Persist hidden IDs (saved by lazy initializer on mount, persisted on every change)
   useEffect(() => {
@@ -2182,6 +2262,40 @@ export default function Chat() {
   // ── Get active conversation's other user ──
   const activeConv = conversations.find((c) => c.id === activeConvId);
   const otherUser = activeConv?.otherUser;
+  const isActiveGroup = activeConv?.isGroup === true;
+  // Nombres de quienes escriben: primero los miembros ya cargados y, si no
+  // está (grupo recién creado sin perfiles), una consulta puntual.
+  useEffect(() => {
+    if (typingUserIds.length === 0) return undefined;
+    const missing = typingUserIds.filter((uid) =>
+      !typingProfileNames[uid] && !(activeConv?.members || []).some((m) => m.id === uid)
+    );
+    if (missing.length === 0) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      const resolved = {};
+      for (const uid of missing) {
+        const profile = getCachedProfile(uid) || await getUserProfile(uid).catch(() => null);
+        if (cancelled) return;
+        if (profile) resolved[uid] = profile.displayname || profile.username || '';
+      }
+      if (!cancelled && Object.keys(resolved).length > 0) {
+        setTypingProfileNames((prev) => ({ ...prev, ...resolved }));
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typingUserIds, activeConv]);
+  // `members` no incluye a uno mismo.
+  const activeMemberCount = isActiveGroup ? (activeConv.members?.length || 0) + 1 : 0;
+  const typingNames = typingUserIds.map((uid) => {
+    const member = (activeConv?.members || []).find((m) => m.id === uid);
+    return member ? getDisplayName(member) : (typingProfileNames[uid] || '');
+  }).filter(Boolean);
+  const typingLabel = typingNames.length > 1
+    ? `${typingNames[0]} +${typingNames.length - 1}`
+    : (typingNames[0] || (isActiveGroup ? '' : getDisplayName(otherUser)));
 
   // ══ Voice call (LiveKit) — la lógica vive en CallContext (global) ══
   const handleStartCall = useCallback(async () => {
@@ -2885,9 +2999,13 @@ export default function Chat() {
     }
   }, [otherUser?.username, navigate]);
 
-  // ── Open followers modal ──
-  const openFollowersModal = useCallback(async () => {
+  // ── Open followers modal (elegir chat, crear grupo o añadir miembros) ──
+  const openFollowersModal = async (mode = 'chat', convId = null) => {
     if (!user?.id) return;
+    setPickerMode(mode);
+    setAddTargetConv(convId);
+    setGroupSelected([]);
+    setGroupTitle('');
     setShowFollowersModal(true);
     setFollowersLoading(true);
     try {
@@ -2905,18 +3023,235 @@ export default function Chat() {
     } finally {
       setFollowersLoading(false);
     }
-  }, [user?.id]);
+  };
 
-  // ── Followers modal ──
+  // ── Selector de usuarios: nuevo chat, crear grupo o añadir miembros ──
+  const closeUserPicker = () => {
+    setShowFollowersModal(false);
+    setPickerMode('chat');
+    setAddTargetConv(null);
+    setGroupSelected([]);
+    setGroupTitle('');
+  };
+
+  const toggleGroupMember = (profile) => {
+    setGroupSelected((prev) => (
+      prev.some((u) => u.id === profile.id)
+        ? prev.filter((u) => u.id !== profile.id)
+        : [...prev, profile]
+    ));
+  };
+
+  const handleCreateGroup = async () => {
+    if (!user?.id || groupSelected.length === 0 || groupBusy) return;
+    if (groupSelected.length + 1 > GROUP_MAX_MEMBERS) {
+      toast.error(t('chat.group_too_large'), { className: 'fc-toast' });
+      return;
+    }
+
+    setGroupBusy(true);
+    try {
+      const convId = await createGroupConversation(
+        user.id,
+        groupSelected.map((u) => u.id),
+        groupTitle
+      );
+
+      // La conversación nueva todavía no tiene mensajes, y getConversations
+      // solo devuelve las que los tienen: se pinta en local hasta el primero.
+      const localConv = {
+        id: convId,
+        kind: 'group',
+        isGroup: true,
+        title: groupTitle.trim() || null,
+        avatar_url: null,
+        members: groupSelected,
+        memberIds: groupSelected.map((u) => u.id),
+        otherUser: null,
+        unreadCount: 0,
+        last_message_text: null,
+        last_message_at: null,
+        _pending: true,
+      };
+
+      setConversations((prev) => [localConv, ...prev.filter((c) => c.id !== convId)]);
+      closeUserPicker();
+      selectConversation(convId);
+      toast.success(t('chat.group_created'), { className: 'fc-toast' });
+    } catch (err) {
+      console.error('Error creating group:', err);
+      toast.error(t('chat.group_error'), { className: 'fc-toast' });
+    } finally {
+      setGroupBusy(false);
+    }
+  };
+
+  const handleAddMembers = async () => {
+    if (!user?.id || !addTargetConv || groupSelected.length === 0 || groupBusy) return;
+    if ((activeConv?.members?.length || 0) + groupSelected.length + 1 > GROUP_MAX_MEMBERS) {
+      toast.error(t('chat.group_too_large'), { className: 'fc-toast' });
+      return;
+    }
+
+    setGroupBusy(true);
+    try {
+      await addGroupMembers(addTargetConv, groupSelected.map((u) => u.id));
+      setConversations((prev) => prev.map((c) => {
+        if (c.id !== addTargetConv) return c;
+        const already = new Set((c.memberIds || []));
+        const fresh = groupSelected.filter((u) => !already.has(u.id));
+        return {
+          ...c,
+          memberIds: [...(c.memberIds || []), ...fresh.map((u) => u.id)],
+          members: [...(c.members || []), ...fresh],
+        };
+      }));
+      closeUserPicker();
+      toast.success(t('chat.members_added'), { className: 'fc-toast' });
+    } catch (err) {
+      console.error('Error adding group members:', err);
+      toast.error(t('chat.group_error'), { className: 'fc-toast' });
+    } finally {
+      setGroupBusy(false);
+    }
+  };
+
+  const openGroupInfo = async () => {
+    if (!activeConvId) return;
+    setGroupInfo({ open: true, members: [], loading: true });
+    try {
+      const members = await getConversationMembersWithProfiles(activeConvId);
+      setGroupInfo({ open: true, members, loading: false });
+    } catch (err) {
+      console.warn('Error loading group members:', err);
+      setGroupInfo({ open: true, members: [], loading: false });
+    }
+  };
+
+  const handleLeaveGroup = async () => {
+    if (!user?.id || !activeConvId) return;
+    try {
+      await leaveGroupConversation(activeConvId, user.id);
+      setConversations((prev) => prev.filter((c) => c.id !== activeConvId));
+      setConfirmLeaveGroup(false);
+      setGroupInfo({ open: false, members: [], loading: false });
+      goBackToList();
+      toast.success(t('chat.left_group'), { className: 'fc-toast' });
+    } catch (err) {
+      console.error('Error leaving group:', err);
+      toast.error(t('chat.group_error'), { className: 'fc-toast' });
+    }
+  };
+
+  const handleKickMember = async (targetUserId) => {
+    if (!activeConvId || !targetUserId) return;
+    try {
+      await removeGroupMember(activeConvId, targetUserId);
+      setGroupInfo((prev) => ({ ...prev, members: prev.members.filter((m) => m.user_id !== targetUserId) }));
+      setConversations((prev) => prev.map((c) => c.id === activeConvId
+        ? { ...c, memberIds: (c.memberIds || []).filter((id) => id !== targetUserId), members: (c.members || []).filter((m) => m.id !== targetUserId) }
+        : c));
+    } catch (err) {
+      console.error('Error removing group member:', err);
+      toast.error(t('chat.group_error'), { className: 'fc-toast' });
+    }
+  };
+
+  // Cambiar rol (solo el dueño): admin ⇄ member. El dueño no puede cambiarse
+  // el suyo: para salir del grupo está el botón «Salir del grupo».
+  const handleToggleMemberRole = async (member) => {
+    if (!activeConvId || !member?.user_id) return;
+    const nextRole = member.role === 'admin' ? 'member' : 'admin';
+    setRoleBusyId(member.user_id);
+    try {
+      await setGroupMemberRole(activeConvId, member.user_id, nextRole);
+      setGroupInfo((prev) => ({
+        ...prev,
+        members: prev.members.map((m) => (m.user_id === member.user_id ? { ...m, role: nextRole } : m)),
+      }));
+    } catch (err) {
+      console.error('Error changing group member role:', err);
+      toast.error(t('chat.group_error'), { className: 'fc-toast' });
+    } finally {
+      setRoleBusyId(null);
+    }
+  };
+
+  // ── Imagen del grupo (solo owner/admin) ──
+  // Se sube al CDN con tipo 'avatar', igual que las demás avatares: así sale
+  // recortada/cuadrada y registrada como avatar en el CDN, no como adjunto de
+  // chat. Se guarda la URL real en `conversations.avatar_url`.
+  const handleGroupAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !user?.id || !activeConvId) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error(t('modal.invalid_image_type'));
+      return;
+    }
+
+    setGroupAvatarUploading(true);
+    try {
+      const { localUrl, realUrlPromise } = uploadWithLocalPreview(file, user.id, 'avatar');
+      setGroupAvatarPreview(localUrl);
+      const realUrl = await realUrlPromise;
+      if (!realUrl) throw new Error('Upload returned empty URL');
+
+      await updateGroupConversation(activeConvId, { avatarUrl: realUrl });
+      setGroupAvatarPreview(realUrl);
+      setConversations((prev) => prev.map((c) => (c.id === activeConvId ? { ...c, avatar_url: realUrl } : c)));
+      toast.success(t('upload.uploaded'), { className: 'fc-toast', autoClose: 2000 });
+    } catch (err) {
+      console.error('CDN upload error:', err);
+      setGroupAvatarPreview('');
+      toast.error(err.message || t('chat.group_error'), { className: 'fc-toast' });
+    } finally {
+      setGroupAvatarUploading(false);
+    }
+  };
+
+  const isPickerGroupMode = pickerMode === 'create' || pickerMode === 'add';
+  const groupSelectionIds = React.useMemo(
+    () => new Set(groupSelected.map((u) => u.id)),
+    [groupSelected]
+  );
+
   const renderFollowersModal = () => (
-    <ModalShell isOpen={showFollowersModal} onClose={() => setShowFollowersModal(false)} onEscape={() => setShowFollowersModal(false)} className="chat-followers-modal">
+    <ModalShell isOpen={showFollowersModal} onClose={closeUserPicker} onEscape={closeUserPicker} className="chat-followers-modal">
       <div className="chat-followers-modal-header">
-        <h3 className="fc-modal-title">{t('chat.new')}</h3>
-        <button type="button" className="chat-followers-modal-close" onClick={() => setShowFollowersModal(false)}>
+        <h3 className="fc-modal-title">
+          {pickerMode === 'create'
+            ? t('chat.new_group')
+            : pickerMode === 'add'
+              ? t('chat.add_members')
+              : t('chat.new')}
+        </h3>
+        <button type="button" className="chat-followers-modal-close" onClick={closeUserPicker}>
           <FaTimes />
         </button>
-      </div>        {followersLoading ? (
-          <div className="chat-followers-modal-status"><FaSpinner className="fc-spin" /></div>
+      </div>
+
+      {/* Cambio de modo: chat 1:1 ↔ grupo */}
+      <div className="chat-picker-mode">
+        <button
+          type="button"
+          className={`chat-picker-mode-btn${pickerMode === 'chat' ? ' chat-picker-mode-btn--active' : ''}`}
+          onClick={() => { setPickerMode('chat'); setGroupSelected([]); }}
+        >
+          <FaComment /> {t('chat.new')}
+        </button>
+        <button
+          type="button"
+          className={`chat-picker-mode-btn${pickerMode === 'create' ? ' chat-picker-mode-btn--active' : ''}`}
+          onClick={() => { setPickerMode('create'); setGroupSelected([]); }}
+        >
+          <FaUsers /> {t('chat.new_group')}
+        </button>
+      </div>
+
+      {followersLoading ? (
+        <div className="chat-followers-modal-status"><FaSpinner className="fc-spin" /></div>
       ) : followers.length === 0 ? (
         <div className="chat-followers-modal-status">
           <FaUsers className="chat-followers-modal-empty-icon" />
@@ -2924,19 +3259,183 @@ export default function Chat() {
         </div>
       ) : (
         <div className="chat-followers-modal-list">
-          {followers.map((u) => (
-            <button key={u.id} className="chat-followers-modal-card" onClick={() => { setShowFollowersModal(false); startConversation(u); }}>
-              <Avatar src={u.avatar_url} alt={u.username} className="chat-followers-modal-card-avatar" />
-              <span className="chat-followers-modal-card-name">{getDisplayName(u)}</span>
-              {Array.isArray(u.roles) && u.roles.includes('verified') && (
-                <img src="/verified_badge2.png" alt="Verified" className="chat-followers-modal-card-verified" draggable={false} loading="lazy" />
-              )}
+          {followers
+            .filter((u) => !(pickerMode === 'add' && (activeConv?.memberIds || []).includes(u.id)))
+            .map((u) => {
+              const selected = groupSelectionIds.has(u.id);
+              return (
+                <button
+                  key={u.id}
+                  className={`chat-followers-modal-card${isPickerGroupMode && selected ? ' chat-followers-modal-card--selected' : ''}`}
+                  onClick={() => {
+                    if (isPickerGroupMode) { toggleGroupMember(u); return; }
+                    closeUserPicker();
+                    startConversation(u);
+                  }}
+                >
+                  <Avatar src={u.avatar_url} alt={u.username} className="chat-followers-modal-card-avatar" />
+                  <span className="chat-followers-modal-card-name">{getDisplayName(u)}</span>
+                  {Array.isArray(u.roles) && u.roles.includes('verified') && (
+                    <img src="/verified_badge2.png" alt="Verified" className="chat-followers-modal-card-verified" draggable={false} loading="lazy" />
+                  )}
+                  {isPickerGroupMode && (
+                    <span className={`chat-picker-check${selected ? ' chat-picker-check--on' : ''}`}>
+                      {selected && <FaCheck />}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+        </div>
+      )}
+
+      {isPickerGroupMode && (
+        <div className="chat-picker-footer">
+          {pickerMode === 'create' && (
+            <input
+              className="chat-picker-name-input"
+              type="text"
+              maxLength={80}
+              value={groupTitle}
+              onChange={(e) => setGroupTitle(e.target.value)}
+              placeholder={t('chat.group_name_placeholder')}
+            />
+          )}
+          <div className="chat-picker-footer-row">
+            <span className="chat-picker-count">
+              {t('chat.selected_count', { count: groupSelected.length })}
+            </span>
+            <button
+              type="button"
+              className="chat-picker-create-btn"
+              disabled={groupSelected.length === 0 || groupBusy}
+              onClick={pickerMode === 'create' ? handleCreateGroup : handleAddMembers}
+            >
+              {groupBusy ? <FaSpinner className="fc-spin" /> : null}
+              {pickerMode === 'create' ? t('chat.create_group') : t('chat.add_members')}
             </button>
-          ))}
+          </div>
         </div>
       )}
     </ModalShell>
   );
+
+  // ── Modal de info del grupo (miembros, añadir, salir) ──
+  const renderGroupInfoModal = () => {
+    if (!activeConv?.isGroup) return null;
+    const myRole = groupInfo.members.find((m) => m.user_id === user?.id)?.role;
+    const canKick = myRole === 'owner' || myRole === 'admin';
+    const groupAvatar = groupAvatarPreview || activeConv.avatar_url || '';
+    const closeGroupInfo = () => setGroupInfo({ open: false, members: [], loading: false });
+    return (
+      <ModalShell isOpen={groupInfo.open} onClose={closeGroupInfo} onEscape={closeGroupInfo} className="chat-followers-modal chat-group-info-modal">
+        <div className="fc-modal-header">
+          <h3 className="fc-modal-title">{t('chat.group_info')}</h3>
+          <div className="fc-modal-header-actions">
+            <button type="button" className="fc-modal-close" onClick={closeGroupInfo} aria-label={t('common.close')}>
+              <FaTimes />
+            </button>
+          </div>
+        </div>
+
+        {/* Cabecera del grupo: mismo contenedor de edición de avatar que los
+            perfiles y comunidades (fc-preview-card-avatar + cámara encima). */}
+        <div className="chat-group-info-top">
+          <div className="fc-preview-card-avatar chat-group-info-avatar">
+            {groupAvatar ? (
+              <img src={groupAvatar} alt="" onError={(e) => { e.target.style.visibility = 'hidden'; }} />
+            ) : (
+              <span className="chat-group-info-avatar-letter">
+                {getConvTitle(activeConv).charAt(0).toUpperCase()}
+              </span>
+            )}
+            {canKick && (
+              <>
+                <button
+                  type="button"
+                  className="fc-preview-avatar-edit"
+                  onClick={() => document.getElementById('chat-group-avatar-input')?.click()}
+                  disabled={groupAvatarUploading}
+                  title={t('chat.group_avatar')}
+                >
+                  {groupAvatarUploading ? <FaSpinner className="fc-spin" /> : <FaCamera />}
+                </button>
+                <input
+                  id="chat-group-avatar-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  style={{ display: 'none' }}
+                  onChange={handleGroupAvatarUpload}
+                />
+              </>
+            )}
+          </div>
+          <div className="chat-group-info-titles">
+            <span className="chat-group-info-title">{getConvTitle(activeConv)}</span>
+            <span className="chat-messages-header-sub">
+              {t('chat.group_members', { count: activeMemberCount })}
+            </span>
+          </div>
+        </div>
+
+        {groupInfo.loading ? (
+          <div className="chat-followers-modal-status"><FaSpinner className="fc-spin" /></div>
+        ) : (
+          <div className="chat-followers-modal-list">
+            {groupInfo.members.map((m) => (
+              <div key={m.user_id} className="chat-followers-modal-card chat-group-info-member">
+                <Avatar src={m.profile?.avatar_url} alt={m.profile?.username} className="chat-followers-modal-card-avatar" />
+                <span className="chat-followers-modal-card-name">{getDisplayName(m.profile)}</span>
+                {m.role !== 'member' && (
+                  <span className="chat-group-info-role">
+                    {m.role === 'owner' ? t('chat.role_owner') : t('chat.role_admin')}
+                  </span>
+                )}
+                {myRole === 'owner' && m.user_id !== user?.id && m.role !== 'owner' && (
+                  <button
+                    type="button"
+                    className={`chat-group-info-kick chat-group-info-role-btn${m.role === 'admin' ? ' chat-group-info-role-btn--on' : ''}`}
+                    onClick={() => handleToggleMemberRole(m)}
+                    disabled={roleBusyId === m.user_id}
+                    title={m.role === 'admin' ? t('chat.dismiss_admin') : t('chat.make_admin')}
+                  >
+                    {roleBusyId === m.user_id ? <FaSpinner className="fc-spin" /> : <FaUserShield />}
+                  </button>
+                )}
+                {canKick && m.user_id !== user?.id && m.role !== 'owner' && (
+                  <button
+                    type="button"
+                    className="chat-group-info-kick"
+                    onClick={() => handleKickMember(m.user_id)}
+                    title={t('chat.remove_member')}
+                  >
+                    <FaTimes />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="chat-picker-footer-row chat-group-info-actions">
+          <button
+            type="button"
+            className="chat-picker-secondary-btn"
+            onClick={() => { setGroupInfo({ open: false, members: [], loading: false }); openFollowersModal('add', activeConvId); }}
+          >
+            <FaUserPlus /> {t('chat.add_members')}
+          </button>
+          <button
+            type="button"
+            className="chat-picker-danger-btn"
+            onClick={() => setConfirmLeaveGroup(true)}
+          >
+            <FaSignOutAlt /> {t('chat.leave_group')}
+          </button>
+        </div>
+      </ModalShell>
+    );
+  };
 
   if (!user) return null;
 
@@ -2962,7 +3461,8 @@ export default function Chat() {
           </button>
         </Tooltip>
         <Tooltip text={t('chat.new')} placement="bottom">
-          <button className="chat-list-new-btn" onClick={openFollowersModal}>
+          <button className="chat-list-new-btn" onClick={() => openFollowersModal()}>
+
             <FaPlus />
           </button>
         </Tooltip>
@@ -2986,6 +3486,28 @@ export default function Chat() {
           )}
         </div>
       </div>
+
+      {/* Filtro: todo / solo grupos / solo personas */}
+      {listView === 'chats' && (
+        <div className="chat-picker-mode chat-list-filter" role="tablist">
+          {[
+            ['all', t('chat.filter_all')],
+            ['groups', t('chat.filter_groups')],
+            ['people', t('chat.filter_people')],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={convFilter === value}
+              className={`chat-picker-mode-btn${convFilter === value ? ' chat-picker-mode-btn--active' : ''}`}
+              onClick={() => setConvFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Conversaciones o historial de llamadas */}
       <div className="chat-list-items">
@@ -3049,8 +3571,14 @@ export default function Chat() {
         ) : visibleConversations.length === 0 ? (
           <div className="chat-list-empty">
             <div className="chat-list-empty-icon"><FaComment /></div>
-            <p>{t('chat.empty')}</p>
-            <p className="chat-list-empty-sub">{t('chat.empty_sub')}</p>
+            {convFilter !== 'all' && conversations.length > 0 ? (
+              <p>{t('chat.filter_empty')}</p>
+            ) : (
+              <>
+                <p>{t('chat.empty')}</p>
+                <p className="chat-list-empty-sub">{t('chat.empty_sub')}</p>
+              </>
+            )}
           </div>
         ) : (
           visibleConversations.map((conv) => (
@@ -3059,17 +3587,20 @@ export default function Chat() {
               className={`chat-list-item ${conv.id === activeConvId ? 'chat-list-item--active' : ''}`}
               onClick={() => selectConversation(conv.id)}
               onContextMenu={(e) => handleContextMenu(e, conv.id)}
-              style={{ '--fc-user-accent': conv.otherUser?.accent_color || undefined }}
+              style={{ '--fc-user-accent': conv.isGroup ? undefined : (conv.otherUser?.accent_color || undefined) }}
             >
               <Avatar
-                src={conv.otherUser?.avatar_url}
-                alt={conv.otherUser?.username || '?'}
+                src={getConvAvatar(conv)}
+                alt={conv.isGroup ? (conv.title || 'group') : (conv.otherUser?.username || '?')}
                 className="chat-list-item-avatar"
-                status={otherUserStatuses?.[conv.otherUser?.id] ?? computeEffectiveStatus(conv.otherUser)}
+                status={conv.isGroup ? null : (otherUserStatuses?.[conv.otherUser?.id] ?? computeEffectiveStatus(conv.otherUser))}
               />
               <div className="chat-list-item-info">
                 <div className="chat-list-item-top">
-                  <span className="chat-list-item-name">{getDisplayName(conv.otherUser)}</span>
+                  <span className="chat-list-item-name">
+                    {conv.isGroup && <FaUsers className="chat-list-item-group-icon" />}
+                    {getConvTitle(conv)}
+                  </span>
                   {(() => {
                     const o = localConvOverridesRef.current[conv.id];
                     const previewAt = o?.at ?? conv.last_message_at;
@@ -3141,15 +3672,22 @@ export default function Chat() {
             <FaArrowLeft />
           </button>
           <Avatar
-            src={otherUser?.avatar_url}
-            alt={otherUser?.username || '?'}
+            src={isActiveGroup ? (activeConv?.avatar_url || null) : (otherUser?.avatar_url || null)}
+            alt={isActiveGroup ? (activeConv?.title || 'group') : (otherUser?.username || '?')}
             className="chat-messages-header-avatar"
             style={{ cursor: 'pointer' }}
-            onClick={goToProfile}
-            status={activeConversationStatus}
+            onClick={isActiveGroup ? openGroupInfo : goToProfile}
+            status={isActiveGroup ? null : activeConversationStatus}
           />
-          <div className="chat-messages-header-info" style={{ cursor: 'pointer' }} onClick={goToProfile}>
-            <span className="chat-messages-header-name">{getDisplayName(otherUser)}</span>
+          <div className="chat-messages-header-info" style={{ cursor: 'pointer' }} onClick={isActiveGroup ? openGroupInfo : goToProfile}>
+            <span className="chat-messages-header-name">
+              {isActiveGroup ? getConvTitle(activeConv) : getDisplayName(otherUser)}
+            </span>
+            {isActiveGroup && (
+              <span className="chat-messages-header-sub">
+                {t('chat.group_members', { count: activeMemberCount })}
+              </span>
+            )}
           </div>
         </div>
         <div className="chat-messages-header-actions">
@@ -3183,23 +3721,27 @@ export default function Chat() {
                 <FaThumbtack />
               </button>
             </Tooltip>
-            <Tooltip text={t('chat.view_profile') || 'Profile'} placement="bottom">
-              <button
-                className={`chat-header-action-btn ${showProfileCard ? 'chat-header-action-btn--active' : ''}`}
-                onClick={() => { setShowProfileCard(s => !s); setShowMsgSearch(false); setShowMediaGallery(false); setShowPinnedPanel(false); }}
-              >
-                <FaUser />
-              </button>
-            </Tooltip>
-            <Tooltip text={t('chat.call') || 'Call'} placement="bottom">
-              <button
-                className={`chat-header-action-btn${callSession ? ' chat-header-action-btn--active' : ''}`}
-                onClick={handleStartCall}
-                disabled={!activeConvId || !otherUser?.id}
-              >
-                <FaPhone />
-              </button>
-            </Tooltip>
+            {!isActiveGroup && (
+              <Tooltip text={t('chat.view_profile') || 'Profile'} placement="bottom">
+                <button
+                  className={`chat-header-action-btn ${showProfileCard ? 'chat-header-action-btn--active' : ''}`}
+                  onClick={() => { setShowProfileCard(s => !s); setShowMsgSearch(false); setShowMediaGallery(false); setShowPinnedPanel(false); }}
+                >
+                  <FaUser />
+                </button>
+              </Tooltip>
+            )}
+            {!isActiveGroup && (
+              <Tooltip text={t('chat.call') || 'Call'} placement="bottom">
+                <button
+                  className={`chat-header-action-btn${callSession ? ' chat-header-action-btn--active' : ''}`}
+                  onClick={handleStartCall}
+                  disabled={!activeConvId || !otherUser?.id}
+                >
+                  <FaPhone />
+                </button>
+              </Tooltip>
+            )}
             <div className="chat-header-menu-wrap" ref={headerMenuRef}>
               <Tooltip text={t('chat.header_more') || 'More'} placement="bottom">
                 <button
@@ -3211,10 +3753,18 @@ export default function Chat() {
               </Tooltip>
               {headerMenuOpen && (
                 <div className="chat-header-dropdown">
-                  <button className="chat-context-menu-btn" onClick={() => { setHeaderMenuOpen(false); setConfirmBlock(true); }}>
-                    <FaBan />
-                    <span>{getCachedBlockStatus(user?.id, otherUser?.id) === true ? t('block.unblock') : t('block.block')}</span>
-                  </button>
+                  {!isActiveGroup && (
+                    <button className="chat-context-menu-btn" onClick={() => { setHeaderMenuOpen(false); setConfirmBlock(true); }}>
+                      <FaBan />
+                      <span>{getCachedBlockStatus(user?.id, otherUser?.id) === true ? t('block.unblock') : t('block.block')}</span>
+                    </button>
+                  )}
+                  {isActiveGroup && (
+                    <button className="chat-context-menu-btn" onClick={() => { setHeaderMenuOpen(false); openGroupInfo(); }}>
+                      <FaUsers />
+                      <span>{t('chat.group_info')}</span>
+                    </button>
+                  )}
                   <button className="chat-context-menu-btn" onClick={() => { setHeaderMenuOpen(false); openBubbleColorModal(activeConvId); }}>
                     <FaPalette />
                     <span>{t('chat.bubble_colors') || 'Bubble colors'}</span>
@@ -3262,13 +3812,23 @@ export default function Chat() {
           >
             <FaThumbtack /> {t('post.pinned') || 'Pinned'}
           </button>
-          <button
-            className="chat-mobile-header-menu-item"
-            onClick={() => { setShowMobileMenu(false); handleStartCall(); }}
-            disabled={!activeConvId || !otherUser?.id}
-          >
-            <FaPhone /> {t('chat.call') || 'Call'}
-          </button>
+          {!isActiveGroup && (
+            <button
+              className="chat-mobile-header-menu-item"
+              onClick={() => { setShowMobileMenu(false); handleStartCall(); }}
+              disabled={!activeConvId || !otherUser?.id}
+            >
+              <FaPhone /> {t('chat.call') || 'Call'}
+            </button>
+          )}
+          {isActiveGroup && (
+            <button
+              className="chat-mobile-header-menu-item"
+              onClick={() => { setShowMobileMenu(false); openGroupInfo(); }}
+            >
+              <FaUsers /> {t('chat.group_info')}
+            </button>
+          )}
           <button
             className="chat-mobile-header-menu-item"
             onClick={() => { setShowMobileMenu(false); openBubbleColorModal(activeConvId); }}
@@ -3281,18 +3841,22 @@ export default function Chat() {
           >
             <FaImage /> {t('chat.background') || 'Chat background'}
           </button>
-          <button
-            className="chat-mobile-header-menu-item"
-            onClick={() => { setShowMobileMenu(false); setConfirmBlock(true); }}
-          >
-            <FaBan /> {getCachedBlockStatus(user?.id, otherUser?.id) === true ? t('block.unblock') : t('block.block')}
-          </button>
-          <button
-            className={`chat-mobile-header-menu-item ${showProfileCard ? 'active' : ''}`}
-            onClick={() => { setShowProfileCard(s => !s); setShowMobileMenu(false); setShowMsgSearch(false); setShowMediaGallery(false); setShowPinnedPanel(false); }}
-          >
-            <FaUser /> {t('chat.view_profile') || 'Profile'}
-          </button>
+          {!isActiveGroup && (
+            <button
+              className="chat-mobile-header-menu-item"
+              onClick={() => { setShowMobileMenu(false); setConfirmBlock(true); }}
+            >
+              <FaBan /> {getCachedBlockStatus(user?.id, otherUser?.id) === true ? t('block.unblock') : t('block.block')}
+            </button>
+          )}
+          {!isActiveGroup && (
+            <button
+              className={`chat-mobile-header-menu-item ${showProfileCard ? 'active' : ''}`}
+              onClick={() => { setShowProfileCard(s => !s); setShowMobileMenu(false); setShowMsgSearch(false); setShowMediaGallery(false); setShowPinnedPanel(false); }}
+            >
+              <FaUser /> {t('chat.view_profile') || 'Profile'}
+            </button>
+          )}
         </div>
       )}
 
@@ -3341,6 +3905,12 @@ export default function Chat() {
             }
             const msg = item.msg;
             const isOwn = msg.sender_id === user.id;
+            // En grupos el emisor se resuelve con el perfil del mensaje y, si
+            // aún no llegó, con los miembros ya cargados de la conversación
+            // (evita el hueco sin nombre al recibir un mensaje).
+            const senderProfile = isActiveGroup
+              ? (msg.profiles || activeConv?.members?.find((m) => m.id === msg.sender_id) || null)
+              : otherUser;
             const isEditing = editMsgId === msg.id;
             const groupInfo = messageGroupMap[msg.id] || {};
             const groupClass = groupInfo.groupClass || 'chat-message-bubble--solo';
@@ -3375,14 +3945,19 @@ export default function Chat() {
                 <div className={`chat-message-row ${isOwn ? 'chat-message-row--own' : 'chat-message-row--other'}`}>
                   {!isOwn && showAvatar && (
                     <Avatar
-                      src={otherUser?.avatar_url}
-                      alt={otherUser?.username || '?'}
+                      src={senderProfile?.avatar_url}
+                      alt={senderProfile?.username || '?'}
                       className="chat-message-avatar"
-                      onClick={(e) => { e.stopPropagation(); handleMessageAvatarClick(otherUser); }}
+                      onClick={(e) => { e.stopPropagation(); handleMessageAvatarClick(senderProfile); }}
                     />
                   )}
                   {!isOwn && !showAvatar && <div className="chat-message-avatar-spacer" />}
                   <div className={`chat-message-bubble ${groupClass} ${msg.is_pinned ? 'chat-message-bubble--pinned' : ''}${isBareCard ? ' chat-message-bubble--bare' : ''}`}>
+                    {/* El nombre solo encabeza los mensajes de otros: en los
+                        propios ya se sabe quién escribe. */}
+                    {isActiveGroup && !isOwn && showAvatar && senderProfile && (
+                      <span className="chat-message-sender">{getDisplayName(senderProfile)}</span>
+                    )}
                     {msg.is_pinned && (
                       <div className="chat-message-pin-badge">
                         <FaThumbtack />
@@ -3641,14 +4216,17 @@ export default function Chat() {
         ) : (
           <>
           {/* ── Typing indicator (absolute, does not push) ── */}
-        {otherUserTyping && (
+        {typingUserIds.length > 0 && (
           <div className="chat-typing-indicator">
             <div className="chat-typing-dots">
               <span className="chat-typing-dot"></span>
               <span className="chat-typing-dot"></span>
               <span className="chat-typing-dot"></span>
             </div>
-            <span className="chat-typing-label">{getDisplayName(otherUser)} {t('chat.typing') || 'typing...'}</span>
+            <span className="chat-typing-label">
+              {typingLabel ? `${typingLabel} ` : ''}
+              {t('chat.typing') || 'typing...'}
+            </span>
           </div>
         )}
         {/* Media preview — muestra la imagen o un spinner mientras se sube */}
@@ -3846,10 +4424,12 @@ export default function Chat() {
                 <FaThumbtack />
                 <span>{conv?.is_pinned ? (t('chat.unpin') || 'Unpin') : (t('chat.pin') || 'Pin')}</span>
               </button>
-              <button className="chat-context-menu-btn" onClick={handleSetNickname}>
-                <FaEdit />
-                <span>{currentNick ? t('chat.edit_nickname') || 'Edit nickname' : t('chat.set_nickname') || 'Set nickname'}</span>
-              </button>
+              {!conv?.isGroup && (
+                <button className="chat-context-menu-btn" onClick={handleSetNickname}>
+                  <FaEdit />
+                  <span>{currentNick ? t('chat.edit_nickname') || 'Edit nickname' : t('chat.set_nickname') || 'Set nickname'}</span>
+                </button>
+              )}
             </>);
           })()}
           <button className="chat-context-menu-btn chat-context-menu-btn--danger" onClick={handleDeleteConversation}>
@@ -4287,6 +4867,7 @@ export default function Chat() {
         </div>
       </ModalShell>
       {renderFollowersModal()}
+      {renderGroupInfoModal()}
 
       {/* ── Chat image gallery lightbox ── */}
       {chatGalleryUrls && createPortal(
@@ -4400,6 +4981,15 @@ export default function Chat() {
           message={t('chat.external_link_warning') || 'This link will take you to an external website. Do you want to continue?'}
           onConfirm={executeExternalLink}
           onCancel={handleCancelExternalLink}
+        />,
+        document.body
+      )}
+
+      {confirmLeaveGroup && createPortal(
+        <ConfirmModal
+          message={t('chat.confirm_leave_group')}
+          onConfirm={handleLeaveGroup}
+          onCancel={() => setConfirmLeaveGroup(false)}
         />,
         document.body
       )}

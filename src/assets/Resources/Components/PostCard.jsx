@@ -23,7 +23,7 @@ import {
   getCachedPollVoters,
   clearCachedPollVoters,
 } from '../../services/postService';
-import { FaHeart, FaRegHeart, FaHeartBroken, FaComment, FaRetweet, FaThumbtack, FaEdit, FaTrash, FaEllipsisV, FaBookmark, FaRegBookmark, FaEye, FaLock, FaCheckCircle, FaRegCheckCircle, FaClock, FaBan, FaUserFriends, FaExclamationTriangle, FaShareAlt, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaHeartBroken, FaComment, FaRetweet, FaThumbtack, FaEdit, FaTrash, FaEllipsisV, FaBookmark, FaRegBookmark, FaEye, FaLock, FaCheckCircle, FaRegCheckCircle, FaClock, FaBan, FaUserFriends, FaExclamationTriangle, FaShareAlt, FaCheck, FaTimes, FaGlobe } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import Badge from './Badge';
 import SafeImage from './SafeImage';
@@ -383,9 +383,19 @@ const PostCard = React.memo(function PostCard({
     ? decryptedContent  // nunca hacer fallback a post.content
     : post.content;
 
-  // ── Traducción del texto (API del navegador; se queda en el original si no
-  //    está disponible o el post ya está en el idioma del usuario) ──
+  // ── Traducción del texto (traductor del navegador o, si no lo hay, el de
+  //    Google; se queda en el original cuando el post ya está en el idioma del
+  //    usuario o la traducción falla) ──
   const translation = usePostTranslation(displayContent);
+
+  // Ítem del menú del post: traduce a petición o alterna con el original.
+  const canTranslate = !!(displayContent || '').trim();
+  const handleTranslateToggle = (e) => {
+    e.stopPropagation();
+    if (translation.translated) translation.toggleOriginal();
+    else translation.translateNow();
+    setShowMenu(false);
+  };
 
   const handleCancelDelete = useCallback(() => setConfirmDelete(false), []);
   const handleCancelExternal = useCallback(() => setConfirmExternalLink(null), []);
@@ -903,6 +913,18 @@ const PostCard = React.memo(function PostCard({
                       >
                         <FaShareAlt /> {t('post.share')}
                       </button>
+                      {(canTranslate || translation.translated) && (
+                        <button
+                          className="fc-dropdown-btn"
+                          onClick={handleTranslateToggle}
+                          disabled={!translation.translated && translation.pending}
+                        >
+                          <FaGlobe />{' '}
+                          {translation.translated
+                            ? (translation.showOriginal ? t('post.see_translation') : t('post.see_original'))
+                            : t('post.translate')}
+                        </button>
+                      )}
                       <button className="fc-dropdown-btn" onClick={handleEdit}><FaEdit /> {t('post.edit')}</button>
                       <button className="fc-dropdown-btn" onClick={handlePin}><FaThumbtack /> {post.is_pinned ? t('post.unpin') : t('post.pin')}</button>
                       <button className="fc-dropdown-btn" onClick={async (e) => {
@@ -951,6 +973,18 @@ const PostCard = React.memo(function PostCard({
                       >
                         <FaShareAlt /> {t('post.share')}
                       </button>
+                      {(canTranslate || translation.translated) && (
+                        <button
+                          className="fc-dropdown-btn"
+                          onClick={handleTranslateToggle}
+                          disabled={!translation.translated && translation.pending}
+                        >
+                          <FaGlobe />{' '}
+                          {translation.translated
+                            ? (translation.showOriginal ? t('post.see_translation') : t('post.see_original'))
+                            : t('post.translate')}
+                        </button>
+                      )}
                       <button
                         className="fc-dropdown-btn"
                         onClick={async (e) => {

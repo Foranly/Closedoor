@@ -22,6 +22,7 @@ export default function usePostTranslation(text) {
   const [result, setResult] = useState(null); // { forText, text, from, to }
   const [failedFor, setFailedFor] = useState(null);
   const [showOriginal, setShowOriginal] = useState(false);
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeTranslationPrefs(setPrefs);
@@ -48,15 +49,23 @@ export default function usePostTranslation(text) {
     };
   }, [text, source, target]);
 
-  const retry = useCallback(() => {
+  /**
+   * Traducción a petición (menú del post). Salta el mínimo de longitud y, al
+   * venir de un clic, cuenta como gesto de usuario: es lo que necesita
+   * `Translator.create` en Chrome cuando la descarga automática falló.
+   */
+  const translateNow = useCallback(() => {
     if (!text) return;
+    setPending(true);
     translatePostText(text, { source, target })
       .then((translation) => {
         if (!translation) return;
         setResult({ ...translation, forText: text });
         setFailedFor(null);
+        setShowOriginal(false);
       })
-      .catch(() => setFailedFor(text));
+      .catch(() => setFailedFor(text))
+      .finally(() => setPending(false));
   }, [text, source, target]);
 
   const toggleOriginal = useCallback(() => setShowOriginal((value) => !value), []);
@@ -69,6 +78,8 @@ export default function usePostTranslation(text) {
     showOriginal,
     toggleOriginal,
     failed: !active && failedFor === text,
-    retry,
+    pending,
+    translateNow,
+    retry: translateNow,
   };
 }
