@@ -21,15 +21,25 @@ export async function getOrCreateConversation(currentUserId, otherUserId) {
   const myConvIds = (myConvs || []).map(p => p.conversation_id);
 
   if (myConvIds.length > 0) {
-    const { data: match } = await supabase
+    // Ojo: con grupos, el otro usuario puede compartir varios hilos conmigo
+    // (el 1:1 y uno o más grupos). Antes se usaba maybeSingle(), que falla si
+    // hay más de una fila → se caía al INSERT y se creaba un chat 1:1 nuevo en
+    // cada envío (p. ej. invitaciones de comunidad). Ahora se filtra a los
+    // hilos directos y se reutiliza el primero.
+    const { data: matches } = await supabase
       .from('chat_participants')
       .select('conversation_id')
       .in('conversation_id', myConvIds)
-      .eq('user_id', otherUserId)
-      .maybeSingle();
+      .eq('user_id', otherUserId);
 
-    if (match) {
-      return match.conversation_id;
+    const candidateIds = (matches || []).map((m) => m.conversation_id);
+    if (candidateIds.length > 0) {
+      const { data: convs } = await supabase
+        .from('conversations')
+        .select('id, kind')
+        .in('id', candidateIds);
+      const direct = (convs || []).find((c) => c.kind !== 'group');
+      if (direct) return direct.id;
     }
   }
 
