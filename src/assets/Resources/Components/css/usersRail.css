@@ -18,12 +18,13 @@
                 border-radius 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* /chat: la misma card flotante del sidebar (top 12, mismo radio en las cuatro
-   esquinas, misma sombra), pero en el borde derecho. El aire con las cards del
-   chat lo da el padding-right del layout (234/100 = 12 + ancho del rail + 12). */
+/* /chat: el mismo tratamiento de card del sidebar (top 12, mismo radio en las
+   cuatro esquinas, misma sombra), pegado al borde derecho. El aire con las
+   cards del chat lo da el padding-right del layout (222/88 = ancho del rail +
+   12px de separación). */
 .sidebar.sidebar--users.sidebar--chat {
     left: auto;
-    right: 12px;
+    right: 0;
 }
 
 /* Sin el padding-bottom extra del sidebar: el gap ya separa el título. */
