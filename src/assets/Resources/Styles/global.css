@@ -185,14 +185,13 @@ body:has(.sidebar--collapsed:not(.sidebar--users)) .app-layout--chat {
 /* ── Rail derecho de miembros del grupo (UsersRail) ──
    Espejo del padding-left del sidebar, solo en /chat: el rail únicamente se
    monta ahí (y solo en escritorio, así que en móvil estas reglas nunca
-   aplican). 12px de margen + ancho del rail + 12px de separación con las cards
-   del chat. */
+   aplican). Ancho del rail + 12px de separación con las cards del chat. */
 body:has(.sidebar--users) .app-layout--chat {
-    padding-right: 234px !important;
+    padding-right: 222px !important;
 }
 
 body:has(.sidebar--users.sidebar--collapsed) .app-layout--chat {
-    padding-right: 100px !important;
+    padding-right: 88px !important;
 }
 
 /* ==========================================

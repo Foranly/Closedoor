@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../services/i18n/useI18n';
@@ -67,6 +68,26 @@ const TIME_OPTIONS = ['all', 'today', 'week', 'month'];
 // pero con variantes de orden y rango de fecha).
 const communityFeedKey = (cId, sort, time) => `community_posts_${cId}_${sort}_${time}`;
 
+/**
+ * Abre/cierra un menú anclado a un botón que vive dentro de un <dialog>.
+ * El menú se pinta en un portal sobre `.fc-modal-overlays` (position:fixed y
+ * overflow visible, dentro de la capa superior del diálogo) con coordenadas de
+ * viewport: así el scroll del modal no lo recorta.
+ */
+function openAnchoredMenu(buttonEl, setPos, setOpen) {
+  const rect = buttonEl.getBoundingClientRect();
+  const MENU_W = 200;
+  const MENU_H = 190;
+  const dialog = buttonEl.closest('dialog');
+  const target = dialog?.querySelector(':scope > .fc-modal-overlays') || document.body;
+  setPos({
+    top: Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - MENU_H - 8)),
+    left: Math.max(8, Math.min(rect.left, window.innerWidth - MENU_W - 8)),
+    target,
+  });
+  setOpen((o) => !o);
+}
+
 export default function CommunityPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -119,6 +140,10 @@ export default function CommunityPage() {
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [headerMenuPos, setHeaderMenuPos] = useState(null); // { top, right } fixed
   const headerMenuRef = useRef(null);
+  // El menú va en un portal a <body>: con "tarjetas transparentes" el header
+  // lleva backdrop-filter y se convierte en el bloque contenedor de
+  // position:fixed, así que dentro del header el menú salía desplazado.
+  const headerMenuDropdownRef = useRef(null);
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleColor, setNewRoleColor] = useState('#6366f1');
   const [newRolePerms, setNewRolePerms] = useState([]);
@@ -134,8 +159,12 @@ export default function CommunityPage() {
   const [memberSortDir, setMemberSortDir] = useState('desc');
   const [memberSortMenuOpen, setMemberSortMenuOpen] = useState(false);
   const memberSortMenuRef = useRef(null);
+  const [memberSortMenuPos, setMemberSortMenuPos] = useState(null); // { top, left, target }
+  const memberSortDropdownRef = useRef(null);
   const [memberRoleMenuOpen, setMemberRoleMenuOpen] = useState(false);
   const memberRoleMenuRef = useRef(null);
+  const [memberRoleMenuPos, setMemberRoleMenuPos] = useState(null); // { top, left, target }
+  const memberRoleDropdownRef = useRef(null);
   const [leavePending, setLeavePending] = useState(false);
   const [inviteToken, setInviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') || null);
   const [inviteRedeeming, setInviteRedeeming] = useState(false);
@@ -160,9 +189,11 @@ export default function CommunityPage() {
   useEffect(() => {
     if (!headerMenuOpen) return;
     const handleClick = (e) => {
-      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target)) {
-        setHeaderMenuOpen(false);
-      }
+      // El menú vive en un portal, así que no está dentro del wrap: hay que
+      // mirar también su propio ref (si no, se cerraría al pulsar sus opciones).
+      const inside = headerMenuRef.current?.contains(e.target)
+        || headerMenuDropdownRef.current?.contains(e.target);
+      if (!inside) setHeaderMenuOpen(false);
     };
     const closeOnScroll = () => setHeaderMenuOpen(false);
     document.addEventListener('mousedown', handleClick);
@@ -190,19 +221,29 @@ export default function CommunityPage() {
     return () => window.removeEventListener(COMMUNITY_MEMBERS_EVENT, handleRequest);
   }, [slug]);
 
-  // ── Menús del modal de miembros (orden y rol): cerrar al clic fuera ──
+  // ── Menús del modal de miembros (orden y rol): cerrar al clic fuera o scroll ──
   useEffect(() => {
     if (!memberSortMenuOpen && !memberRoleMenuOpen) return;
     const handleClick = (e) => {
-      if (memberSortMenuRef.current && !memberSortMenuRef.current.contains(e.target)) {
-        setMemberSortMenuOpen(false);
-      }
-      if (memberRoleMenuRef.current && !memberRoleMenuRef.current.contains(e.target)) {
-        setMemberRoleMenuOpen(false);
-      }
+      const inSort = memberSortMenuRef.current?.contains(e.target)
+        || memberSortDropdownRef.current?.contains(e.target);
+      if (!inSort) setMemberSortMenuOpen(false);
+      const inRole = memberRoleMenuRef.current?.contains(e.target)
+        || memberRoleDropdownRef.current?.contains(e.target);
+      if (!inRole) setMemberRoleMenuOpen(false);
+    };
+    // Los menús van en un portal con position:fixed: si la lista scrollea
+    // quedarían flotando, así que se cierran igual que el menú de 3 puntos.
+    const closeOnScroll = () => {
+      setMemberSortMenuOpen(false);
+      setMemberRoleMenuOpen(false);
     };
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('scroll', closeOnScroll, { passive: true, capture: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('scroll', closeOnScroll, { capture: true });
+    };
   }, [memberSortMenuOpen, memberRoleMenuOpen]);
 
   const bannerUrl = community?.banner_url || '';
@@ -934,15 +975,24 @@ export default function CommunityPage() {
                       className={`community-header-btn community-header-btn--dots ${headerMenuOpen ? 'community-header-btn--dots-active' : ''}`}
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
-                        setHeaderMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+                        const MENU_W = 180;
+                        const MENU_H = 150;
+                        setHeaderMenuPos({
+                          top: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - MENU_H - 8)),
+                          right: Math.max(8, Math.min(window.innerWidth - rect.right, window.innerWidth - MENU_W - 8)),
+                        });
                         setHeaderMenuOpen((s) => !s);
                       }}
                       title={t('comunidades.more')}
                     >
                       <FaEllipsisH />
                     </button>
-                    {headerMenuOpen && headerMenuPos && (
-                      <div className="community-header-dropdown" style={{ top: headerMenuPos.top, right: headerMenuPos.right }}>
+                    {headerMenuOpen && headerMenuPos && createPortal(
+                      <div
+                        ref={headerMenuDropdownRef}
+                        className="community-header-dropdown"
+                        style={{ top: headerMenuPos.top, right: headerMenuPos.right }}
+                      >
                         {isOwner && (
                           <button
                             type="button"
@@ -971,7 +1021,8 @@ export default function CommunityPage() {
                             <span>{t('comunidades.leave')}</span>
                           </button>
                         )}
-                      </div>
+                      </div>,
+                      document.body
                     )}
                   </div>
                 </>
@@ -1238,7 +1289,9 @@ export default function CommunityPage() {
             <button
               type="button"
               className="followers-modal-sort-btn"
-              onClick={() => setMemberSortMenuOpen((o) => !o)}
+              onClick={(e) => {
+                openAnchoredMenu(e.currentTarget, setMemberSortMenuPos, setMemberSortMenuOpen);
+              }}
               aria-haspopup="menu"
               aria-expanded={memberSortMenuOpen}
             >
@@ -1247,8 +1300,13 @@ export default function CommunityPage() {
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
-            {memberSortMenuOpen && (
-              <div className="followers-modal-sort-menu fc-dropdown" role="menu">
+            {memberSortMenuOpen && memberSortMenuPos && createPortal(
+              <div
+                ref={memberSortDropdownRef}
+                className="followers-modal-sort-menu fc-dropdown"
+                role="menu"
+                style={{ position: 'fixed', top: memberSortMenuPos.top, left: memberSortMenuPos.left, pointerEvents: 'auto' }}
+              >
                 {memberSortOptions.map((opt) => {
                   const active = opt.mode === memberSortMode && opt.dir === memberSortDir;
                   return (
@@ -1268,7 +1326,8 @@ export default function CommunityPage() {
                     </button>
                   );
                 })}
-              </div>
+              </div>,
+              memberSortMenuPos.target
             )}
           </div>
 
@@ -1277,7 +1336,9 @@ export default function CommunityPage() {
             <button
               type="button"
               className="followers-modal-sort-btn"
-              onClick={() => setMemberRoleMenuOpen((o) => !o)}
+              onClick={(e) => {
+                openAnchoredMenu(e.currentTarget, setMemberRoleMenuPos, setMemberRoleMenuOpen);
+              }}
               aria-haspopup="menu"
               aria-expanded={memberRoleMenuOpen}
             >
@@ -1286,8 +1347,13 @@ export default function CommunityPage() {
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
-            {memberRoleMenuOpen && (
-              <div className="followers-modal-sort-menu fc-dropdown" role="menu">
+            {memberRoleMenuOpen && memberRoleMenuPos && createPortal(
+              <div
+                ref={memberRoleDropdownRef}
+                className="followers-modal-sort-menu fc-dropdown"
+                role="menu"
+                style={{ position: 'fixed', top: memberRoleMenuPos.top, left: memberRoleMenuPos.left, pointerEvents: 'auto' }}
+              >
                 {memberRoleChoices.map((choice) => {
                   const active = choice.value === memberRoleFilter;
                   return (
@@ -1306,7 +1372,8 @@ export default function CommunityPage() {
                     </button>
                   );
                 })}
-              </div>
+              </div>,
+              memberRoleMenuPos.target
             )}
           </div>
         </div>
