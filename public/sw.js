@@ -57,7 +57,7 @@ self.addEventListener('fetch', (event) => {
   if (url.hostname.includes('supabase.co')) return;
 
   // ── Skip CDN proxy ──
-  if (url.hostname.includes('api.foranly.space') || url.href.includes('/cdn/')) return;
+  if (url.hostname.includes('api.foranly.cloud') || url.hostname.includes('api.foranly.space') || url.href.includes('/cdn/')) return;
 
   // ── Static assets: cache-first (stale-while-revalidate) ──
   // These are JS/CSS files with content hashes in their names,

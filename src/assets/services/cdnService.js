@@ -1,6 +1,6 @@
 /**
  * FastChange CDN Service
- * Handles image uploads to the Go CDN server at api.foranly.space
+ * Handles image uploads to the Go CDN server at api.foranly.cloud
  * Supports: avatar, banner, post, chat images
  *
  * Upload results are cached in encrypted localStorage by CONTENT HASH
@@ -485,8 +485,7 @@ export async function deleteImage(imageId) {
  * Convert a CDN URL to a same-origin relative path so the browser loads it
  * through the Vite proxy (dev) or Vercel rewrites (production) instead of
  * hitting the HTTP-only CDN server directly over HTTPS.
- *
- *   http://api.foranly.space:24587/cdn/files/xxx → /cdn/files/xxx
+ *  *   http://api.foranly.cloud:24587/cdn/files/xxx → /cdn/files/xxx
  *
  * ⚠️ SIEMPRE devuelve un string (nunca undefined/null) para evitar que
  *    componentes llamen .trim() sobre undefined y lancen TypeError.
@@ -535,8 +534,7 @@ export function getCdnUrl(fileId) {
 
 /**
  * Check if a URL is from our CDN.
- * Reconoce rutas relativas (/cdn/files/xxx), URLs del CDN_BASE configurado,
- * y URLs absolutas con path /cdn/ (ej: http://api.foranly.space:24587/cdn/files/xxx).
+ * Reconoce rutas relativas (/cdn/files/xxx), URLs del CDN_BASE configurado,  * y URLs absolutas con path /cdn/ (ej: http://api.foranly.cloud:24587/cdn/files/xxx).
  * @param {string} url
  * @returns {boolean}
  */
@@ -546,7 +544,7 @@ export function isCdnUrl(url) {
   if (url.startsWith('/cdn/')) return true;
   // Desde VITE_CDN_URL (si está configurado)
   if (CDN_BASE && url.startsWith(CDN_BASE)) return true;
-  // URLs absolutas con /cdn/ en el path (backend devuelve http://api.foranly.space:24587/cdn/files/xxx)
+  // URLs absolutas con /cdn/ en el path (backend devuelve http://api.foranly.cloud:24587/cdn/files/xxx)
   try {
     const parsed = new URL(url);
     if (parsed.pathname.startsWith('/cdn/')) return true;

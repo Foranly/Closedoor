@@ -76,7 +76,7 @@ toda la protección. El detalle está en
 | `/post/:id` | `/api/og-post` |
 | `/api/image-proxy` | host propio del CDN (`mapi.foranly.space:24633`) |
 | `/api/music/(.*)` | host propio de música (`mapi.foranly.space:24633`) |
-| `/cdn/(.*)` | servidor CDN de archivos (`api.foranly.space:24587`) |
+| `/cdn/(.*)` | servidor CDN de archivos (`api.foranly.cloud:24587`) |
 | `/(.*)` | `/index.html` (SPA, React Router) |
 
 ---
