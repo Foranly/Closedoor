@@ -60,7 +60,7 @@
     },
     {
       "source": "/cdn/(.*)",
-      "destination": "http://api.foranly.space:24587/cdn/$1"
+      "destination": "http://api.foranly.cloud:24587/cdn/$1"
     },
     {
       "source": "/(.*)",
