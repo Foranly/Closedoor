@@ -147,7 +147,7 @@ function escapeHtml(str) {
 }
 
 // ── CDN proxy config ──
-const CDN_TARGET = process.env.CDN_TARGET || 'http://api.foranly.space:24587';
+const CDN_TARGET = process.env.CDN_TARGET || 'http://api.foranly.cloud:24587';
 
 // ── Forward CDN requests to the Go CDN server (fixes Mixed Content on HTTPS) ──
 const cdnProxy = (req, res) => {

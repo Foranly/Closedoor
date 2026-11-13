@@ -22,7 +22,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/cdn': {
-        target: 'http://api.foranly.space:24587',
+        target: process.env.CDN_TARGET || 'http://api.foranly.cloud:24587',
         changeOrigin: true,
       },
       // ⚠️ /api/music* y /api/music-search NO se proxian: los sirve
