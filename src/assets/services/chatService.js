@@ -25,7 +25,9 @@ export async function getOrCreateConversation(currentUserId, otherUserId) {
     // (el 1:1 y uno o más grupos). Antes se usaba maybeSingle(), que falla si
     // hay más de una fila → se caía al INSERT y se creaba un chat 1:1 nuevo en
     // cada envío (p. ej. invitaciones de comunidad). Ahora se filtra a los
-    // hilos directos y se reutiliza el primero.
+    // hilos directos y se reutiliza el de más actividad reciente, así el
+    // mensaje siempre llegue al hilo real (no a uno de los duplicados heredados)
+    // ni se sigue creando chat 1:1 nuevo.
     const { data: matches } = await supabase
       .from('chat_participants')
       .select('conversation_id')
@@ -34,11 +36,18 @@ export async function getOrCreateConversation(currentUserId, otherUserId) {
 
     const candidateIds = (matches || []).map((m) => m.conversation_id);
     if (candidateIds.length > 0) {
-      const { data: convs } = await supabase
+      const { data: convs, error: convError } = await supabase
         .from('conversations')
-        .select('id, kind')
+        .select('id, kind, last_message_at, updated_at')
         .in('id', candidateIds);
-      const direct = (convs || []).find((c) => c.kind !== 'group');
+      if (convError) {
+        console.warn('[Chat] Error resolviendo conversación directa (getOrCreateConversation):', convError);
+      }
+      const direct = (convs || [])
+        .filter((c) => c.kind !== 'group')
+        .sort((a, b) =>
+          new Date(b.last_message_at || b.updated_at || 0) - new Date(a.last_message_at || a.updated_at || 0)
+        )[0];
       if (direct) return direct.id;
     }
   }
