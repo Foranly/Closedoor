@@ -2889,10 +2889,25 @@ dialog.fc-modal.chat-followers-modal {
 
 .chat-message-sender {
     display: block;
-    font-size: 0.72rem;
+    /* Mismo tamaño que el texto del mensaje (0.9rem): el nombre solo cambia de
+       peso/color, no de cuerpo. */
+    font-size: 0.9rem;
     font-weight: 700;
     color: var(--color-text-secondary, #9ca3af);
     margin-bottom: 3px;
+}
+
+/* Aviso de sistema en el hilo (p. ej. «Ana cambió el fondo del grupo»). */
+.chat-system-notice {
+    align-self: center;
+    margin: 8px auto;
+    max-width: 80%;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--color-text-muted, #6b7280);
+    background: var(--color-surface-hover, #252525);
+    border-radius: 999px;
+    padding: 4px 12px;
 }
 
 /* Selector de usuarios: pestañas chat / grupo */

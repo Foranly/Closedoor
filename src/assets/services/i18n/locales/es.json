@@ -52,6 +52,8 @@
   "chat.background": "Fondo del chat",
   "chat.background_empty": "Sin fondo",
   "chat.background_hint": "Solo lo verás tú",
+  "chat.background_hint_group": "Lo verá todo el grupo",
+  "chat.background_changed_by": "{name} cambió el fondo del grupo",
   "chat.background_remove": "Quitar fondo",
   "chat.background_saved": "Fondo del chat guardado",
   "chat.background_upload": "Subir imagen",

@@ -813,7 +813,7 @@ textarea.fc-modal-input {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
+    padding: 20px 24px 12px;
 }
 
 .fc-modal-header-actions {

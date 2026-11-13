@@ -114,7 +114,7 @@ export async function getConversationMembersWithProfiles(conversationId) {
 
   const { data: profiles } = await dbPublic
     .from('profiles')
-    .select('id, username, displayname, avatar_url, avatar_position, user_status, user_status_updated_at')
+    .select('id, username, displayname, avatar_url, avatar_position, accent_color, user_status, user_status_updated_at')
     .in('id', members.map((m) => m.user_id));
 
   const byId = {};
@@ -523,7 +523,7 @@ export async function sendMessage(conversationId, senderId, content, participant
   // Fetch sender profile separately
   const { data: senderProfile } = await dbPublic
     .from('profiles')
-    .select('id, username, displayname, avatar_url, avatar_position, user_status, user_status_updated_at')
+    .select('id, username, displayname, avatar_url, avatar_position, accent_color, user_status, user_status_updated_at')
     .eq('id', senderId)
     .maybeSingle();
 
@@ -572,7 +572,7 @@ export async function getMessages(conversationId, limit = 50, before = null) {
   const senderIds = [...new Set(msgs.map(m => m.sender_id))];
   const { data: profiles } = await dbPublic
     .from('profiles')
-    .select('id, username, displayname, avatar_url, avatar_position, user_status, user_status_updated_at')
+    .select('id, username, displayname, avatar_url, avatar_position, accent_color, user_status, user_status_updated_at')
     .in('id', senderIds);
 
   const profileMap = {};
@@ -672,7 +672,7 @@ const messageChannels = new Map();
 // después»). Con la caché el mensaje se pinta completo desde el primer render.
 // `getMessages`/`getConversations` la siembran con perfiles frescos.
 const senderProfileCache = new Map();
-const SENDER_PROFILE_COLUMNS = 'id, username, displayname, avatar_url, avatar_position, user_status, user_status_updated_at';
+const SENDER_PROFILE_COLUMNS = 'id, username, displayname, avatar_url, avatar_position, accent_color, user_status, user_status_updated_at';
 
 function cacheSenderProfiles(profiles) {
   for (const p of profiles || []) {
@@ -1244,7 +1244,7 @@ export function getCachedBubbleColors(userId) {
  * Rechaza `//host` (protocol-relative, se saltaría el https del sitio) y
  * cualquier otro esquema (javascript:, data:…). Devuelve null si no vale.
  */
-function normalizeBackgroundUrl(value) {
+export function normalizeBackgroundUrl(value) {
   if (typeof value !== 'string') return null;
   const raw = value.trim().slice(0, 2048);
   if (!raw) return null;
@@ -1316,5 +1316,52 @@ export async function setChatBackground(userId, conversationId, imageUrl) {
     );
   if (error) throw error;
   return url;
+}
+
+/**
+ * Fondo de un GRUPO: se guarda en la conversación, no en el usuario, así que lo
+ * ven todos los miembros (migración 096). Cualquier miembro puede cambiarlo,
+ * igual que el nombre o la imagen del grupo.
+ *
+ * @returns {Promise<string|null>} URL normalizada que quedó guardada (null si
+ *   se quitó).
+ */
+export async function setGroupChatBackground(conversationId, userId, imageUrl) {
+  if (!conversationId || !userId) return null;
+
+  const url = normalizeBackgroundUrl(imageUrl);
+  const { error } = await supabase
+    .from('conversations')
+    .update({
+      chat_background_url: url,
+      chat_background_by: url ? userId : null,
+      chat_background_updated_at: new Date().toISOString(),
+    })
+    .eq('id', conversationId);
+  if (error) throw error;
+  return url;
+}
+
+/**
+ * Deja en el hilo un aviso de sistema («Ana cambió el fondo del grupo»).
+ * El texto que viaja es solo un CÓDIGO (se traduce en el cliente con el nombre
+ * del emisor); se cifra como cualquier mensaje para que `encrypted_for` siga
+ * siendo la única puerta de lectura.
+ */
+export async function sendGroupBackgroundNotice(conversationId, senderId, participantIds = []) {
+  if (!conversationId || !senderId) return;
+
+  const allIds = [...new Set([senderId, ...participantIds.filter(Boolean)])];
+  const { ciphertext, iv } = await encryptForUsers('background_changed', senderId, allIds);
+
+  const { error } = await supabase.from('messages').insert({
+    conversation_id: conversationId,
+    sender_id: senderId,
+    ciphertext,
+    iv,
+    encrypted_for: allIds,
+    is_system: true,
+  });
+  if (error) throw error;
 }
 
