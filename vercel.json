@@ -63,6 +63,10 @@
       "destination": "http://api.foranly.cloud:24587/cdn/$1"
     },
     {
+      "source": "/cdn2/(.*)",
+      "destination": "http://api2.foranly.cloud:24633/cdn2/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

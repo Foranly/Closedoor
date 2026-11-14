@@ -111,7 +111,7 @@ function injectOGTags(html, { title, description, image, url, username, type = '
   const ogTitle = title || siteName;
   const ogDesc = description || 'Join the community and share your thoughts on Closedoor.';
   const ogImage = image || 'https://placehold.co/1200x630/1a1a2e/6b7280?text=Closedoor';
-  const ogUrl = url || 'https://closedoor.app';
+  const ogUrl = url || 'https://app.foranly.cloud';
 
   let result = html;
   // Update <title> (accept attributes on the tag, use dotAll flag for cross-line content)
@@ -146,13 +146,27 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-// ── CDN proxy config ──
+// ── CDN proxy targets ──
+// Los dos orígenes del CDN se distinguen por prefijo de path:
+//   /cdn/*    -> CDN_TARGET  (p. ej. http://api.foranly.cloud:24587)
+//   /cdn2/*   -> CDN2_TARGET (p. ej. http://api2.foranly.cloud:24633)
 const CDN_TARGET = process.env.CDN_TARGET || 'http://api.foranly.cloud:24587';
+const CDN2_TARGET = process.env.CDN2_TARGET || 'http://api2.foranly.cloud:24633';
 
 // ── Forward CDN requests to the Go CDN server (fixes Mixed Content on HTTPS) ──
 const cdnProxy = (req, res) => {
-  const cdnPath = req.originalUrl.replace(/^\/cdn/, '/cdn');
-  const options = new URL(CDN_TARGET + cdnPath);
+  const originalPath = req.originalUrl;
+
+  // Elegir target según el prefijo del path en la petición.
+  let cdnTarget = CDN_TARGET;
+  let cdnPath = originalPath.replace(/^\/cdn/, '/cdn');
+
+  if (/^\/cdn2(?=\/|$)/.test(originalPath)) {
+    cdnTarget = CDN2_TARGET;
+    cdnPath = originalPath.replace(/^\/cdn2/, '/cdn2');
+  }
+
+  const options = new URL(cdnTarget + cdnPath);
 
   const proxyReq = http.request(
     {
@@ -423,6 +437,7 @@ function decodeEntities(str) {
 // ── CDN proxy routes ──
 // Express 5 (path-to-regexp v8) ya no acepta '*' como wildcard → {*path}
 app.all('/cdn/{*path}', cdnProxy);
+app.all('/cdn2/{*path}', cdnProxy);
 
 // ── LiveKit token endpoint (local dev) — usa la lógica compartida api/_livekit.js ──
 // Emite un AccessToken de LiveKit verificando que el usuario sea participante
