@@ -57,7 +57,14 @@ self.addEventListener('fetch', (event) => {
   if (url.hostname.includes('supabase.co')) return;
 
   // ── Skip CDN proxy ──
-  if (url.hostname.includes('api.foranly.cloud') || url.hostname.includes('api.foranly.space') || url.href.includes('/cdn/')) return;
+  // Ambos orígenes del CDN (cdn y cdn2) no se cachean en el SW.
+  if (
+    url.hostname.includes('api.foranly.cloud') ||
+    url.hostname.includes('api.foranly.space') ||
+    url.hostname.includes('api2.foranly.cloud') ||
+    url.href.includes('/cdn/') ||
+    url.href.includes('/cdn2/')
+  ) return;
 
   // ── Static assets: cache-first (stale-while-revalidate) ──
   // These are JS/CSS files with content hashes in their names,

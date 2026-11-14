@@ -39,6 +39,12 @@ const (
 	webpQuality   = 90       // WebP quality
 	thumbQuality  = 88       // WebP quality del thumbnail de feed
 	thumbWidth    = 640      // ancho máximo del thumbnail de feed
+
+	// Prefijos de path que este servidor puede servir.
+	// Por defecto usa "cdn", y si CDN2_PREFIX está configurado también escucha
+	// ese prefijo (p. ej. "cdn2") y devuelve URLs con él.
+	cdnAssetPrefix      = "cdn"
+	cdnAltAssetPrefix   = "cdn2"
 )
 
 // Límites de subida por tipo. El cliente (cdnService) aplica los mismos antes
@@ -522,7 +528,8 @@ func handleUpload(idx *ImageIndex) http.HandlerFunc {
 		if r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https" {
 			scheme = "http"
 		}
-		publicURL := fmt.Sprintf("%s://%s/cdn/files/%s", scheme, baseURL, fileID)
+		assetPrefix := assetPrefix(r)
+	publicURL := fmt.Sprintf("%s://%s/%s/files/%s", scheme, baseURL, assetPrefix, fileID)
 
 		img := ImageRecord{
 			ID:            fileID,
@@ -794,6 +801,26 @@ func ensureFfmpeg() string {
 }
 
 // ── Helpers ──
+
+// assetPrefix devuelve el prefijo de path usado en la petición actual.
+// Reconoce /cdn y /cdn2 (y variaciones sin slash inicial) y devuelve el
+// prefijo coherente con el que el frontend puede construir la URL del asset.
+func assetPrefix(r *http.Request) string {
+	if r == nil {
+		return cdnAssetPrefix
+	}
+	p := r.URL.Path
+	// Normalizar: aceptar tanto /cdn/files/... como /cdn2/files/...
+	if strings.HasPrefix(p, "/"+cdnAltAssetPrefix+"/") || strings.HasPrefix(p, "/"+cdnAltAssetPrefix) {
+		if cdnAltAssetPrefix != "" {
+			return cdnAltAssetPrefix
+		}
+	}
+	if strings.HasPrefix(p, "/"+cdnAssetPrefix+"/") || strings.HasPrefix(p, "/"+cdnAssetPrefix) {
+		return cdnAssetPrefix
+	}
+	return cdnAssetPrefix
+}
 
 func safeStr(s string, max int) string {
 	if len(s) > max {
@@ -1346,11 +1373,20 @@ func main() {
 	)
 
 	mux := http.NewServeMux()
+
+	// Este servidor puede servir ambos prefijos de asset indistintamente.
+	// El mismo handler procesa /cdn/... y /cdn2/... y devuelve la URL pública
+	// con el prefijo desde el que llegó la petición.
 	mux.HandleFunc("POST /cdn/upload", rateLimit(uploadLimiter)(requireAuth(userLimiter, handleUpload(idx))))
+	mux.HandleFunc("POST /cdn2/upload", rateLimit(uploadLimiter)(requireAuth(userLimiter, handleUpload(idx))))
 	mux.HandleFunc("GET /cdn/files/{id}/thumb", rateLimit(serveLimiter)(handleServeThumb(idx)))
+	mux.HandleFunc("GET /cdn2/files/{id}/thumb", rateLimit(serveLimiter)(handleServeThumb(idx)))
 	mux.HandleFunc("GET /cdn/files/{id}", rateLimit(serveLimiter)(handleServe(idx)))
+	mux.HandleFunc("GET /cdn2/files/{id}", rateLimit(serveLimiter)(handleServe(idx)))
 	mux.HandleFunc("DELETE /cdn/files/{id}", rateLimit(uploadLimiter)(requireAuth(userLimiter, handleDelete(idx))))
+	mux.HandleFunc("DELETE /cdn2/files/{id}", rateLimit(uploadLimiter)(requireAuth(userLimiter, handleDelete(idx))))
 	mux.HandleFunc("GET /cdn/health", handleHealth(idx, ffmpegStatus))
+	mux.HandleFunc("GET /cdn2/health", handleHealth(idx, ffmpegStatus))
 
 	handler := corsMiddleware(mux)
 

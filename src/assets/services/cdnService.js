@@ -118,6 +118,20 @@ function assertUploadAllowed(file, userId, type) {
 const CACHE_PREFIX = 'cdn_upload_';
 
 /**
+ * Ruta de subida elegida aleatoriamente entre los dos orígenes del CDN.
+ * Así se distribuye el almacenamiento en los dos servidores sin obligar a
+ * la app a tener lógica externa de enrutamiento; basta con que VITE_CDN_URL
+ * apunte al frontend/proxy que reenvía a ambos orígenes según el path.
+ *
+ * El resultado es siempre '/cdn/upload' o '/cdn2/upload'.
+ */
+function cdnUploadRoute() {
+  // Elección determinista por subida para que dos subidas distintas suelen
+  // ir a distintos orígenes, sin introducir dependencias de sesión externa.
+  return Math.random() < 0.5 ? '/cdn/upload' : '/cdn2/upload';
+}
+
+/**
  * Access token de Supabase para autenticar uploads/borrados contra el CDN.
  * El CDN verifica el JWT (SUPABASE_JWT_SECRET) y exige que el sub coincida
  * con el user_id del form → sin sesión válida no se puede llamar al API.
@@ -208,7 +222,7 @@ async function removeCachedUpload(userId, type, file) {
 export async function verifyCdnFile(url) {
   if (!url) return false;
   const path = getCdnUrl(url);
-  if (!path.startsWith('/cdn/files/')) return true; // No es CDN → no validar
+  if (!CDN_PATH_PREFIXES.some((p) => path.startsWith(p + 'files/'))) return true; // No es CDN → no validar
   try {
     const res = await fetch(path, { method: 'HEAD' });
     return res.ok;
@@ -336,9 +350,12 @@ async function authedCdnFetch(url, init, token) {
 }
 
 /**
- * Upload an image to the CDN server.
+ * Upload an image to one of the CDN shards.
  * Results are cached by file fingerprint — re-uploading the same file returns
  * the cached URL immediately without a network request.
+ * El origen de la subida (cdn o cdn2) se elige aleatoriamente por subida para
+ * distribuir el almacenamiento entre los dos orígenes; la URL devuelta por el
+ * servidor se conserva tanto en caché como en la respuesta.
  * @param {File} file - The image file to upload
  * @param {string} userId - The user's UUID
  * @param {'avatar'|'banner'|'post'|'chat'} type - Image type for sizing
@@ -387,7 +404,8 @@ export async function uploadImage(file, userId, type) {
   formData.append('user_id', userId);
   formData.append('type', type);
 
-  const response = await authedCdnFetch(`${CDN_BASE}/cdn/upload`, {
+  const uploadRoute = cdnUploadRoute();
+  const response = await authedCdnFetch(`${CDN_BASE}${uploadRoute}`, {
     method: 'POST',
     body: formData,
     // No Content-Type header - browser sets it with boundary for FormData
@@ -430,9 +448,12 @@ export async function uploadImage(file, userId, type) {
 
   // Si el CDN devolvió url (nueva subida) la normalizamos a ruta relativa.
   // Si no (dedup hit: el CDN reusó un archivo existente y solo devolvió el id),
-  // construimos la URL relativa desde el id.
+  // construimos la URL relativa por defecto en /cdn/files/<id>.
+  // NOTA: este fallback se usa solo cuando el servidor no devolvió la URL; si
+  // subimos a cdn2 y este devuelve data.url con /cdn2/files/..., esa URL
+  // prevalece y se conserva tal cual.
   const result = {
-    url: data.url ? normalizeCdnUrl(data.url) : `/cdn/files/${data.id}`,
+    url: normalizeCdnUrl(data.url) || `/cdn/files/${data.id}`,
     id: data.id,
     width: data.width,
     height: data.height,
@@ -457,10 +478,13 @@ export async function deleteImage(imageId) {
   if (!imageId) return false;
 
   try {
-    // El CDN exige autenticación JWT en DELETE + ser el dueño del archivo
+    // El CDN exige autenticación JWT en DELETE + ser el dueño del archivo.
+    // Como ahora puede vivir en /cdn/files/ o /cdn2/files/, usamos el path
+    // que reconozca ambos prefijos y elimina donde esté la imagen.
     const token = await getAccessToken();
     if (!token) return false;
-    const response = await authedCdnFetch(`${CDN_BASE}/cdn/files/${imageId}`, {
+    const path = getCdnUrl(imageId);
+    const response = await authedCdnFetch(`${CDN_BASE}${path}`, {
       method: 'DELETE',
     }, token);
     let data = {};
@@ -511,7 +535,8 @@ export function normalizeCdnUrl(url) {
  * URLs externas (Pinterest, GIPHY, Tenor, etc.) se devuelven intactas.
  *
  * @param {string} fileId - The file UUID, full URL, or relative path
- * @returns {string} - Relative path like "/cdn/files/xxx" or the original URL
+ * @returns {string} - Relative path like "/cdn/files/xxx", "/cdn2/files/xxx",
+ *   or the original URL for non-CDN images
  */
 export function getCdnUrl(fileId) {
   if (!fileId) return '';
@@ -519,16 +544,21 @@ export function getCdnUrl(fileId) {
   // Si NO es URL del CDN, devolver tal cual (imágenes externas: Pinterest, GIPHY, etc.)
   if (!isCdnUrl(fileId)) return fileId;
 
-  // Es URL del CDN → normalizar a ruta relativa
+  // Es URL del CDN → normalizar a ruta relativa preservando el prefijo
   if (fileId.startsWith('http://') || fileId.startsWith('https://')) {
     const normalized = normalizeCdnUrl(fileId);
-    if (normalized.startsWith('/cdn/')) return normalized;
+    if (CDN_PATH_PREFIXES.some((p) => normalized.startsWith(p))) return normalized;
     // Si normalizeCdnUrl devolvió algo inesperado, reconstruir desde el ID
-    return `/cdn/files/${fileId.split('/').pop()}`;
+    const fileIdFromUrl = fileId.split('/').pop();
+    if (fileIdFromUrl) {
+      const prefix = normalized.startsWith('/cdn2/') ? '/cdn2/' : '/cdn/';
+      return `${prefix}files/${fileIdFromUrl}`;
+    }
+    return `/cdn/files/${fileIdFromUrl}`;
   }
-  // Si ya es /cdn/files/xxx, devolver tal cual
-  if (fileId.startsWith('/cdn/')) return fileId;
-  // Es solo un ID → construir ruta completa
+  // Si ya es /cdn/files/xxx o /cdn2/files/xxx, devolver tal cual
+  if (CDN_PATH_PREFIXES.some((p) => fileId.startsWith(p))) return fileId;
+  // Es solo un ID → construir ruta completa por defecto en cdn/
   return `/cdn/files/${fileId}`;
 }
 
@@ -538,16 +568,27 @@ export function getCdnUrl(fileId) {
  * @param {string} url
  * @returns {boolean}
  */
+const CDN_PATH_PREFIXES = ['/cdn/', '/cdn2/'];
+
+/**
+ * Check if a URL is from our CDN.
+ * Reconoce rutas relativas (/cdn/files/xxx, /cdn2/files/xxx), URLs del
+ * CDN_BASE configurado, y URLs absolutas con path /cdn/ o /cdn2/.
+ * @param {string} url
+ * @returns {boolean}
+ */
 export function isCdnUrl(url) {
   if (!url) return false;
-  // Relativa: /cdn/files/xxx
-  if (url.startsWith('/cdn/')) return true;
+  // Relativa: /cdn/files/xxx o /cdn2/files/xxx
+  if (CDN_PATH_PREFIXES.some((p) => url.startsWith(p))) return true;
   // Desde VITE_CDN_URL (si está configurado)
   if (CDN_BASE && url.startsWith(CDN_BASE)) return true;
-  // URLs absolutas con /cdn/ en el path (backend devuelve http://api.foranly.cloud:24587/cdn/files/xxx)
+  // URLs absolutas con /cdn/ o /cdn2/ en el path
+  // (backend devuelve p. ej. http://api.foranly.cloud:24587/cdn/files/xxx
+  //  o http://api2.foranly.cloud:24633/cdn2/files/xxx)
   try {
     const parsed = new URL(url);
-    if (parsed.pathname.startsWith('/cdn/')) return true;
+    if (CDN_PATH_PREFIXES.some((p) => parsed.pathname.startsWith(p))) return true;
   } catch {
     // No se puede parsear como URL — no es CDN
   }
@@ -561,13 +602,14 @@ export function isCdnUrl(url) {
  */
 export function getFileIdFromUrl(url) {
   if (!url) return null;
-  const match = url.match(/\/cdn\/files\/([^/?#]+)/);
+  const match = url.match(/(?:\/cdn|\/cdn2)\/files\/([^/?#]+)/);
   return match ? match[1] : null;
 }
 
 /**
  * Build the feed-thumbnail URL for a CDN image.
- * Devuelve `/cdn/files/<id>/thumb` (variante ~480w generada por el CDN).
+ * Devuelve either `/cdn/files/<id>/thumb` o `/cdn2/files/<id>/thumb`,
+ * dependiendo del prefijo de la imagen original.
  * Si la imagen no es del CDN (Pinterest, GIPHY…) o no se puede extraer el
  * ID, devuelve la URL original. El endpoint de thumb hace fallback al
  * archivo completo cuando la variante no existe (uploads legacy), así que
@@ -580,5 +622,6 @@ export function getCdnThumbUrl(url) {
   const normalized = getCdnUrl(url);
   const fileId = getFileIdFromUrl(normalized);
   if (!fileId || !isCdnUrl(normalized)) return normalized;
-  return `/cdn/files/${fileId}/thumb`;
+  const prefix = normalized.startsWith('/cdn2/') ? '/cdn2/' : '/cdn/';
+  return `${prefix}files/${fileId}/thumb`;
 }
