@@ -1334,10 +1334,10 @@ export function getCachedBubbleColors(userId) {
 /**
  * Normaliza la URL de fondo. Acepta:
  *  - http(s) absoluta (imagen externa pegada por el usuario)
- *  - ruta del CDN propio (`/cdn/files/xxx`), que es lo que devuelve
- *    cdnService.uploadImage: mismo origen, sin esquema. ⚠️ Sin esta rama,
- *    `new URL('/cdn/files/x')` lanza y el fondo recién subido se BORRARÍA en
- *    vez de guardarse.
+ *  - ruta del CDN propio (`/cdn/files/xxx` o `/cdn2/files/xxx`), que es lo que
+ *    devuelve cdnService.uploadImage: mismo origen, sin esquema. ⚠️ Sin esta
+ *    rama, `new URL('/cdn/files/x')` lanza y el fondo recién subido se
+ *    BORRARÍA en vez de guardarse.
  * Rechaza `//host` (protocol-relative, se saltaría el https del sitio) y
  * cualquier otro esquema (javascript:, data:…). Devuelve null si no vale.
  */

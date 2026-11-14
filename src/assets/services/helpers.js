@@ -2,7 +2,7 @@
 export const DEFAULT_AVATAR =
   'https://i.pinimg.com/736x/ac/13/74/ac137456b996efec340292a585eb6dc7.jpg';
 
-export const IMG_RE = /\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$|\/cdn\/files\//i;
+export const IMG_RE = /\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$|\/(?:cdn|cdn2)\/files\//i;
 export const VID_RE = /\.(mp4|webm|ogg)(\?.*)?$/i;
 export const VID_RE_EXTENDED = /\.(mp4|webm|ogg|mov|avi|mkv)(\?.*)?$/i;
 
@@ -94,8 +94,8 @@ export function getContrastText(hex) {
 export function extractUrls(text) {
   if (!text) return [];
   const matches = text.match(URL_PATTERN) || [];
-  // También extraer rutas relativas del CDN: /cdn/files/xxx
-  const cdnMatches = text.match(/\/cdn\/files\/[^\s<]+/gi) || [];
+  // También extraer rutas relativas del CDN propio: /cdn/files/xxx y /cdn2/files/xxx
+  const cdnMatches = text.match(/\/(?:cdn|cdn2)\/files\/[^\s<]+/gi) || [];
   // Combinar y deduplicar
   const all = [...matches];
   for (const cdn of cdnMatches) {
