@@ -25,6 +25,10 @@ export default defineConfig({
         target: process.env.CDN_TARGET || 'http://api.foranly.cloud:24587',
         changeOrigin: true,
       },
+      '/cdn2': {
+        target: process.env.CDN2_TARGET || 'http://api2.foranly.cloud:24633',
+        changeOrigin: true,
+      },
       // ⚠️ /api/music* y /api/music-search NO se proxian: los sirve
       // musicDevApiPlugin (abajo) con la misma lógica que producción
       // (api/music/*.js + api/_music.js). Antes se proxiavan a server.js

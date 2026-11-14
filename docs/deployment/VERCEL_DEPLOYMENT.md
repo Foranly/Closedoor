@@ -76,7 +76,8 @@ toda la protección. El detalle está en
 | `/post/:id` | `/api/og-post` |
 | `/api/image-proxy` | host propio del CDN (`mapi.foranly.space:24633`) |
 | `/api/music/(.*)` | host propio de música (`mapi.foranly.space:24633`) |
-| `/cdn/(.*)` | servidor CDN de archivos (`api.foranly.cloud:24587`) |
+| `/cdn/(.*)` | servidor CDN de archivos primario (`api.foranly.cloud:24587`) |
+| `/cdn2/(.*)` | servidor CDN de archivos secundario (`api2.foranly.cloud:24633`) |
 | `/(.*)` | `/index.html` (SPA, React Router) |
 
 ---
@@ -110,7 +111,7 @@ solo leen HTML, así que no hay CORS de por medio.
 | Las OG tags salen genéricas | Variables de Supabase ausentes en Vercel, o el perfil no existe (cae al fallback) |
 | El sitemap está vacío | `VITE_SUPABASE_URL` / `ANON_KEY` no llegan a la función |
 | 504 en `/api/music/*` | El host propio de música no responde (ver [MUSIC_STREAMING.md](./MUSIC_STREAMING.md)) |
-| Las imágenes del CDN no cargan | El host de `cdn-server` está caído (rewrite `/cdn/*`) |
+| Las imágenes del CDN no cargan | El host de `cdn-server` está caído (rewrites `/cdn/*` y `/cdn2/*`) |
 
 ---
 

@@ -18,6 +18,12 @@ import (
 
 const maxUploadSize = 20 << 20 // 20MB
 
+// Prefijos de path que puede servir el CDN server.
+const (
+	cdnAssetPrefix    = "cdn"
+	cdnAltAssetPrefix = "cdn2"
+)
+
 type uploadResponse struct {
 	Success bool   `json:"success"`
 	URL     string `json:"url"`
@@ -138,7 +144,8 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	if r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https" {
 		scheme = "http"
 	}
-	publicURL := fmt.Sprintf("%s://%s/cdn/files/%s", scheme, baseURL, fileID)
+	assetPrefix := assetPrefix(r)
+	publicURL := fmt.Sprintf("%s://%s/%s/files/%s", scheme, baseURL, assetPrefix, fileID)
 
 	// ── Store in database ──
 	imgRecord := store.ImageRecord{
@@ -171,5 +178,18 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		Height:  result.Height,
 		SizeKB:  result.SizeBytes / 1024,
 	})
+}
+
+// assetPrefix devuelve el prefijo de path usado en la petición actual.
+// Reconoce /cdn y /cdn2 y devuelve el prefijo coherente con la ruta.
+func assetPrefix(r *http.Request) string {
+	if r == nil {
+		return cdnAssetPrefix
+	}
+	p := r.URL.Path
+	if strings.HasPrefix(p, "/"+cdnAltAssetPrefix+"/") || strings.HasPrefix(p, "/"+cdnAltAssetPrefix) {
+		return cdnAltAssetPrefix
+	}
+	return cdnAssetPrefix
 }
 

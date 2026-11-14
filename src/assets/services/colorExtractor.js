@@ -110,8 +110,8 @@ async function fetchImageAsBlob(url, timeoutMs = 8000) {
  * Generate a proxied URL via wsrv.nl — resizes image + adds CORS headers
  *
  * IMPORTANT: wsrv.nl requires a full absolute URL (with protocol + hostname).
- * If the URL is relative (e.g. "/cdn/files/xxx"), we prepend the current
- * window.location.origin so the proxy can fetch it correctly.
+ * If the URL is relative (e.g. "/cdn/files/xxx" or "/cdn2/files/xxx"), we
+ * prepend the current window.location.origin so the proxy can fetch it correctly.
  */
 function proxyViaWsrv(originalUrl) {
   let absoluteUrl = originalUrl;
