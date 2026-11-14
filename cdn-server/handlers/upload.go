@@ -192,4 +192,3 @@ func assetPrefix(r *http.Request) string {
 	}
 	return cdnAssetPrefix
 }
-
