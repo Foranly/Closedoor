@@ -21,21 +21,14 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/cdn': {
-        target: process.env.CDN_TARGET || 'http://api.foranly.cloud:24587',
-        changeOrigin: true,
-      },
-      '/cdn2': {
+      '^/cdn2(/|$)': {
         target: process.env.CDN2_TARGET || 'http://api2.foranly.cloud:24633',
         changeOrigin: true,
       },
-      // ⚠️ /api/music* y /api/music-search NO se proxian: los sirve
-      // musicDevApiPlugin (abajo) con la misma lógica que producción
-      // (api/music/*.js + api/_music.js). Antes se proxiavan a server.js
-      // (:3000) y, sin `npm start`, devolvían 502 → la card caía siempre al
-      // preview de 30 s.
-      // Proxy de imágenes CORS (wallhaven, etc. bloquean el fetch del navegador):
-      // el server baja la imagen y la devuelve con CORS *, igual que en Vercel.
+      '^/cdn(/|$)': {
+        target: process.env.CDN_TARGET || 'http://api.foranly.cloud:24587',
+        changeOrigin: true,
+      },
       '/api/image-proxy': {
         target: 'http://mapi.foranly.space:24633',
         changeOrigin: true,

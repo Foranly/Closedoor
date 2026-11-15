@@ -34,7 +34,7 @@ const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, session, shell } =
 const activity = require('./activity');
 
 // ── Configuración (todo por env, con valores por defecto de producción) ──
-const WEB_URL = process.env.FORANLY_WEB_URL || 'https://app.foranly.space';
+const WEB_URL = process.env.FORANLY_WEB_URL || 'https://app.foranly.cloud';
 // Alto de la barra de título personalizada (la web reserva este espacio con
 // `--fc-titlebar-h`; el valor viaja en bridgeInfo para no desincronizar CSS y JS).
 const TITLEBAR_HEIGHT = Number(process.env.FORANLY_TITLEBAR_HEIGHT || 40);

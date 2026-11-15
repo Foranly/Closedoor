@@ -1014,6 +1014,18 @@ func verifyJWT(token string) (string, error) {
 	return sub, nil
 }
 
+// drainBody consume y descarta el cuerpo pendiente antes de responder un
+// rechazo temprano. Sin esto, cuando el cliente sigue enviando una subida y el
+// servidor responde sin leer el body, Go cierra la conexión a media escritura y
+// los proxies que streamean el body (Vite en dev, nginx) ven un EPIPE en vez de
+// la respuesta — en dev eso aparece como 502 en /cdn2/upload.
+func drainBody(r *http.Request) {
+	if r.Body == nil {
+		return
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(r.Body, maxUploadSize))
+}
+
 // requireAuth protege los endpoints de escritura (upload/delete) y aplica un
 // rate limit POR USUARIO (además del por IP, que corre antes en la cadena).
 func requireAuth(userLimiter *rateLimiter, next http.HandlerFunc) http.HandlerFunc {
@@ -1023,6 +1035,7 @@ func requireAuth(userLimiter *rateLimiter, next http.HandlerFunc) http.HandlerFu
 			return
 		}
 		if !authConfigured() {
+			drainBody(r)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "server_not_configured"})
@@ -1030,6 +1043,7 @@ func requireAuth(userLimiter *rateLimiter, next http.HandlerFunc) http.HandlerFu
 		}
 		token := bearerToken(r.Header.Get("Authorization"))
 		if token == "" {
+			drainBody(r)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "auth_required"})
@@ -1038,6 +1052,7 @@ func requireAuth(userLimiter *rateLimiter, next http.HandlerFunc) http.HandlerFu
 		sub, err := verifyJWT(token)
 		if err != nil {
 			log.Printf("[WARN] Rechazado (auth): %v", err)
+			drainBody(r)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			// El reason es la misma info que ya se loguea; sirve para que el
@@ -1048,6 +1063,7 @@ func requireAuth(userLimiter *rateLimiter, next http.HandlerFunc) http.HandlerFu
 		// Rate limit por usuario (el por IP ya se consumió en rateLimit)
 		if userLimiter != nil {
 			if ok, retry := userLimiter.Allow(sub); !ok {
+				drainBody(r)
 				w.Header().Set("Content-Type", "application/json")
 				w.Header().Set("Retry-After", strconv.Itoa(retry))
 				w.WriteHeader(http.StatusTooManyRequests)
@@ -1147,6 +1163,7 @@ func rateLimit(rl *rateLimiter) func(http.HandlerFunc) http.HandlerFunc {
 				key += "|" + sub
 			}
 			if ok, retry := rl.Allow(key); !ok {
+				drainBody(r)
 				w.Header().Set("Content-Type", "application/json")
 				w.Header().Set("Retry-After", strconv.Itoa(retry))
 				w.WriteHeader(http.StatusTooManyRequests)
