@@ -1,11 +1,11 @@
 {
   "name": "closedoor-desktop",
   "productName": "Closedoor",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/Frantt21/Closedoor.git"
+    "url": "https://github.com/Foranly/Closedoor.git"
   },
   "description": "App de escritorio de Closedoor: la misma web, con las canciones completas del perfil (servidor de música local en 127.0.0.1)",
   "homepage": "https://app.foranly.cloud",
@@ -29,7 +29,11 @@
     "appId": "space.foranly.desktop",
     "productName": "Closedoor",
     "executableName": "Closedoor",
-    "publish": null,
+    "publish": {
+      "provider": "github",
+      "owner": "Foranly",
+      "repo": "Closedoor"
+    },
     "directories": {
       "output": "dist"
     },
@@ -89,5 +93,8 @@
       "syncDesktopName": true,
       "artifactName": "Closedoor-${version}-${arch}.${ext}"
     }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
   }
 }

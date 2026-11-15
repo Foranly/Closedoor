@@ -2,18 +2,18 @@
  * desktopApp.js (datos) — versión y enlaces de descarga de la app de escritorio.
  */
 
-export const DESKTOP_VERSION = '0.1.3';
+export const DESKTOP_VERSION = '0.1.4';
 
 /** Tag del Release que contiene los instaladores. */
 export const DESKTOP_RELEASE_TAG = `v${DESKTOP_VERSION}`;
 
 /** Página del Release (fallback si un asset concreto no existe). */
 export const DESKTOP_RELEASE_URL =
-  `https://github.com/Frantt21/Closedoor/releases/tag/${DESKTOP_RELEASE_TAG}`;
+  `https://github.com/Foranly/Closedoor/releases/tag/${DESKTOP_RELEASE_TAG}`;
 
 /** Base de descarga directa de los assets del Release. */
 export const DESKTOP_DOWNLOAD_BASE =
-  `https://github.com/Frantt21/Closedoor/releases/download/${DESKTOP_RELEASE_TAG}`;
+  `https://github.com/Foranly/Closedoor/releases/download/${DESKTOP_RELEASE_TAG}`;
 
 /** Ruta de la página de descargas (a la que apunta el aviso del reproductor). */
 export const DESKTOP_DOWNLOAD_PATH = '/download';
