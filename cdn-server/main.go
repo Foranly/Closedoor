@@ -43,8 +43,8 @@ const (
 	// Prefijos de path que este servidor puede servir.
 	// Por defecto usa "cdn", y si CDN2_PREFIX está configurado también escucha
 	// ese prefijo (p. ej. "cdn2") y devuelve URLs con él.
-	cdnAssetPrefix      = "cdn"
-	cdnAltAssetPrefix   = "cdn2"
+	cdnAssetPrefix    = "cdn"
+	cdnAltAssetPrefix = "cdn2"
 )
 
 // Límites de subida por tipo. El cliente (cdnService) aplica los mismos antes
@@ -529,7 +529,7 @@ func handleUpload(idx *ImageIndex) http.HandlerFunc {
 			scheme = "http"
 		}
 		assetPrefix := assetPrefix(r)
-	publicURL := fmt.Sprintf("%s://%s/%s/files/%s", scheme, baseURL, assetPrefix, fileID)
+		publicURL := fmt.Sprintf("%s://%s/%s/files/%s", scheme, baseURL, assetPrefix, fileID)
 
 		img := ImageRecord{
 			ID:            fileID,
@@ -1197,6 +1197,11 @@ func authMode() string {
 // parseECPublicKeyPEM: PEM con clave pública EC (formato PUBLIC KEY / PKIX o
 // CERTIFICATE) → *ecdsa.PublicKey.
 func parseECPublicKeyPEM(pemStr string) (*ecdsa.PublicKey, error) {
+	// En un .env o en el panel la clave llega en una sola línea con "\n"
+	// literales; pem.Decode exige saltos reales.
+	if !strings.Contains(pemStr, "\n") && strings.Contains(pemStr, `\n`) {
+		pemStr = strings.ReplaceAll(pemStr, `\n`, "\n")
+	}
 	block, _ := pem.Decode([]byte(pemStr))
 	if block == nil {
 		return nil, errors.New("PEM inválido")
@@ -1282,8 +1287,20 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Println("[INFO] FastChange CDN Server starting...")
 
+	// .env del directorio de trabajo: el binario no lo leía, así que editar
+	// PORT ahí no tenía efecto y el servidor seguía usando el default.
+	fromEnvFile := loadDotEnv(".env")
+
 	port := getEnv("PORT", "24587")
 	uploadDir := getEnv("UPLOAD_DIR", "uploads")
+	switch {
+	case os.Getenv("PORT") == "":
+		log.Printf("[INFO] Puerto resuelto: %s (default: PORT no está en el entorno ni en .env)", port)
+	case fromEnvFile["PORT"]:
+		log.Printf("[INFO] Puerto resuelto: %s (desde .env)", port)
+	default:
+		log.Printf("[INFO] Puerto resuelto: %s (variable PORT del entorno)", port)
+	}
 
 	// ── Seguridad: config ──
 	jwtSecret = os.Getenv("SUPABASE_JWT_SECRET")
@@ -1406,6 +1423,47 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("[ERROR] Server error: %v", err)
 	}
+}
+
+// loadDotEnv carga KEY=VALUE desde un archivo .env sin sobreescribir variables
+// que ya existan en el entorno del proceso (systemd, docker, shell). Devuelve
+// las claves que aplicó para poder reportar de dónde salió cada valor.
+func loadDotEnv(path string) map[string]bool {
+	applied := make(map[string]bool)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Printf("[WARN] No se pudo leer %s: %v (se usan solo variables del entorno)", path, err)
+		return applied
+	}
+	// Quitar BOM: si el .env se guardó desde el editor del panel o Notepad, la
+	// primera clave sería "\ufeffPORT" y no se aplicaría nunca.
+	content := strings.TrimPrefix(string(data), "\ufeff")
+	loaded := 0
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.TrimPrefix(line, "export ")
+		key, val, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		val = strings.Trim(strings.TrimSpace(val), `"'`)
+		if key == "" {
+			continue
+		}
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+		if os.Setenv(key, val) == nil {
+			applied[key] = true
+			loaded++
+		}
+	}
+	log.Printf("[INFO] .env cargado: %d variables nuevas", loaded)
+	return applied
 }
 
 func getEnv(key, fallback string) string {
