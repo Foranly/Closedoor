@@ -262,6 +262,9 @@ async function setCachedUpload(userId, type, file, result) {
  *   const realUrl = await realUrlPromise;  // wait for CDN in background
  *   setPreview(realUrl);            // swap with real URL
  */
+// Margen antes de liberar el blob:// del preview (ver releaseLocalUrl).
+const LOCAL_PREVIEW_TTL_MS = 5 * 60 * 1000;
+
 export function uploadWithLocalPreview(file, userId, type) {
   // Create local object URL instantly for preview
   const localUrl = URL.createObjectURL(file);
@@ -273,17 +276,22 @@ export function uploadWithLocalPreview(file, userId, type) {
   const realResultPromise = resultPromise;
 
   // Start CDN upload in background
+  // ⚠️ El blob NO se revoca al terminar la subida: React todavía tiene que
+  // commitear el estado con la URL real, y con uploads cacheados (o con el CDN
+  // rápido) la promesa resuelve antes de que el <img> haya cargado el blob.
+  // Revocar ahí provocaba "Not allowed to load local resource: blob:…" y el
+  // fallback de SafeImage. Se libera con margen de sobra.
+  const releaseLocalUrl = () => setTimeout(() => URL.revokeObjectURL(localUrl), LOCAL_PREVIEW_TTL_MS);
+
   const realUrlPromise = resultPromise
     .then(result => {
-      // ⚠️ Delayed cleanup: esperar a que React commitée la URL real
-      // antes de revocar el blob URL, para evitar ERR_FILE_NOT_FOUND
-      // en <img> que todavía apuntan al blob.
-      requestAnimationFrame(() => URL.revokeObjectURL(localUrl));
+      releaseLocalUrl();
       return result.url;
     })
     .catch(err => {
-      // Clean up on error: el blob ya no sirve
-      URL.revokeObjectURL(localUrl);
+      // Igual en error: la UI puede seguir mostrando el preview mientras
+      // gestiona el fallo, así que se libera con el mismo margen.
+      releaseLocalUrl();
       throw err;
     });
 
