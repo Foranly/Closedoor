@@ -28,7 +28,7 @@
 
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeImage, session, shell } = require('electron');
 // Detección de actividad local (Spotify, vídeo, juegos): vive en el proceso
 // principal porque solo ahí se puede leer el sistema (ver desktop/activity.js).
 const activity = require('./activity');
@@ -83,6 +83,8 @@ let isQuitting = false;
 let ownMusicServer = null;
 /** Resultado del arranque: la web decide con esto si puede pedir canción completa. */
 let musicReady = false;
+/** Timer del chequeo periódico de actualizaciones (null si no está activo). */
+let updateTimer = null;
 const DEBUG = process.env.FORANLY_DEBUG === '1';
 
 /** Ruta del módulo del servidor de música: repo en dev, extraResources al empaquetar. */
@@ -296,6 +298,75 @@ function createTray() {
   console.log('[desktop] icono de bandeja listo (cerrar la ventana deja la app en segundo plano)');
 }
 
+// ── Auto-update (electron-updater) ──
+// La app carga la web publicada, así que casi todo llega sin recompilar; lo que
+// NO puede cambiar en caliente es el wrapper: la URL que carga, el servidor de
+// música local o el puente IPC. Para eso está el updater: mira el Release de
+// GitHub, descarga el instalador en segundo plano y lo aplica al reiniciar.
+//
+// LÍMITES CONOCIDOS (salen del tipo de build, no del código):
+//   · macOS sin firmar: Squirrel.Mac exige firma válida, el update fallará.
+//   · Linux .deb: no hay auto-update (solo AppImage, que sí lo soporta).
+//   · Windows NSIS sin firmar: funciona, pero SmartScreen avisa al instalar.
+const UPDATE_CHECK_DELAY_MS = 20 * 1000; // deja terminar el arranque primero
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // cada 6 h
+
+function setupAutoUpdates() {
+  // En dev no hay app empaquetada ni feed: electron-updater solo daría errores.
+  if (!app.isPackaged) {
+    console.log('[desktop] dev: auto-update desactivado (solo en la app empaquetada)');
+    return;
+  }
+
+  let autoUpdater;
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+  } catch (err) {
+    console.warn('[desktop] electron-updater no disponible:', err?.message || err);
+    return;
+  }
+
+  // Descarga sola y aplica al salir aunque el usuario diga "más tarde" (así una
+  // actualización descargada nunca se queda a medias para siempre).
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('error', (err) => {
+    console.warn('[desktop] auto-update:', err?.message || err);
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    console.log(`[desktop] sin actualizaciones (${APP_VERSION} es la última)`);
+  });
+
+  autoUpdater.on('update-downloaded', async (info) => {
+    console.log(`[desktop] actualización descargada: ${info?.version || '?'}`);
+    try {
+      const { response } = await dialog.showMessageBox({
+        type: 'info',
+        title: 'Actualización lista',
+        message: `Closedoor ${info?.version || ''} ya está descargada.`,
+        detail: 'Reinicia para aplicarla. Si prefieres seguir trabajando, se instalará sola al cerrar la app.',
+        buttons: ['Reiniciar ahora', 'Más tarde'],
+        defaultId: 0,
+        cancelId: 1,
+        noLink: true,
+      });
+      if (response === 0) autoUpdater.quitAndInstall(false, true);
+    } catch (err) {
+      console.warn('[desktop] no se pudo mostrar el aviso de actualización:', err?.message || err);
+    }
+  });
+
+  const check = () => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.warn('[desktop] no se pudo comprobar actualizaciones:', err?.message || err);
+    });
+  };
+  setTimeout(check, UPDATE_CHECK_DELAY_MS);
+  updateTimer = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+}
+
 function openExternal(url) {
   // Solo http(s): nunca file:// ni esquemas raros desde contenido remoto.
   if (/^https?:\/\//i.test(url)) shell.openExternal(url).catch(() => {});
@@ -435,6 +506,7 @@ if (!app.requestSingleInstanceLock()) {
     await startLocalMusicServer();
     createWindow();
     createTray();
+    setupAutoUpdates();
 
     // Actividad local: sondeo cada 10 s y aviso a la ventana SOLO cuando cambia.
     // Si el usuario cierra la ventana a la bandeja, el watcher sigue vivo (el
@@ -458,6 +530,10 @@ if (!app.requestSingleInstanceLock()) {
   // handler de 'close' deja pasar el cierre en vez de ocultar.
   app.on('before-quit', () => {
     isQuitting = true;
+    if (updateTimer) {
+      clearInterval(updateTimer);
+      updateTimer = null;
+    }
     activity.stopActivityWatcher();
     if (tray) {
       tray.destroy();

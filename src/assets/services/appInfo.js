@@ -18,7 +18,7 @@
 import { getDesktopBridge } from './desktopApp';
 
 /** Repo del que se leen las releases de la app de escritorio. */
-const RELEASES_REPO = 'Frantt21/Closedoor';
+const RELEASES_REPO = 'Foranly/Closedoor';
 const LATEST_RELEASE_URL = `https://api.github.com/repos/${RELEASES_REPO}/releases/latest`;
 
 const VERSION_URL = '/version.json';
