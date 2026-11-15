@@ -10,6 +10,10 @@ name: Desktop Release
 # `src/assets/data/desktopApp.js` (`DESKTOP_VERSION`): el job `release` comprueba
 # que el tag coincida con `desktop/package.json` y que existan los 5 assets con
 # los nombres exactos que espera la página /download.
+#
+# Además de los instaladores se publican `latest.yml`, `latest-mac.yml` y
+# `latest-linux.yml` (más los `.blockmap`): son el feed que consulta
+# electron-updater en la app instalada para autoactualizarse.
 
 on:
   push:
@@ -57,7 +61,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: desktop/dist/*.exe
+          # latest.yml lo lee electron-updater para saber si hay versión nueva.
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/latest.yml
+            desktop/dist/*.blockmap
           if-no-files-found: error
 
   build-macos:
@@ -86,7 +94,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-installers
-          path: desktop/dist/*.dmg
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/latest-mac.yml
+            desktop/dist/*.blockmap
           if-no-files-found: error
 
   build-linux:
@@ -118,6 +129,8 @@ jobs:
           path: |
             desktop/dist/*.AppImage
             desktop/dist/*.deb
+            desktop/dist/latest-linux.yml
+            desktop/dist/*.blockmap
           if-no-files-found: error
 
   release:
