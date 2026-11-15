@@ -1197,6 +1197,11 @@ func authMode() string {
 // parseECPublicKeyPEM: PEM con clave pública EC (formato PUBLIC KEY / PKIX o
 // CERTIFICATE) → *ecdsa.PublicKey.
 func parseECPublicKeyPEM(pemStr string) (*ecdsa.PublicKey, error) {
+	// En un .env o en el panel la clave llega en una sola línea con "\n"
+	// literales; pem.Decode exige saltos reales.
+	if !strings.Contains(pemStr, "\n") && strings.Contains(pemStr, `\n`) {
+		pemStr = strings.ReplaceAll(pemStr, `\n`, "\n")
+	}
 	block, _ := pem.Decode([]byte(pemStr))
 	if block == nil {
 		return nil, errors.New("PEM inválido")
@@ -1427,10 +1432,14 @@ func loadDotEnv(path string) map[string]bool {
 	applied := make(map[string]bool)
 	data, err := os.ReadFile(path)
 	if err != nil {
+		log.Printf("[WARN] No se pudo leer %s: %v (se usan solo variables del entorno)", path, err)
 		return applied
 	}
+	// Quitar BOM: si el .env se guardó desde el editor del panel o Notepad, la
+	// primera clave sería "\ufeffPORT" y no se aplicaría nunca.
+	content := strings.TrimPrefix(string(data), "\ufeff")
 	loaded := 0
-	for _, line := range strings.Split(string(data), "\n") {
+	for _, line := range strings.Split(content, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue

@@ -33,12 +33,18 @@ esac
 echo "🔍 Architecture detected: $ARCH → Go arch: $GO_ARCH"
 
 # ── Step 1: Ensure Go is available ──
-if [ -f "$GO_BIN" ]; then
-    echo "[INFO] Go found locally: $GO_BIN"
+# No basta con que el binario exista: si el .go preinstalado es de otra
+# arquitectura (p. ej. arm64 copiado a un contenedor amd64) no ejecuta.
+if [ -f "$GO_BIN" ] && "$GO_BIN" version >/dev/null 2>&1; then
+    echo "[INFO] Go found locally: $GO_BIN ($("$GO_BIN" version))"
 elif command -v go &>/dev/null; then
-    echo "[INFO] Go found in PATH: $(which go)"
+    echo "[INFO] Go found in PATH: $(which go) ($(go version))"
     GO_BIN="go"
 else
+    if [ -f "$GO_BIN" ]; then
+        echo "[WARN] $GO_BIN existe pero no se puede ejecutar (arquitectura distinta); se descarga de nuevo"
+        rm -rf "$GO_DIR"
+    fi
     echo "📥 Downloading Go for Linux/$GO_ARCH..."
     GO_VERSION="1.22.5"
     TARBALL="go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
@@ -82,7 +88,7 @@ else
     tar -xzf "$TMP_TAR" -C "$PROJECT_DIR/.go" --strip-components=1
     rm -f "$TMP_TAR"
     GO_BIN="$GO_DIR/bin/go"
-    echo "[INFO] Go installed: $($GO_BIN version)"
+    echo "[INFO] Go installed: $("$GO_BIN" version)"
 fi
 
 # ── Step 2: Export Go environment ──
@@ -94,7 +100,13 @@ fi
 # ── Step 3: Compile the CDN server ──
 echo "[INFO] Compiling CDN server..."
 cd "$PROJECT_DIR"
-go build -o "$APP_BIN" -ldflags="-s -w" main.go
+if ! go build -o "$APP_BIN" -ldflags="-s -w" main.go; then
+    echo "[ERROR] La compilación falló. No se arranca el binario anterior;"
+    echo "        revisa go.mod/go.sum y la versión de Go de arriba."
+    exit 1
+fi
+# El binario subido por SFTP suele llegar sin bit de ejecución (exit 126).
+chmod +x "$APP_BIN" 2>/dev/null || true
 echo "[INFO] Compiled successfully: $APP_BIN ($(du -h "$APP_BIN" | cut -f1))"
 
 # ── Step 4: Clean up Go installation to save disk space (optional) ──
