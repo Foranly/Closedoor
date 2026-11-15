@@ -11,7 +11,7 @@ import { buildSitemapUrls, wrapSitemapXml } from './_sitemap.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
-const SITE_URL = process.env.VITE_SITE_URL || 'https://app.foranly.space';
+const SITE_URL = process.env.VITE_SITE_URL || 'https://app.foranly.cloud';
 
 // ── Cache in-memory across invocations (Vercel keeps warm) ──
 let cachedXml = null;

@@ -96,7 +96,7 @@ function sendOG(req, res, postId, og) {
     const htmlPath = join(process.cwd(), 'dist', 'index.html');
     const html = readFileSync(htmlPath, 'utf-8');
 
-    const host = req.headers.host || 'app.foranly.space';
+    const host = req.headers.host || 'app.foranly.cloud';
     const postUrl = `https://${host}/Post/${postId}`;
 
     const metaTags = `
