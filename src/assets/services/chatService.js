@@ -6,6 +6,100 @@ import { sanitizeContent, detectMediaFromContent } from './helpers';
 // ── Conversation ──
 
 /**
+ * Texto que se guarda como vista previa del último mensaje
+ * (`conversations.last_message_text`, lo que pinta el historial).
+ *
+ * Nunca devuelve una URL: los mensajes que no son texto puro (video, imagen,
+ * GIF, post/canción/comunidad compartidos) se resuelven con una etiqueta corta,
+ * igual que en el resto de la UI. Sin esto, un mensaje con una imagen guardaba
+ * la URL del CDN como preview.
+ */
+export function buildConversationPreview({
+  content = '',
+  sharedPostId = null,
+  sharedCommunityId = null,
+  sharedInviteToken = null,
+  sharedSong = null,
+} = {}) {
+  if (sharedPostId) return '📌 Shared a post';
+  if (sharedCommunityId || sharedInviteToken) return '🏘️ Community invite';
+  if (sharedSong) return '🎵 Shared a song';
+
+  const text = String(content || '').trim();
+  const { imageUrl, videoUrl } = detectMediaFromContent(text);
+  if (videoUrl) return '🎬 Video';
+  if (imageUrl) return /(\.gif)(\?|$)|(giphy|tenor|klipy)\.com/i.test(text) ? '🎞️ GIF' : '🖼️ Image';
+  return text.length > 80 ? `${text.slice(0, 80)}...` : text;
+}
+
+/**
+ * ¿La vista previa guardada es en realidad ciphertext?
+ *
+ * La migración 099 recalculó `last_message_text` con
+ * `substring(ciphertext for 24)` en las conversaciones directas, así que el
+ * historial enseña base64 en vez del texto o de "Video"/"Image".
+ */
+export function looksLikeCiphertextPreview(text) {
+  if (typeof text !== 'string') return false;
+  const value = text.trim();
+  if (value.length < 16 || value.length > 120) return false;
+  if (/\s/.test(value)) return false;
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(value)) return false;
+  // El ciphertext real mezcla mayúsculas, minúsculas y dígitos o relleno.
+  return /[A-Z]/.test(value) && /[a-z]/.test(value) && (/[0-9]/.test(value) || /=/.test(value));
+}
+
+/**
+ * Repara las vistas previas corruptas de la lista de conversaciones.
+ *
+ * Descifra el ÚLTIMO mensaje de cada conversación afectada y vuelve a derivar
+ * su preview (texto o etiqueta de media). Una migración SQL no puede hacerlo:
+ * el contenido solo existe cifrado en la DB. Persiste el resultado para no
+ * repetir el trabajo en la siguiente carga.
+ *
+ * Muta cada conversación afectada y devuelve el mismo array.
+ */
+async function repairCiphertextPreviews(userId, convResults) {
+  const broken = convResults.filter((c) => looksLikeCiphertextPreview(c.last_message_text));
+  if (broken.length === 0) return convResults;
+
+  await Promise.all(broken.map(async (conv) => {
+    try {
+      const { data: rows } = await supabase
+        .from('messages')
+        .select('id, ciphertext, iv, sender_id, created_at, removed_by, encrypted_for, shared_post_id, shared_community_id, shared_song, shared_invite_token')
+        .eq('conversation_id', conv.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const msg = rows && rows[0];
+      // Mensaje retirado o hilo vacío: no hay texto que derivar, se deja como está.
+      if (!msg || msg.removed_by) return;
+
+      const content = await decryptMessage(msg, userId);
+      const preview = buildConversationPreview({
+        content: content || '',
+        sharedPostId: msg.shared_post_id,
+        sharedCommunityId: msg.shared_community_id,
+        sharedInviteToken: msg.shared_invite_token,
+        sharedSong: msg.shared_song,
+      });
+      if (!preview) return;
+
+      conv.last_message_text = preview;
+      await supabase
+        .from('conversations')
+        .update({ last_message_text: preview })
+        .eq('id', conv.id);
+    } catch (err) {
+      console.warn('[Chat] No se pudo reparar la vista previa:', err?.message || err);
+    }
+  }));
+
+  return convResults;
+}
+
+/**
  * Get or create a conversation between current user and another user
  */
 export async function getOrCreateConversation(currentUserId, otherUserId) {
@@ -348,6 +442,28 @@ export async function getConversations(userId) {
     return new Date(b.updated_at) - new Date(a.updated_at);
   });
 
+  // Fondo de chat PRIVADO del usuario (chat_background_settings, migración 078):
+  // se adjunta a la conversación para que el fondo sobreviva a cerrar y reabrir
+  // el chat, a un remontaje de la página o a una recarga, sin depender de un mapa
+  // cargado una sola vez. En grupos manda `chat_background_url` (compartido).
+  try {
+    const { data: bgRows } = await supabase
+      .from('chat_background_settings')
+      .select('conversation_id, image_url')
+      .eq('user_id', userId);
+    const bgMap = {};
+    for (const row of bgRows || []) {
+      if (row?.conversation_id && row?.image_url) bgMap[row.conversation_id] = row.image_url;
+    }
+    for (const conv of resolved) conv.myBackgroundUrl = bgMap[conv.id] || '';
+  } catch (err) {
+    console.warn('[Chat] Error fetching chat backgrounds:', err?.message || err);
+  }
+
+  // Vistas previas que quedaron con el ciphertext de la migración 099: se
+  // re-derivan descifrando el último mensaje (y se persisten corregidas).
+  await repairCiphertextPreviews(userId, resolved);
+
   return resolved;
 }
 
@@ -552,16 +668,13 @@ export async function sendMessage(conversationId, senderId, content, participant
   const data = { ...msg, profiles: senderProfile };
 
   // Update conversation last_message_text with obfuscated preview
-  const videoPreview = detectMediaFromContent(cleanContent).videoUrl;
-  const obfuscatedPreview = sharedPostId
-    ? '📌 Shared a post'
-    : sharedCommunityId
-    ? '🏘️ Community invite'
-    : cleanSharedSong
-    ? '🎵 Shared a song'
-    : videoPreview
-    ? '🎬 Video'
-    : (cleanContent.length > 80 ? cleanContent.slice(0, 80) + '...' : cleanContent);
+  const obfuscatedPreview = buildConversationPreview({
+    content: cleanContent,
+    sharedPostId,
+    sharedCommunityId,
+    sharedInviteToken,
+    sharedSong: cleanSharedSong,
+  });
   await supabase
     .from('conversations')
     .update({ last_message_text: obfuscatedPreview })
@@ -923,27 +1036,6 @@ export async function addReaction(messageId, userId, emoji) {
 }
 
 /**
- * Delete a conversation for the current user only.
- * Removes the participant row so the conversation disappears from the user's list,
- * but the conversation and messages remain in the DB for the other participant.
- */
-export async function deleteConversation(conversationId, userId) {
-  if (!userId) {
-    throw new Error('User ID required to delete conversation');
-  }
-  const { error } = await supabase
-    .from('chat_participants')
-    .delete()
-    .eq('conversation_id', conversationId)
-    .eq('user_id', userId);
-
-  if (error) {
-    console.error('Error deleting conversation:', error);
-    throw error;
-  }
-}
-
-/**
  * Toggle pin status on a conversation (per-user).
  * Max 3 pinned conversations.
  * Returns the new pin state, or throws if limit reached.
@@ -982,7 +1074,8 @@ export async function togglePinConversation(conversationId, userId, currentlyPin
  * updated in real-time.
  *
  * The messages INSERT handler uses encrypted_for to filter only conversations
- * the user participates in, avoiding unnecessary loadConvs() calls.
+ * the user participates in, avoiding unnecessary loadConvs() calls. It calls
+ * `onUpdate({ newMessage })` so the caller knows which message arrived.
  */
 export function subscribeToConversations(userId, onUpdate) {
   return supabase
@@ -1007,7 +1100,9 @@ export function subscribeToConversations(userId, onUpdate) {
       async (payload) => {
         // Only trigger if this message is from a conversation the user participates in
         if (payload.new.encrypted_for?.includes(userId)) {
-          onUpdate();
+          // `newMessage` permite al llamador reaccionar al mensaje concreto
+          // (p. ej. volver a mostrar una conversación que estaba cerrada).
+          onUpdate({ newMessage: payload.new });
         }
       }
     )

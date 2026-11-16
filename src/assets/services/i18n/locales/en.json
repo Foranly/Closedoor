@@ -85,6 +85,7 @@
   "chat.call_mute": "Mute",
   "chat.call_unmute": "Unmute",
   "chat.calls_empty": "No calls yet",
+  "chat.close_conversation": "Close conversation",
   "chat.copied": "Copied to clipboard",
   "chat.copy": "Copy",
   "chat.delete_for_me": "Delete for me",

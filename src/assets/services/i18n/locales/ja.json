@@ -85,6 +85,7 @@
   "chat.call_mute": "ミュート",
   "chat.call_unmute": "ミュート解除",
   "chat.calls_empty": "通話履歴はまだありません",
+  "chat.close_conversation": "会話を閉じる",
   "chat.copied": "クリップボードにコピーしました",
   "chat.copy": "コピー",
   "chat.delete_for_me": "自分用に削除",
