@@ -811,9 +811,13 @@ const PostCard = React.memo(function PostCard({
 
   // Dimensiones guardadas al publicar: el reproductor reserva el hueco exacto
   // desde el primer render y el feed no salta al cargar los metadatos.
+  // Ratio de reserva para cards donde el post no guardó video_meta (p. ej.
+  // posts antiguos): la card reserva el hueco desde el primer paint y no salta
+  // cuando el <video> carga los metadatos (ver PostVideoPlayer `ratio`).
+  const DEFAULT_VIDEO_RATIO = 16 / 9;
   const videoRatio = post.video_meta?.width && post.video_meta?.height
     ? post.video_meta.width / post.video_meta.height
-    : 0;
+    : DEFAULT_VIDEO_RATIO;
 
   return (
     <article
