@@ -17,6 +17,7 @@ import {
   getBubbleColors,
   getCachedBubbleColors,
   cacheBubbleColors,
+  stripMarkdownForPreview,
 } from '../../services/chatService';
 import { getContrastFromHex } from '../../services/colorExtractor';
 import { detectMediaFromContent, getTimeAgo } from '../../services/helpers';
@@ -667,7 +668,7 @@ export default function FloatingChat() {
                           {getTimeAgo(t, locale, conv.last_message_at || conv.updated_at)}
                         </span>
                       </span>
-                      <span className="fc-item-preview">{conv.last_message_text || ''}</span>
+                      <span className="fc-item-preview">{stripMarkdownForPreview(conv.last_message_text) || ''}</span>
                     </div>
                     {conv.unreadCount > 0 && (
                       <span className="fc-item-unread">{conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>
