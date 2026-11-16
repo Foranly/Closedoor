@@ -85,6 +85,7 @@
   "chat.call_mute": "Выключить микрофон",
   "chat.call_unmute": "Включить микрофон",
   "chat.calls_empty": "Звонков пока нет",
+  "chat.close_conversation": "Закрыть беседу",
   "chat.copied": "Скопировано в буфер обмена",
   "chat.copy": "Копировать",
   "chat.delete_for_me": "Удалить для меня",
