@@ -6,6 +6,42 @@ import { sanitizeContent, detectMediaFromContent } from './helpers';
 // ── Conversation ──
 
 /**
+ * Quita la sintaxis markdown de un texto para usarlo como línea de preview.
+ *
+ * El historial es una sola línea: los `**`, `_`, `#`, `- ` o los enlaces
+ * `[texto](url)` se verían tal cual. NO es un parser: solo limpia los marcadores
+ * más habituales y deja el texto legible. Los mensajes con media ya se resuelven
+ * antes con una etiqueta (ver buildConversationPreview).
+ */
+export function stripMarkdownForPreview(text) {
+  let out = String(text || '');
+
+  // Bloques de código: se queda con su contenido.
+  out = out.replace(/```[\s\S]*?```/g, (block) =>
+    block.replace(/^```[\w-]*\n?/, '').replace(/```$/, ''));
+  // Imágenes y enlaces: solo el texto visible.
+  out = out.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');
+  out = out.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
+  // Marcadores de énfasis, tachado y código en línea.
+  out = out.replace(/(\*\*|__)(.+?)\1/g, '$2');
+  out = out.replace(/(\*|_)(.+?)\1/g, '$2');
+  out = out.replace(/~~(.+?)~~/g, '$1');
+  out = out.replace(/`([^`]*)`/g, '$1');
+  // Prefijos de bloque, línea a línea.
+  out = out
+    .split('\n')
+    .map((line) => line
+      .replace(/^\s{0,3}#{1,6}\s+/, '')
+      .replace(/^\s{0,3}>\s?/, '')
+      .replace(/^\s*([-*+]|\d+[.)])\s+/, '')
+      .trim())
+    .filter(Boolean)
+    .join(' ');
+
+  return out.trim();
+}
+
+/**
  * Texto que se guarda como vista previa del último mensaje
  * (`conversations.last_message_text`, lo que pinta el historial).
  *
@@ -29,7 +65,10 @@ export function buildConversationPreview({
   const { imageUrl, videoUrl } = detectMediaFromContent(text);
   if (videoUrl) return '🎬 Video';
   if (imageUrl) return /(\.gif)(\?|$)|(giphy|tenor|klipy)\.com/i.test(text) ? '🎞️ GIF' : '🖼️ Image';
-  return text.length > 80 ? `${text.slice(0, 80)}...` : text;
+
+  // El historial es una línea de texto plano: sin marcadores de markdown.
+  const plain = stripMarkdownForPreview(text);
+  return plain.length > 80 ? `${plain.slice(0, 80)}...` : plain;
 }
 
 /**
