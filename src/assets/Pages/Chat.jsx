@@ -17,6 +17,7 @@ import {
   pinMessage,
   addReaction,
   togglePinConversation,
+  buildConversationPreview,
   subscribeToMessages,
   subscribeToConversations,
   broadcastTyping,
@@ -135,14 +136,30 @@ function ChatCallEvent({ call, userId, t, locale }) {
 const CHAT_IMG_MAX_W = 320;
 const CHAT_IMG_MAX_H = 260;
 
+// Tamaño ya calculado por URL (sobrevive al desmontaje de la página, porque
+// vive en el módulo). Sin esto, cada vez que se sale y se vuelve a entrar a la
+// conversación la imagen se pintaba primero al tamaño natural (grande) y solo
+// al cargar saltaba a su tamaño final.
+const chatImageWidthCache = new Map();
+
 function ChatImage({ src, alt, onClick }) {
-  const [width, setWidth] = useState(null);
+  const cached = src ? chatImageWidthCache.get(src) : undefined;
+  const [width, setWidth] = useState(cached ?? null);
+
+  // La src puede cambiar sin desmontar (la card se reutiliza al cambiar de
+  // conversación o al editar el mensaje).
+  useEffect(() => {
+    if (!src) return;
+    setWidth(chatImageWidthCache.get(src) ?? null);
+  }, [src]);
 
   const handleLoad = (e) => {
     const { naturalWidth, naturalHeight } = e.currentTarget;
     if (!naturalWidth || !naturalHeight) return;
     const scale = Math.min(1, CHAT_IMG_MAX_W / naturalWidth, CHAT_IMG_MAX_H / naturalHeight);
-    setWidth(Math.round(naturalWidth * scale));
+    const next = Math.round(naturalWidth * scale);
+    if (src) chatImageWidthCache.set(src, next);
+    setWidth(next);
   };
 
   return (
@@ -831,12 +848,28 @@ export default function Chat() {
     loadConvs();
   }, [loadConvs]);
 
+  // ── Actualización de la lista de conversaciones (Realtime) ──
+  // Además de refrescar la lista, un mensaje NUEVO recibido de otra persona
+  // reabre la conversación si estaba cerrada: «cerrar» la oculta del historial
+  // hasta que vuelve a haber algo que leer (los propios mensajes no la reabren).
+  const handleConvsUpdate = useCallback((event) => {
+    loadConvs();
+    const incoming = event?.newMessage;
+    if (!incoming?.conversation_id || !incoming?.sender_id) return;
+    if (incoming.sender_id === user?.id) return;
+    setHiddenConvIds((prev) => (
+      prev.includes(incoming.conversation_id)
+        ? prev.filter((id) => id !== incoming.conversation_id)
+        : prev
+    ));
+  }, [loadConvs, user?.id]);
+
   // Real-time subscription to conversation updates
   useEffect(() => {
     if (!user?.id) return;
-    const unsub = subscribeToConversations(user.id, loadConvs);
+    const unsub = subscribeToConversations(user.id, handleConvsUpdate);
     return () => unsub?.unsubscribe();
-  }, [user?.id, loadConvs]);
+  }, [user?.id, handleConvsUpdate]);
 
   // ── Historial de llamadas de mis conversaciones ──
   // Una consulta por conjunto de conversaciones (la clave evita refetch en
@@ -960,13 +993,17 @@ export default function Chat() {
 
   // Fondo de la conversación abierta ('' si no tiene). En grupos es el fondo
   // COMPARTIDO de la conversación (migración 096): lo ven todos los miembros.
-  // En los 1:1 sigue siendo privado del usuario (chat_background_settings).
+  // En los 1:1 es privado del usuario (chat_background_settings) y viene ya en
+  // la propia conversación (`myBackgroundUrl`), así se conserva al cerrar y
+  // reabrir el chat, al remontar la página o tras una recarga. El mapa
+  // `chatBackgrounds` actúa de override optimista mientras se guarda.
   const activeChatBackground = (() => {
     if (!activeConvId) return '';
     const conv = conversations.find((c) => c.id === activeConvId);
-    return conv?.isGroup
-      ? (conv.chat_background_url || '')
-      : (chatBackgrounds[activeConvId] || '');
+    if (conv?.isGroup) return conv.chat_background_url || '';
+    const local = chatBackgrounds[activeConvId];
+    if (local !== undefined) return local || '';
+    return conv?.myBackgroundUrl || '';
   })();
 
   // ── Acento del fondo (color dominante) ──
@@ -1164,13 +1201,17 @@ export default function Chat() {
           });
           // Nuevo mensaje recibido → limpiar override local para que el preview real se muestre
           delete localConvOverridesRef.current[convForThisEffect];
+          // Misma derivación que el service: los mensajes con media se
+          // etiquetan (Video/Image/GIF…) en vez de guardar la URL.
           updateConvPreview(
             convForThisEffect,
-            newMsg.shared_song
-              ? '🎵 Shared a song'
-              : detectMediaFromContent(content || '').videoUrl
-              ? '🎬 Video'
-              : (content || ''),
+            buildConversationPreview({
+              content: content || '',
+              sharedPostId: newMsg.shared_post_id,
+              sharedCommunityId: newMsg.shared_community_id,
+              sharedInviteToken: newMsg.shared_invite_token,
+              sharedSong: newMsg.shared_song,
+            }),
             newMsg.created_at,
             newMsg.sender_id !== user.id
           );
@@ -1367,6 +1408,10 @@ export default function Chat() {
 
   // ── Select conversation (con borradores por chat) ──
   const selectConversation = (convId) => {
+    // Reabrir un chat cerrado lo devuelve al historial: «cerrar» solo lo oculta
+    // hasta que se vuelve a abrir (desde el perfil, una llamada o ?c=).
+    setHiddenConvIds((prev) => (prev.includes(convId) ? prev.filter(id => id !== convId) : prev));
+
     // Guardar borrador del chat actual antes de cambiar
     if (activeConvId) {
       draftsRef.current[activeConvId] = inputValue;
@@ -1564,8 +1609,26 @@ export default function Chat() {
       }
     } catch {}
 
-    // ── Check if there's already an existing conversation (was hidden/deleted locally) ──
-    // If so, unhide and select it directly so messages load immediately
+    // ── ¿Ya existe un hilo con esta persona? ──
+    // Se mira primero la lista ya cargada: incluye las conversaciones cerradas
+    // (cerrar solo las oculta del render), así reabrir es instantáneo y sin red.
+    // Si se abriera por el flujo pendiente, el chat saldría VACÍO aunque el hilo
+    // tenga mensajes: `selectConversation` (+ su fetch) pide los mensajes a la DB.
+    const existingConv = conversations.find(
+      (c) => !c.isGroup
+        && c.otherUser?.id === otherUser.id
+        && !String(c.id).startsWith('pending_')
+    );
+    if (existingConv) {
+      setSearchQuery('');
+      selectConversation(existingConv.id);
+      return;
+    }
+
+    // Respaldo: la lista aún no tenía ese hilo (p. ej. se acaba de abrir la
+    // pestaña). Se busca en la DB SIN maybeSingle(): con grupos, la otra persona
+    // comparte varios hilos conmigo y maybeSingle() fallaba (varias filas) → se
+    // caía al flujo pendiente y el hilo real no se abría.
     try {
       const { data: myConvs } = await supabase
         .from('chat_participants')
@@ -1575,22 +1638,32 @@ export default function Chat() {
       const myConvIds = (myConvs || []).map(p => p.conversation_id);
 
       if (myConvIds.length > 0) {
-        const { data: match } = await supabase
+        const { data: matches } = await supabase
           .from('chat_participants')
           .select('conversation_id')
           .in('conversation_id', myConvIds)
-          .eq('user_id', otherUser.id)
-          .maybeSingle();
+          .eq('user_id', otherUser.id);
 
-        if (match) {
-          // Existing conversation found — unhide and select it
-          setHiddenConvIds((prev) => prev.filter(id => id !== match.conversation_id));
-          setSearchQuery('');
-          selectConversation(match.conversation_id);
-          return;
+        const candidateIds = (matches || []).map(m => m.conversation_id);
+        if (candidateIds.length > 0) {
+          const { data: convs } = await supabase
+            .from('conversations')
+            .select('id, kind, last_message_at, updated_at')
+            .in('id', candidateIds);
+          // Solo hilos directos, el de actividad más reciente.
+          const direct = (convs || [])
+            .filter((c) => c.kind !== 'group')
+            .sort((a, b) =>
+              new Date(b.last_message_at || b.updated_at || 0) - new Date(a.last_message_at || a.updated_at || 0)
+            )[0];
+          if (direct) {
+            setSearchQuery('');
+            selectConversation(direct.id);
+            return;
+          }
         }
       }
-    } catch { /* fall through to pending flow */ }
+    } catch { /* sin red o RLS: se sigue al flujo pendiente */ }
 
     // ── No existing conversation — use pending flow to avoid creating empty conv in DB ──
     const tempId = `pending_${crypto.randomUUID()}`;
@@ -1675,14 +1748,41 @@ export default function Chat() {
     setItem('hiddenConvIds', hiddenConvIds);
   }, [hiddenConvIds]);
 
-  const handleDeleteConversation = useCallback(() => {
+  // ── Cerrar conversación ──
+  // Saca la conversación del historial SOLO en este dispositivo: no se toca la
+  // DB (ni la participación ni los mensajes). Se descarta además su caché de
+  // mensajes para que, al volver a abrir el chat, se pidan de nuevo a la DB en
+  // vez de quedarse en blanco. Abrirla otra vez la devuelve a la lista (ver
+  // selectConversation).
+  const handleCloseConversation = useCallback(() => {
     const convId = contextMenu.convId;
     if (!convId) return;
     setContextMenu({ open: false, x: 0, y: 0, convId: null });
-    // Solo local: ocultar la conversación, no tocar la DB
-    setHiddenConvIds((prev) => [...prev, convId]);
+    setHiddenConvIds((prev) => (prev.includes(convId) ? prev : [...prev, convId]));
+
+    // Sin caché (ni en memoria ni en sessionStorage): al reabrir, el efecto de
+    // carga pide la primera página de mensajes a la DB.
+    if (messagesCacheRef.current[convId]) {
+      delete messagesCacheRef.current[convId];
+    }
+    if (messagesCacheRef.current._meta?.[convId]) {
+      delete messagesCacheRef.current._meta[convId];
+    }
+    saveCacheToSession(messagesCacheRef.current);
+
     if (activeConvId === convId) {
       setActiveConvId(null);
+      setMessages([]);
+      // En móvil, volver a la lista: el panel de mensajes ya no tiene chat.
+      setShowList(true);
+      // Referencias de dueño: al reabrir el hilo, el layout effect tiene que
+      // volver a inicializar mensajes/loading. Si `prevConvIdRef` siguiera
+      // apuntando a este hilo, su early-return dejaría la lista vacía y sin
+      // pedir los mensajes a la DB.
+      messagesOwnerRef.current = null;
+      prevConvIdRef.current = null;
+      skipMsgLoadRef.current = false;
+      staleBackgroundFetchRef.current = false;
     }
   }, [contextMenu.convId, activeConvId]);
 
@@ -3035,16 +3135,29 @@ export default function Chat() {
 
   // ── Timeline del hilo: mensajes + eventos de llamada intercalados por fecha.
   // Igual que reversedMessages, más nuevo primero (el contenedor es
-  // column-reverse). ──
+  // column-reverse).
+  //
+  // El historial de llamadas se pide ENTERO de una vez, pero los mensajes van
+  // por páginas (loadOlderMessages). Si no se filtra, al abrir un chat —o al
+  // subir a por mensajes antiguos— todas las llamadas antiguas ya están en
+  // memoria y se pintan de golpe en una fila al principio del hilo, antes de
+  // que lleguen los mensajes que van entre ellas. Mientras queden páginas por
+  // cargar solo se muestran las llamadas posteriores al mensaje MÁS ANTIGUO ya
+  // cargado: así cada pill aparece junto a sus mensajes y no antes. ──
   const reversedTimeline = React.useMemo(() => {
-    const calls = (callsByConv[activeConvId] || []).filter((c) => CALL_HISTORY_STATUSES.includes(c.status));
+    const allCalls = (callsByConv[activeConvId] || [])
+      .filter((c) => CALL_HISTORY_STATUSES.includes(c.status));
+    const oldestAt = oldestMessageDate ? new Date(oldestMessageDate) : null;
+    const calls = hasMoreMessages
+      ? (oldestAt ? allCalls.filter((c) => new Date(c.created_at) >= oldestAt) : [])
+      : allCalls;
     const items = [
       ...reversedMessages.map((msg) => ({ kind: 'msg', at: msg.created_at, msg })),
       ...calls.map((call) => ({ kind: 'call', at: call.created_at, call })),
     ];
     items.sort((a, b) => new Date(b.at) - new Date(a.at));
     return items;
-  }, [reversedMessages, callsByConv, activeConvId]);
+  }, [reversedMessages, callsByConv, activeConvId, hasMoreMessages, oldestMessageDate]);
   // ── Navigate to profile from header ──
   const goToProfile = useCallback(() => {
     if (otherUser?.username) {
@@ -4555,9 +4668,9 @@ export default function Chat() {
               )}
             </>);
           })()}
-          <button className="chat-context-menu-btn chat-context-menu-btn--danger" onClick={handleDeleteConversation}>
-            <FaTrash />
-            <span>{t('post.delete')}</span>
+          <button className="chat-context-menu-btn" onClick={handleCloseConversation}>
+            <FaTimes />
+            <span>{t('chat.close_conversation') || 'Cerrar conversación'}</span>
           </button>
         </div>
       )}
@@ -5181,7 +5294,7 @@ export default function Chat() {
             conversationId={bgConvId}
             currentUrl={bgIsGroup
               ? (bgConv?.chat_background_url || '')
-              : (chatBackgrounds[bgConvId] || '')}
+              : (chatBackgrounds[bgConvId] ?? bgConv?.myBackgroundUrl ?? '')}
             shared={bgIsGroup}
             onClose={() => setChatBackgroundModal({ open: false, convId: null })}
             onSaved={async (url) => {
@@ -5197,12 +5310,13 @@ export default function Chat() {
                 }
                 return;
               }
-              setChatBackgrounds((prev) => {
-                const next = { ...prev };
-                if (url) next[bgConvId] = url;
-                else delete next[bgConvId];
-                return next;
-              });
+              // Override optimista. Se guarda '' (no se borra la entrada) para
+              // que quitar el fondo no vuelva a caer al valor de la DB.
+              setChatBackgrounds((prev) => ({ ...prev, [bgConvId]: url || '' }));
+              // Y se refleja en la conversación, que es la fuente persistente.
+              setConversations((prev) => prev.map((c) => (
+                c.id === bgConvId ? { ...c, myBackgroundUrl: url || '' } : c
+              )));
             }}
           />
         );

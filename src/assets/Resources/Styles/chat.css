@@ -1512,10 +1512,13 @@
     display: block;
     padding: 4px 0px;
     /* El ancho lo fija ChatImage con el tamaño real (máx. 320×260): así la
-       burbuja se ajusta a la imagen y el ratio nunca se rompe. */
+       burbuja se ajusta a la imagen y el ratio nunca se rompe. Las cotas de
+       abajo evitan que, mientras aún no se conoce el tamaño real (primera
+       carga de esa imagen), se pinte más grande que su caja final. */
     width: auto;
     height: auto;
-    max-width: 100%;
+    max-width: min(100%, 320px);
+    max-height: 260px;
     border-radius: 18px;
     object-fit: contain;
     cursor: pointer;
