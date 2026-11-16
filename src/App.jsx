@@ -7,6 +7,7 @@ import ActivitySync from './assets/Resources/Components/ActivitySync.jsx';
 import { I18nProvider } from './assets/services/i18n/I18nContext';
 import { CallProvider } from './context/CallContext';
 import { MusicPlayerProvider } from './context/MusicPlayerContext';
+import { FloatingVideoProvider } from './context/FloatingVideoContext';
 import RightPanel from './assets/Resources/Components/RightPanel';
 import GlobalProfileBg from './assets/Resources/Components/GlobalProfileBg';
 import AppSurfaceTheme from './assets/Resources/Components/AppSurfaceTheme';
@@ -188,6 +189,7 @@ function App() {
 
   return (
     <I18nProvider>
+      <FloatingVideoProvider>
       <MusicPlayerProvider>
       <CallProvider>
         {/* Barra de título propia: solo se pinta dentro de la app de escritorio
@@ -267,6 +269,7 @@ function App() {
       </AppLoader>
       </CallProvider>
       </MusicPlayerProvider>
+      </FloatingVideoProvider>
     </I18nProvider>
   );
 }

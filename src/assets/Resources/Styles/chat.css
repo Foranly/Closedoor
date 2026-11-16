@@ -4351,12 +4351,7 @@ dialog.fc-modal.chat-followers-modal {
     width: 44px;
 }
 
-/* Minimizado y pantalla completa mandan su propio tamaño. */
-.chat-message-media-video .post-video-player--mini {
-    width: 320px;
-    height: auto;
-}
-
+/* Pantalla completa manda su propio tamaño. */
 .chat-message-media-video .post-video-player:fullscreen {
     width: 100%;
     height: 100%;
@@ -4370,7 +4365,7 @@ dialog.fc-modal.chat-followers-modal {
     margin-bottom: 0;
 }
 
-.chat-media-preview-video .post-video-player-el {
+.chat-media-preview-video .post-video-player {
     max-height: 160px;
 }
 

@@ -601,6 +601,7 @@
   "post.video_unmute": "Включить звук",
   "post.video_volume": "Громкость",
   "post.video_fullscreen": "Полный экран",
+  "post.video_pip": "Picture in picture",
   "post.video_minimize": "Свернуть",
   "post.video_expand": "Развернуть",
   "post.video_progress": "Прогресс видео",

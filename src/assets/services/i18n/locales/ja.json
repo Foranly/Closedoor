@@ -601,6 +601,7 @@
   "post.video_unmute": "ミュート解除",
   "post.video_volume": "音量",
   "post.video_fullscreen": "全画面",
+  "post.video_pip": "Picture in picture",
   "post.video_minimize": "最小化",
   "post.video_expand": "拡大",
   "post.video_progress": "動画の進行状況",
