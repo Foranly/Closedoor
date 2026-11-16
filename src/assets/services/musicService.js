@@ -25,8 +25,10 @@
  * La base se decide en getMusicApiBase() (services/desktopApp.js): en la app de
  * escritorio apunta al loopback —YouTube ve la IP del usuario, no un datacenter—
  * y en el navegador al mismo origen. YouTube solo entrega el stream completo a
- * IPs con buena reputación, así que en la web lo normal es caer al preview de
- * 30 s: eso es justo lo que anuncia el aviso de descarga (DesktopAppPrompt).
+ * IPs con buena reputación, así que en producción web el backend falla siempre:
+ * por eso el reproductor (context/MusicPlayerContext.jsx) usa el preview de 30 s
+ * como PRIMERA opción fuera de la app de escritorio y ni siquiera pide el stream.
+ * Eso es justo lo que anuncia el aviso de descarga (DesktopAppPrompt).
  *
  * Todos los resultados se normalizan a un shape único:
  *   { provider, trackId, title, artist, album, artwork, previewUrl, externalUrl }

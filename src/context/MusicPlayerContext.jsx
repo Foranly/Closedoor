@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getStreamUrl, prewarmStream, resolvePreviewUrl, songKey } from '../assets/services/musicService';
-import { notifyBrowserPlayback } from '../assets/services/desktopApp';
+import { isDesktopApp, notifyBrowserPlayback } from '../assets/services/desktopApp';
 import { MusicPlayerContext } from './musicContext';
 import MusicMiniPlayer from '../assets/Resources/Components/MusicMiniPlayer';
 
@@ -13,9 +13,17 @@ import MusicMiniPlayer from '../assets/Resources/Components/MusicMiniPlayer';
  * los cambios de ruta y la ventana flotante (MusicMiniPlayer) permite
  * pausar/reanudar, arrastrar, cerrar y saltar al perfil del dueño de la canción.
  *
- * El motor de reproducción (stream completo same-origin → fallback al preview de
- * 30 s, reintento único, reanudación al cambiar de src) es el mismo que tenía
+ * El motor de reproducción (preview de 30 s → stream completo en escritorio,
+ * reintento único, reanudación al cambiar de src) es el mismo que tenía
  * SongCard; sólo se movió de sitio para que sea global.
+ *
+ * ORDEN DE FUENTES: fuera de la app de escritorio el preview de 30 s es la
+ * PRIMERA opción. El stream completo lo resuelve innertube en el backend, y
+ * YouTube solo entrega audio a IPs de confianza: desde el datacenter de
+ * producción falla siempre, así que intentarlo primero solo añade la espera del
+ * fallo antes de caer al preview. Solo la app de escritorio (servidor local en
+ * 127.0.0.1, sale por la IP del usuario) resuelve el stream completo; en dev se
+ * mantiene el intento porque el plugin local sí lo resuelve.
  *
  * Estado:
  *  - track   : { song, owner } de la canción cargada (null = nada)
@@ -41,6 +49,10 @@ export function MusicPlayerProvider({ children }) {
   const audioRef = useRef(null);
   const wantsPlayRef = useRef(false);
   const streamRetriedRef = useRef(false);
+
+  // ¿Merece la pena intentar el stream completo? Solo donde innertube puede
+  // funcionar: app de escritorio (servidor propio) o dev server (plugin local).
+  const streamFirst = isDesktopApp() || import.meta.env.DEV;
 
   const song = track?.song || null;
   const selSig = songKey(song);
@@ -91,8 +103,10 @@ export function MusicPlayerProvider({ children }) {
   }, [song]);
 
   // ── Pre-warm: anticipa la resolución en innertube al cargar la canción ──
+  // Se salta fuera de escritorio/dev: si el stream no se va a pedir, resolverlo
+  // por adelantado solo gasta una petición y 20 s de reloj.
   useEffect(() => {
-    if (!song) return;
+    if (!song || !streamFirst) return;
     let cancelled = false;
     prewarmStream(song).then((info) => {
       if (cancelled || !info) return;
@@ -105,8 +119,13 @@ export function MusicPlayerProvider({ children }) {
   }, [song]);
 
   // ── Fuente de reproducción ──
+  // En la web el preview es la fuente por defecto (ver cabecera): el stream solo
+  // se pide si el reproductor está en escritorio/dev, o si la canción no tiene
+  // preview con el que sonar (mejor intentarlo que dejarla muda).
   const streamUnplayable = !!song && streamInfo.key === selSig && streamInfo.playable === false;
-  const baseStreamUrl = usePreview || streamUnplayable ? null : getStreamUrl(song);
+  const preferPreview = !streamFirst && !!song?.previewUrl;
+  const useStream = !usePreview && !preferPreview && !streamUnplayable;
+  const baseStreamUrl = useStream ? getStreamUrl(song) : null;
   const streamUrl =
     baseStreamUrl && streamAttempt > 0 ? `${baseStreamUrl}&r=${streamAttempt}` : baseStreamUrl;
   const playbackSrc = streamUrl || effectivePreviewSrc;
