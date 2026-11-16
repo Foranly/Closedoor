@@ -18,6 +18,7 @@ import {
   addReaction,
   togglePinConversation,
   buildConversationPreview,
+  stripMarkdownForPreview,
   subscribeToMessages,
   subscribeToConversations,
   broadcastTyping,
@@ -42,7 +43,7 @@ import { getUserProfile, getCachedProfile } from '../services/userService';
 import { isBlocked, blockUser, unblockUser, unfollowBothWays, getCachedBlockStatus, cacheBlockStatus } from '../services/blockService';
 import FollowButton from '../Resources/Components/FollowButton';
 import ModalShell from '../Resources/Components/ModalShell';
-import { FaComment, FaSearch, FaArrowLeft, FaPlus, FaTimes, FaUserPlus, FaUsers, FaTrash, FaPalette, FaBan, FaThumbtack, FaCopy, FaEdit, FaCheck, FaSmile, FaReply, FaImage, FaMusic, FaUser, FaPhone, FaLock, FaSpinner, FaCamera, FaUserShield,  FaEllipsisH, FaArrowDown, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt, FaVideo, FaSignOutAlt } from 'react-icons/fa';
+import { FaComment, FaSearch, FaArrowLeft, FaPlus, FaTimes, FaUserPlus, FaUsers, FaTrash, FaPalette, FaBan, FaThumbtack, FaCopy, FaEdit, FaCheck, FaSmile, FaReply, FaImage, FaMusic, FaUser, FaPhone, FaLock, FaSpinner, FaCamera, FaUserShield,  FaEllipsisH, FaArrowDown, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt, FaVideo, FaSignOutAlt, FaBold, FaItalic, FaStrikethrough, FaCode, FaQuoteLeft, FaListUl, FaLink, FaFont } from 'react-icons/fa';
 import Avatar from '../Resources/Components/Avatar';
 import UsersRail from '../Resources/Components/UsersRail';
 import Badge from '../Resources/Components/Badge';
@@ -63,7 +64,7 @@ import BubbleColorModal from '../Resources/Components/BubbleColorModal';
 import ChatBackgroundModal from '../Resources/Components/ChatBackgroundModal';
 import { getPost } from '../services/postService';
 import { ensureDarkSurface, extractColors, getContrastFromHex, hexToRgba, mixHex } from '../services/colorExtractor';
-import RichText from '../Resources/Components/RichText';
+import PostMarkdown from '../Resources/Components/PostMarkdown';
 import SafeImage from '../Resources/Components/SafeImage';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
 import LinkPreview from '../Resources/Components/LinkPreview';
@@ -337,9 +338,57 @@ export default function Chat() {
   const [chatBackgrounds, setChatBackgrounds] = useState({});
   // Chat background modal state
   const [chatBackgroundModal, setChatBackgroundModal] = useState({ open: false, convId: null });
-  // ── Chat header dropdown (desktop): más opciones ──
-  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  // ── Panel abierto del chat: UN ÚNICO estado ──
+  // Los desplegables del header (menú de más opciones, búsqueda, fijados,
+  // galería de media, tarjeta de perfil) y los del composer (emoji, GIF, media,
+  // canción, barra de markdown) son mutuamente excluyentes. Antes eran diez
+  // booleanos y cada handler tenía que apagar los demás a mano; ahora abrir uno
+  // cierra el anterior y «cerrar todo» es un solo `setOpenPanel(null)`.
+  //
+  // Los setters con la firma antigua (`setShowX(false)`, `setShowX(v => !v)`) se
+  // conservan como adaptadores sobre este estado para no tocar cada llamada.
+  const [openPanel, setOpenPanel] = useState(null);
   const headerMenuRef = useRef(null);
+
+  const panelApi = React.useMemo(() => {
+    const isOpen = (name) => openPanel === name;
+    const makeSetter = (name) => (value) => {
+      setOpenPanel((prev) => {
+        const next = typeof value === 'function' ? value(prev === name) : value;
+        return next ? name : (prev === name ? null : prev);
+      });
+    };
+    return {
+      // Cerrar el panel que esté abierto.
+      close: () => setOpenPanel(null),
+      headerMenuOpen: isOpen('header-menu'), setHeaderMenuOpen: makeSetter('header-menu'),
+      showMsgSearch: isOpen('search'), setShowMsgSearch: makeSetter('search'),
+      showMediaGallery: isOpen('media-gallery'), setShowMediaGallery: makeSetter('media-gallery'),
+      showPinnedPanel: isOpen('pinned'), setShowPinnedPanel: makeSetter('pinned'),
+      showProfileCard: isOpen('profile'), setShowProfileCard: makeSetter('profile'),
+      showGifPicker: isOpen('gif'), setShowGifPicker: makeSetter('gif'),
+      showInputEmojiPicker: isOpen('emoji'), setShowInputEmojiPicker: makeSetter('emoji'),
+      showMediaInput: isOpen('media'), setShowMediaInput: makeSetter('media'),
+      showSongPicker: isOpen('song'), setShowSongPicker: makeSetter('song'),
+      showMdTools: isOpen('md'), setShowMdTools: makeSetter('md'),
+      showMobileMenu: isOpen('mobile-menu'), setShowMobileMenu: makeSetter('mobile-menu'),
+    };
+  }, [openPanel]);
+
+  const {
+    headerMenuOpen, setHeaderMenuOpen,
+    showMsgSearch, setShowMsgSearch,
+    showMediaGallery, setShowMediaGallery,
+    showPinnedPanel, setShowPinnedPanel,
+    showProfileCard, setShowProfileCard,
+    showGifPicker, setShowGifPicker,
+    showInputEmojiPicker, setShowInputEmojiPicker,
+    showMediaInput, setShowMediaInput,
+    showSongPicker, setShowSongPicker,
+    showMdTools, setShowMdTools,
+    showMobileMenu, setShowMobileMenu,
+    close: closeChatPanels,
+  } = panelApi;
   const [confirmBlock, setConfirmBlock] = useState(false);
 
   // Helper: get display name with nickname override
@@ -382,11 +431,7 @@ export default function Chat() {
   const [editText, setEditText] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null); // mensaje al que se está respondiendo
-  const [showGifPicker, setShowGifPicker] = useState(false);
-  const [showSongPicker, setShowSongPicker] = useState(false);
-  const [showMediaInput, setShowMediaInput] = useState(false);
   const [mediaUrl, setMediaUrl] = useState('');
-  const [showInputEmojiPicker, setShowInputEmojiPicker] = useState(false);
   const [inputEmojiTab, setInputEmojiTab] = useState(0);
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState('');
   const [uploadingChatMedia, setUploadingChatMedia] = useState(false);
@@ -1197,6 +1242,23 @@ export default function Chat() {
             if (exists) {
               return prev.map(m => m.id === newMsg.id ? { ...m, ...newMsg, decryptedContent: content } : m);
             }
+            // Eco de un mensaje propio: si sigue pintado en optimista (el envío
+            // aún no ha respondido), se REEMPLAZA en su sitio. Sin esto el eco
+            // de Realtime se añade además de la burbuja optimista y el mensaje
+            // se ve dos veces durante unos milisegundos.
+            if (newMsg.sender_id === user.id) {
+              let idx = -1;
+              for (let i = prev.length - 1; i >= 0; i--) {
+                if (!prev[i]._optimistic) continue;
+                if (idx === -1) idx = i;
+                if ((prev[i].decryptedContent || '') === (content || '')) { idx = i; break; }
+              }
+              if (idx !== -1) {
+                const next = prev.slice();
+                next[idx] = { ...newMsg, decryptedContent: content, _optimistic: false };
+                return next;
+              }
+            }
             return [...prev, { ...newMsg, decryptedContent: content }];
           });
           // Nuevo mensaje recibido → limpiar override local para que el preview real se muestre
@@ -1443,11 +1505,8 @@ export default function Chat() {
 
     setActiveConvId(convId);
     setShowList(false);
-    // Cerrar paneles flotantes al cambiar de chat
-    setShowMsgSearch(false);
-    setShowMediaGallery(false);
-    setShowPinnedPanel(false);
-    setShowProfileCard(false);
+    // Al cambiar de chat se cierra el panel abierto (header o composer).
+    closeChatPanels();
     // Resetear scroll al fondo (top: 0 en column-reverse = mensajes nuevos)
     setTimeout(() => {
       messagesContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -1482,11 +1541,8 @@ export default function Chat() {
     }
     setActiveConvId(null);
     setShowList(true);
-    // Cerrar paneles flotantes al volver a la lista
-    setShowMsgSearch(false);
-    setShowMediaGallery(false);
-    setShowPinnedPanel(false);
-    setShowProfileCard(false);
+    // Al volver a la lista se cierra el panel abierto (header o composer).
+    closeChatPanels();
   };
 
   // ── Abrir un post compartido desde el chat, recordando la conversación ──
@@ -1775,6 +1831,8 @@ export default function Chat() {
       setMessages([]);
       // En móvil, volver a la lista: el panel de mensajes ya no tiene chat.
       setShowList(true);
+      // Y no queda ningún panel abierto de ese hilo.
+      closeChatPanels();
       // Referencias de dueño: al reabrir el hilo, el layout effect tiene que
       // volver a inicializar mensajes/loading. Si `prevConvIdRef` siguiera
       // apuntando a este hilo, su early-return dejaría la lista vacía y sin
@@ -2157,6 +2215,87 @@ export default function Chat() {
     uploadChatImageFile(file);
   }, [uploadChatImageFile, uploadingChatMedia]);
 
+  // ── Aplicar formato markdown a la selección del input ──
+  // Sin selección, inserta los marcadores con un texto de ejemplo y deja el
+  // cursor dentro para escribir directamente. Con selección, la envuelve.
+  const applyMarkdownFormat = useCallback((format) => {
+    const el = inputRef.current;
+    if (!el) return;
+    const value = el.value ?? '';
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const selected = value.slice(start, end);
+
+    const replace = (nextValue, selStart, selEnd) => {
+      setInputValue(nextValue);
+      requestAnimationFrame(() => {
+        el.focus();
+        el.setSelectionRange(selStart, selEnd);
+      });
+    };
+
+    // Envolver: `**texto**`, `_texto_`, `~~texto~~`, `` `texto` ``, `[texto](url)`.
+    // Sin selección se envuelve el texto YA escrito (no se añade un "texto" de
+    // relleno); solo si el input está vacío se usa el placeholder.
+    // `selectInAfter` selecciona una parte de `after` (la URL del enlace) para
+    // que se pueda pegar/tipear directamente encima.
+    const wrap = (before, after, placeholder, selectInAfter = null) => {
+      const hasSelection = end > start;
+      const written = value.trim();
+      const useWritten = !hasSelection && written.length > 0;
+      const inner = hasSelection ? selected : (useWritten ? written : placeholder);
+
+      // Al envolver todo el input se respetan los espacios de los extremos.
+      const lead = useWritten ? (value.match(/^\s*/)?.[0] || '') : '';
+      const trail = useWritten ? (value.match(/\s*$/)?.[0] || '') : '';
+      const prefix = hasSelection ? value.slice(0, start) : (useWritten ? lead : value);
+      const suffix = hasSelection ? value.slice(end) : (useWritten ? trail : '');
+
+      const next = prefix + before + inner + after + suffix;
+      const innerStart = prefix.length + before.length;
+
+      if (selectInAfter) {
+        const tailStart = innerStart + inner.length + selectInAfter.offset;
+        replace(next, tailStart, tailStart + selectInAfter.length);
+        return;
+      }
+      replace(next, innerStart, innerStart + inner.length);
+    };
+
+    // Prefijo por línea (`> cita`, `- lista`): afecta a las líneas de la
+    // selección o, sin selección y con texto escrito, a todo el input; si está
+    // vacío, solo a la línea del cursor.
+    const prefixLines = (prefix) => {
+      const hasSelection = end > start;
+      const wholeInput = !hasSelection && value.trim().length > 0;
+      const lineStart = wholeInput ? 0 : value.lastIndexOf('\n', start - 1) + 1;
+      const nextLineBreak = value.indexOf('\n', start);
+      const blockEnd = wholeInput
+        ? value.length
+        : hasSelection
+          ? end
+          : (nextLineBreak === -1 ? value.length : nextLineBreak);
+      const block = value.slice(lineStart, blockEnd);
+      const nextBlock = block
+        .split('\n')
+        .map((line) => (line.startsWith(prefix) ? line : `${prefix}${line}`))
+        .join('\n');
+      const next = value.slice(0, lineStart) + nextBlock + value.slice(blockEnd);
+      replace(next, lineStart + nextBlock.length, lineStart + nextBlock.length);
+    };
+
+    switch (format) {
+      case 'bold': wrap('**', '**', t('chat.md_bold_text') || 'texto'); break;
+      case 'italic': wrap('_', '_', t('chat.md_bold_text') || 'texto'); break;
+      case 'strike': wrap('~~', '~~', t('chat.md_bold_text') || 'texto'); break;
+      case 'code': wrap('`', '`', t('chat.md_code_text') || 'codigo'); break;
+      case 'link': wrap('[', '](https://)', t('chat.md_bold_text') || 'texto', { offset: 2, length: 8 }); break;
+      case 'quote': prefixLines('> '); break;
+      case 'list': prefixLines('- '); break;
+      default: break;
+    }
+  }, [t]);
+
   // ── Insert emoji at cursor position in the input ──
   const handleInputEmojiSelect = useCallback((emoji) => {
     const el = inputRef.current;
@@ -2184,13 +2323,8 @@ export default function Chat() {
     });
   }, []);
 
-  // ── Panel states for header actions ──
-  const [showMsgSearch, setShowMsgSearch] = useState(false);
+  // ── Panel states for header actions (el abierto vive en `openPanel`) ──
   const [msgSearchQuery, setMsgSearchQuery] = useState('');
-  const [showMediaGallery, setShowMediaGallery] = useState(false);
-  const [showPinnedPanel, setShowPinnedPanel] = useState(false);
-  const [showProfileCard, setShowProfileCard] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [mobileMenuTop, setMobileMenuTop] = useState(0);
 
   // ── Gallery state for chat images ──
@@ -2506,6 +2640,9 @@ export default function Chat() {
         const filtered = currentMsgs.filter(m => m.id !== msg.id);
         const newLast = filtered[filtered.length - 1];
         newPreviewText = newLast?.content || newLast?.decryptedContent || null;
+        // El historial es texto plano: sin marcadores de markdown (y con la
+        // etiqueta de media si el mensaje anterior era una imagen/vídeo).
+        if (newPreviewText !== null) newPreviewText = buildConversationPreview({ content: newPreviewText });
         newLastAt = newLast?.created_at || null;
       }
       await deleteMessage(msg.id);
@@ -2585,6 +2722,9 @@ export default function Chat() {
         const filtered = currentMsgs.filter(m => m.id !== msg.id);
         const newLast = filtered[filtered.length - 1];
         newPreviewText = newLast?.content || newLast?.decryptedContent || null;
+        // El historial es texto plano: sin marcadores de markdown (y con la
+        // etiqueta de media si el mensaje anterior era una imagen/vídeo).
+        if (newPreviewText !== null) newPreviewText = buildConversationPreview({ content: newPreviewText });
         newLastAt = newLast?.created_at || null;
       }
       await deleteMessageForMe(msg.id, user.id);
@@ -2605,8 +2745,23 @@ export default function Chat() {
   }, [msgMenu.msg, activeConvId, updateConvPreview, user?.id]);
 
   // ── Shared send logic (optimistic + API + dedup) ──
+  // ── Cerrar los paneles del composer ──
+  // GIF, emoji, media, canción y barra de markdown. Se usa al enviar y al abrir
+  // menús del header, para no dejar dos contenedores abiertos a la vez.
+  const closeComposerPanels = useCallback(() => {
+    setShowGifPicker(false);
+    setShowInputEmojiPicker(false);
+    setShowMediaInput(false);
+    setShowSongPicker(false);
+    setShowMdTools(false);
+  }, []);
+
   const sendContent = useCallback(async (content, { clearInput = false, sharedSong = null } = {}) => {
     if ((!content && !sharedSong) || !user?.id || sendingRef.current) return null;
+
+    // Al enviar se cierra cualquier panel abierto del composer: todos los envíos
+    // pasan por aquí (texto, GIF, canción y media con preview).
+    closeComposerPanels();
 
     // ── Resolve conversation ID (create pending conversation in DB if needed) ──
     let convId = activeConvId;
@@ -2721,11 +2876,10 @@ export default function Chat() {
       });
       // Update conversation preview immediately (optimistic), then sync in background
       // Preview optimista con el mismo texto que guarda chatService en la BD
-      const sentPreview = sharedSong
-        ? '🎵 Shared a song'
-        : detectMediaFromContent(content).videoUrl
-        ? '🎬 Video'
-        : content;
+      const sentPreview = buildConversationPreview({
+        content,
+        sharedSong: sharedSong || null,
+      });
       updateConvPreview(convId, sentPreview, sentMsg.created_at || new Date().toISOString());
       loadConvs();
       return sentMsg;
@@ -2739,7 +2893,7 @@ export default function Chat() {
     } finally {
       setSending(false);
     }
-  }, [activeConvId, otherUser, user?.id, replyingTo, loadConvs, t]);
+  }, [activeConvId, otherUser, user?.id, replyingTo, loadConvs, t, closeComposerPanels]);
 
   // ── Cargar Media + fijados DIRECTAMENTE de la BD al elegir conversación ──
   // No dependen de `messages` (que puede tardar en cargar o tener solo la
@@ -3803,7 +3957,8 @@ export default function Chat() {
                       }
                       const previewText = o?.text ?? conv.last_message_text;
                       if (!previewText) return '';
-                      return mediaPreviewLabel(previewText) || previewText;
+                      // El historial es texto plano: sin marcadores de markdown.
+                      return mediaPreviewLabel(previewText) || stripMarkdownForPreview(previewText);
                     })()}
                   </span>
                   {conv.is_pinned && (
@@ -3869,12 +4024,7 @@ export default function Chat() {
             <Tooltip text={t('chat.media_gallery') || 'Media'} placement="bottom">
               <button
                 className={`chat-header-action-btn ${showMediaGallery ? 'chat-header-action-btn--active' : ''}`}
-                onClick={() => {
-                  setShowMediaGallery(s => !s);
-                  setShowMsgSearch(false);
-                  setShowPinnedPanel(false);
-                  setShowProfileCard(false);
-                }}
+                onClick={() => setShowMediaGallery(s => !s)}
               >
                 <FaImage />
               </button>
@@ -3882,7 +4032,7 @@ export default function Chat() {
             <Tooltip text={t('post.pinned') || 'Pinned'} placement="bottom">
               <button
                 className={`chat-header-action-btn ${showPinnedPanel ? 'chat-header-action-btn--active' : ''}`}
-                onClick={() => { setShowPinnedPanel(s => !s); setShowMsgSearch(false); setShowMediaGallery(false); setShowProfileCard(false); }}
+                onClick={() => setShowPinnedPanel(s => !s)}
               >
                 <FaThumbtack />
               </button>
@@ -3891,7 +4041,7 @@ export default function Chat() {
               <Tooltip text={t('chat.view_profile') || 'Profile'} placement="bottom">
                 <button
                   className={`chat-header-action-btn ${showProfileCard ? 'chat-header-action-btn--active' : ''}`}
-                  onClick={() => { setShowProfileCard(s => !s); setShowMsgSearch(false); setShowMediaGallery(false); setShowPinnedPanel(false); }}
+                  onClick={() => setShowProfileCard(s => !s)}
                 >
                   <FaUser />
                 </button>
@@ -4214,7 +4364,7 @@ export default function Chat() {
                                     ? otherUser?.username
                                     : t('common.unknown'))}
                               </span>
-                              <span className="chat-message-reply-preview-text">
+                              <div className="chat-message-reply-preview-text">
                                 {(() => {
                                   if (replied.shared_song?.title) {
                                     return <><FaMusic className="chat-list-item-preview-icon" /> {replied.shared_song.title}</>;
@@ -4223,9 +4373,21 @@ export default function Chat() {
                                   if (!txt) return <span>{t('chat.encrypted')}</span>;
                                   const mediaLabel = mediaPreviewLabel(txt);
                                   if (mediaLabel) return mediaLabel;
-                                  return <>{txt.slice(0, 60)}{txt.length > 60 ? '...' : ''}</>;
+                                  // Markdown en línea (negrita, cursiva, código,
+                                  // enlaces…): la cita se recorta a una línea por
+                                  // CSS, así que no hace falta truncar el texto.
+                                  return (
+                                    <PostMarkdown
+                                      text={txt}
+                                      className="chat-reply-md"
+                                      linkClass="chat-card-link"
+                                      mentionClass="chat-card-mention"
+                                      hashtagClass="chat-card-hashtag"
+                                      onExternalLink={handleExternalLink}
+                                    />
+                                  );
                                 })()}
-                              </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -4258,16 +4420,17 @@ export default function Chat() {
                       const textOnly = mediaUrl ? content.replace(mediaUrl, '').trim() : content;
                       if (!textOnly && !mediaUrl) {
                         return (
-                          <p className="chat-message-text">
-                            <RichText
-                              text={content || ''}
-                              linkClass="chat-card-link"
-                              mentionClass="chat-card-mention"
-                              hashtagClass="chat-card-hashtag"
-                              onExternalLink={handleExternalLink}
-                            />
-                            {!content && <span className="chat-message-encrypted">{t('chat.encrypted')}</span>}
-                          </p>
+                          // Markdown (GFM) en la burbuja: negrita, listas, código,
+                          // citas, enlaces… con las mismas menciones/hashtags y la
+                          // confirmación de enlaces externos de RichText.
+                          <PostMarkdown
+                            text={content || ''}
+                            className="chat-message-text chat-message-text--md"
+                            linkClass="chat-card-link"
+                            mentionClass="chat-card-mention"
+                            hashtagClass="chat-card-hashtag"
+                            onExternalLink={handleExternalLink}
+                          />
                         );
                       }
                       return (
@@ -4308,15 +4471,15 @@ export default function Chat() {
                             </div>
                           )}
                           {textOnly && (
-                          <p className="chat-message-text">
-                            <RichText
-                              text={textOnly}
-                              linkClass="chat-card-link"
-                              mentionClass="chat-card-mention"
-                              hashtagClass="chat-card-hashtag"
-                              onExternalLink={handleExternalLink}
-                            />
-                          </p>
+                          <PostMarkdown
+                            text={textOnly}
+                            skipUrls={mediaUrl ? [mediaUrl] : []}
+                            className="chat-message-text chat-message-text--md"
+                            linkClass="chat-card-link"
+                            mentionClass="chat-card-mention"
+                            hashtagClass="chat-card-hashtag"
+                            onExternalLink={handleExternalLink}
+                          />
                         )}
                         {/* ── Link preview for non-media URLs ── */}
                         {(() => {
@@ -4416,12 +4579,23 @@ export default function Chat() {
                   ? t('chat.replying_self')
                   : otherUser?.username || t('common.unknown')}
               </span>
-              <span className="chat-reply-bar-preview">
-                {replyingTo.shared_song?.title
-                  ? `🎵 ${replyingTo.shared_song.title}`
-                  : (replyingTo.decryptedContent?.slice(0, 80) || t('chat.encrypted'))}
-                {!replyingTo.shared_song?.title && replyingTo.decryptedContent?.length > 80 ? '...' : ''}
-              </span>
+              <div className="chat-reply-bar-preview">
+                {replyingTo.shared_song?.title ? (
+                  `🎵 ${replyingTo.shared_song.title}`
+                ) : replyingTo.decryptedContent ? (
+                  // Mismo markdown en línea que la cita de la burbuja.
+                  <PostMarkdown
+                    text={replyingTo.decryptedContent}
+                    className="chat-reply-md"
+                    linkClass="chat-card-link"
+                    mentionClass="chat-card-mention"
+                    hashtagClass="chat-card-hashtag"
+                    onExternalLink={handleExternalLink}
+                  />
+                ) : (
+                  t('chat.encrypted')
+                )}
+              </div>
             </div>
           </div>
           <button className="chat-reply-bar-close" onClick={cancelReply} title={t('common.cancel')}>
@@ -4544,6 +4718,32 @@ export default function Chat() {
             onClose={() => { setShowMediaInput(false); setMediaUrl(''); }}
           />
         )}
+        {/* Barra de formato markdown: aplica sobre la selección del input */}
+        {showMdTools && (
+          <div className="chat-md-tools" role="toolbar" aria-label={t('chat.md_format') || 'Formato'}>
+            <button type="button" className="chat-md-tool" onClick={() => applyMarkdownFormat('bold')} title={t('chat.md_bold') || 'Negrita'} aria-label={t('chat.md_bold') || 'Negrita'}>
+              <FaBold />
+            </button>
+            <button type="button" className="chat-md-tool" onClick={() => applyMarkdownFormat('italic')} title={t('chat.md_italic') || 'Cursiva'} aria-label={t('chat.md_italic') || 'Cursiva'}>
+              <FaItalic />
+            </button>
+            <button type="button" className="chat-md-tool" onClick={() => applyMarkdownFormat('strike')} title={t('chat.md_strike') || 'Tachado'} aria-label={t('chat.md_strike') || 'Tachado'}>
+              <FaStrikethrough />
+            </button>
+            <button type="button" className="chat-md-tool" onClick={() => applyMarkdownFormat('code')} title={t('chat.md_code') || 'Código'} aria-label={t('chat.md_code') || 'Código'}>
+              <FaCode />
+            </button>
+            <button type="button" className="chat-md-tool" onClick={() => applyMarkdownFormat('quote')} title={t('chat.md_quote') || 'Cita'} aria-label={t('chat.md_quote') || 'Cita'}>
+              <FaQuoteLeft />
+            </button>
+            <button type="button" className="chat-md-tool" onClick={() => applyMarkdownFormat('list')} title={t('chat.md_list') || 'Lista'} aria-label={t('chat.md_list') || 'Lista'}>
+              <FaListUl />
+            </button>
+            <button type="button" className="chat-md-tool" onClick={() => applyMarkdownFormat('link')} title={t('chat.md_link') || 'Enlace'} aria-label={t('chat.md_link') || 'Enlace'}>
+              <FaLink />
+            </button>
+          </div>
+        )}
         <div className="chat-input-inner">
           <textarea
             ref={inputRef}
@@ -4561,31 +4761,39 @@ export default function Chat() {
             <div className="chat-input-actions-desktop">
               <button
                 className={`chat-input-action-btn ${showInputEmojiPicker ? 'chat-input-action-btn--active' : ''}`}
-                onClick={() => { setShowInputEmojiPicker(s => !s); setShowGifPicker(false); setShowSongPicker(false); setShowMediaInput(false); }}
+                onClick={() => setShowInputEmojiPicker(s => !s)}
                 title="Emoji"
               >
                 <FaSmile />
               </button>
               <button
                 className={`chat-input-action-btn ${showGifPicker ? 'chat-input-action-btn--active' : ''}`}
-                onClick={() => { setShowGifPicker(s => !s); setShowInputEmojiPicker(false); setShowSongPicker(false); setShowMediaInput(false); }}
+                onClick={() => setShowGifPicker(s => !s)}
                 title="GIF"
               >
                 <span className="chat-input-action-btn-gif">GIF</span>
               </button>
               <button
                 className={`chat-input-action-btn ${showMediaInput ? 'chat-input-action-btn--active' : ''}`}
-                onClick={() => { setShowMediaInput(s => !s); setShowGifPicker(false); setShowInputEmojiPicker(false); setShowSongPicker(false); }}
+                onClick={() => setShowMediaInput(s => !s)}
                 title="Media"
               >
                 <FaImage />
               </button>
               <button
                 className={`chat-input-action-btn ${showSongPicker ? 'chat-input-action-btn--active' : ''}`}
-                onClick={() => { setShowSongPicker(s => !s); setShowGifPicker(false); setShowInputEmojiPicker(false); setShowMediaInput(false); }}
+                onClick={() => setShowSongPicker(s => !s)}
                 title={t('chat.share_song')}
               >
                 <FaMusic />
+              </button>
+              <button
+                className={`chat-input-action-btn ${showMdTools ? 'chat-input-action-btn--active' : ''}`}
+                onClick={() => setShowMdTools(s => !s)}
+                title={t('chat.md_format') || 'Formato'}
+                aria-expanded={showMdTools}
+              >
+                <FaFont />
               </button>
             </div>
 
