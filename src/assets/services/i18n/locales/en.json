@@ -601,6 +601,7 @@
   "post.video_unmute": "Unmute",
   "post.video_volume": "Volume",
   "post.video_fullscreen": "Fullscreen",
+  "post.video_pip": "Picture in picture",
   "post.video_minimize": "Minimize",
   "post.video_expand": "Expand",
   "post.video_progress": "Video progress",

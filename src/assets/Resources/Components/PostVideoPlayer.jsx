@@ -2,11 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FaPlay, FaPause, FaBackward, FaForward, FaRedo,
   FaVolumeUp, FaVolumeDown, FaVolumeMute, FaExpand, FaCompress,
-  FaExpandArrowsAlt, FaWindowMinimize,
+  FaExpandArrowsAlt, FaWindowMinimize, FaTimes,
 } from 'react-icons/fa';
 import { useI18n } from '../../services/i18n/useI18n';
+import { useFloatingVideo } from '../../../context/FloatingVideoContext.jsx';
 
 const SEEK_STEP = 10; // segundos por salto
+// Ratio de reserva cuando el post no guardó video_meta. La caja del reproductor
+// tiene SIEMPRE un alto derivado (aspect-ratio) desde el primer render: así la
+// fila virtualizada se mide una sola vez y las cards de abajo no saltan cuando
+// el <video> carga los metadatos.
+const DEFAULT_RATIO = 16 / 9;
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
@@ -20,18 +26,33 @@ function formatTime(seconds) {
  *
  * Los videos solo se adjuntan por URL (el CDN todavía no procesa video), así
  * que el <video> consume la URL tal cual. Controles propios: play/pausa,
- * retroceder/avanzar 10 s, reiniciar, repetir, volumen con mute, pantalla
- * completa y modo minimizado (ventana flotante abajo a la derecha que sigue
- * reproduciendo mientras se hace scroll; el elemento <video> no se mueve del
- * DOM, solo cambia de posición con CSS, así que la reproducción no se corta).
+ * retroceder/avanzar 10 s, repetir, volumen con mute, pantalla completa, PiP y
+ * minimizar a una ventana flotante.
  *
- * Los embeds de YouTube/Vimeo no pasan por aquí: los pinta PostCard como
- * iframe, porque su reproducción no se puede controlar desde fuera.
+ * Virtualización (VirtualPostList):
+ *   • El contenedor reserva el alto con `aspect-ratio` y ese ratio es FIJO: no
+ *     se recalcula al llegar los metadatos. La lista mide la fila una vez y no
+ *     aparecen huecos ni saltos al hacer scroll.
+ *   • Minimizar transfiere la reproducción (tiempo, volumen, loop) al host
+ *     flotante montado en <body> con un portal, así el video sigue sonando
+ *     aunque la fila se desmonte al salir del overscan.
+ *   • Un IntersectionObserver pausa el video inline que sale de la vista: nunca
+ *     se queda sonando fuera de pantalla. No se reanuda solo al volver.
  */
 export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, className = '' }) {
+  const floating = useFloatingVideo();
+  const isFloatHost = Boolean(floating?.isHost);
+  const openFloating = floating?.open ?? null;
+  const closeFloating = floating?.close ?? null;
+  // El estado de reanudación solo interesa al reproductor del host flotante.
+  const resume = isFloatHost ? floating?.resumeState ?? null : null;
+  const resumeId = resume?.id ?? null;
+
   const { t } = useI18n();
   const videoRef = useRef(null);
   const containerRef = useRef(null);
+  // Última transferencia pendiente de aplicar en loadedmetadata (seek + play).
+  const resumeRef = useRef(null);
 
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -39,40 +60,60 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [loop, setLoop] = useState(false);
-  const [minimized, setMinimized] = useState(false);
   const [isPip, setIsPip] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  // Ratio real del archivo: el contenedor se ajusta a él para no dejar huecos
-  // ni deformar el video en burbujas o cards más anchas.
-  // Si el post guardó las dimensiones al publicar, el hueco queda con el
-  // tamaño final antes de que cargue el video (sin salto de altura).
-  const [ratio, setRatio] = useState(savedRatio > 0 ? savedRatio : 0);
+
+  // Ratio estable: el guardado por el post, el que trae el host flotante o el
+  // neutro. Nunca cambia durante la vida del componente.
+  const ratio = (resume?.ratio > 0 && resume.ratio) || (savedRatio > 0 && savedRatio) || DEFAULT_RATIO;
 
   // ── Sincronizar estado con el elemento <video> ──
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return undefined;
 
-    // Al cambiar de video (la card se reutiliza en listas virtualizadas) el
+    // La card se reutiliza al cambiar de fila en la lista virtualizada: el
     // estado tiene que partir de cero, no del video anterior.
     setCurrentTime(0);
     setDuration(0);
     setPlaying(false);
-    setRatio(savedRatio > 0 ? savedRatio : 0);
+
+    resumeRef.current = resume;
+    if (resume) {
+      const vol = Number.isFinite(resume.volume) ? resume.volume : 1;
+      video.volume = vol;
+      video.muted = Boolean(resume.muted) || vol === 0;
+      video.loop = Boolean(resume.loop);
+      setVolume(vol);
+      setMuted(video.muted);
+      setLoop(Boolean(resume.loop));
+    }
 
     const onTime = () => setCurrentTime(video.currentTime);
     const onMeta = () => {
       setDuration(Number.isFinite(video.duration) ? video.duration : 0);
-      if (video.videoWidth && video.videoHeight) {
-        setRatio(video.videoWidth / video.videoHeight);
+      const pending = resumeRef.current;
+      if (!pending) return;
+      // El seek/play se aplica una sola vez: al repetirse loadedmetadata (otra
+      // fuente, recarga) no debe volver a saltar al segundo transferido.
+      resumeRef.current = null;
+      if (Number.isFinite(pending.time) && pending.time > 0) {
+        video.currentTime = pending.time;
+        setCurrentTime(pending.time);
+      }
+      if (pending.playing) {
+        video.play().catch(() => {
+          // Autoplay bloqueado con audio: reintenta silenciado.
+          if (!video.muted) {
+            video.muted = true;
+            video.play().catch(() => {});
+          }
+        });
       }
     };
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
-    const onVolume = () => {
-      setVolume(video.volume);
-      setMuted(video.muted);
-    };
+    const onVolume = () => { setVolume(video.volume); setMuted(video.muted); };
     const onEnded = () => setPlaying(false);
     const onEnterPip = () => setIsPip(true);
     const onLeavePip = () => setIsPip(false);
@@ -98,61 +139,86 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
       video.removeEventListener('enterpictureinpicture', onEnterPip);
       video.removeEventListener('leavepictureinpicture', onLeavePip);
     };
-  }, [src, savedRatio]);
+  }, [src, resumeId]);
 
-  // ── Pantalla completa (se sigue con el evento para cubrir Escape) ──
+  // ── Pantalla completa (el evento cubre también la salida con Escape) ──
   useEffect(() => {
     const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onFsChange);
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
-  /**
-   * Minimizar = ventana flotante. Se intenta Picture-in-Picture (ventana del
-   * navegador, escapa de contenedores con transform/filter y sigue al hacer
-   * scroll) y, si el entorno no lo soporta (p. ej. Electron sin PiP), se cae
-   * al modo mini CSS anclado a la esquina de la card.
-   */
+  // ── IntersectionObserver: el video inline que sale de la vista se pausa.
+  //    No se reanuda solo: si el usuario vuelve, pulsará play.
+  useEffect(() => {
+    if (isFloatHost) return undefined;
+    const node = containerRef.current;
+    const video = videoRef.current;
+    if (!node || !video || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) continue;
+        if (video.paused || video.ended || video.seeking) continue;
+        // No pausar si el usuario lo tiene en PiP o a pantalla completa.
+        if (document.pictureInPictureElement === video || document.fullscreenElement) continue;
+        video.pause();
+      }
+    }, { threshold: 0 });
+    io.observe(node);
+    return () => io.disconnect();
+  }, [src, isFloatHost]);
+
   const minimize = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
 
-    if (document.pictureInPictureElement) {
+    // Ya en el host flotante: lo único que queda es PiP (si el entorno lo
+    // soporta). Sin PiP el host ya es la ventana minimizada.
+    if (isFloatHost) {
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+      if (document.pictureInPictureEnabled && typeof video.requestPictureInPicture === 'function') {
+        try { await video.requestPictureInPicture(); } catch { /* sin soporte */ }
+      }
+      return;
+    }
+
+    if (document.pictureInPictureElement === video) {
       document.exitPictureInPicture?.().catch(() => {});
       return;
     }
 
-    if (document.pictureInPictureEnabled && typeof video.requestPictureInPicture === 'function') {
-      try {
-        await video.requestPictureInPicture();
-        setMinimized(false);
-        return;
-      } catch {
-        // Sin permiso o sin soporte real: seguir con el mini de la card.
-      }
+    if (openFloating) {
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+      openFloating({
+        src,
+        title,
+        ratio,
+        time: video.currentTime,
+        playing: !video.paused && !video.ended && !video.seeking,
+        volume: video.volume,
+        muted: video.muted,
+        loop,
+      });
+      // Detiene el inline: el host crea su propio <video> y continúa ahí.
+      video.pause();
     }
-
-    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
-    setMinimized((prev) => !prev);
-  }, []);
+  }, [isFloatHost, openFloating, src, title, ratio, loop]);
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (video.paused) {
-      video.play().catch(() => {});
-    } else {
-      video.pause();
-    }
+    if (video.paused) video.play().catch(() => {});
+    else video.pause();
   }, []);
 
   const seekBy = useCallback((delta) => {
     const video = videoRef.current;
     if (!video) return;
-    const next = Math.min(Math.max((video.currentTime || 0) + delta, 0), duration || video.duration || 0);
+    const max = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : Infinity;
+    const next = Math.min(Math.max((video.currentTime || 0) + delta, 0), max);
     video.currentTime = next;
     setCurrentTime(next);
-  }, [duration]);
+  }, []);
 
   const toggleLoop = useCallback(() => {
     setLoop((prev) => {
@@ -178,23 +244,20 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.().catch(() => {});
-    } else {
-      container.requestFullscreen?.().catch(() => {});
-    }
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    else container.requestFullscreen?.().catch(() => {});
   }, []);
 
   if (!src) return null;
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const VolumeIcon = muted || volume === 0 ? FaVolumeMute : volume < 0.5 ? FaVolumeDown : FaVolumeUp;
+  const mutedNow = muted || volume === 0;
 
   return (
     <div
       ref={containerRef}
-      className={`post-video-player${minimized ? ' post-video-player--mini' : ''}${className ? ` ${className}` : ''}`}
-      style={ratio ? { aspectRatio: ratio } : undefined}
+      className={`post-video-player${className ? ` ${className}` : ''}`}
+      style={{ aspectRatio: ratio }}
     >
       <video
         ref={videoRef}
@@ -206,20 +269,19 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
         onClick={(e) => { e.stopPropagation(); togglePlay(); }}
       />
 
-      {minimized && (
+      {isFloatHost && closeFloating && (
         <button
           type="button"
-          className="post-video-player-restore"
-          onClick={(e) => { e.stopPropagation(); setMinimized(false); }}
-          aria-label={t('post.video_expand')}
-          title={t('post.video_expand')}
+          className="post-video-player-close-host"
+          onClick={(e) => { e.stopPropagation(); closeFloating(); }}
+          aria-label={t('common.close')}
+          title={t('common.close')}
         >
-          <FaExpandArrowsAlt />
+          <FaTimes />
         </button>
       )}
 
       <div className="post-video-player-controls" onClick={(e) => e.stopPropagation()}>
-        {/* ── Barra de progreso (fila propia encima de los botones) ── */}
         <input
           type="range"
           className="post-video-player-progress"
@@ -228,7 +290,6 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
           step="0.1"
           value={progress}
           onChange={(e) => {
-            e.stopPropagation();
             const video = videoRef.current;
             if (!video || !duration) return;
             const time = (Number(e.target.value) / 100) * duration;
@@ -289,10 +350,10 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
             type="button"
             className="post-video-player-btn"
             onClick={toggleMute}
-            aria-label={muted ? t('post.video_unmute') : t('post.video_mute')}
-            title={muted ? t('post.video_unmute') : t('post.video_mute')}
+            aria-label={mutedNow ? t('post.video_unmute') : t('post.video_mute')}
+            title={mutedNow ? t('post.video_unmute') : t('post.video_mute')}
           >
-            <VolumeIcon />
+            {mutedNow ? <FaVolumeMute /> : volume < 0.5 ? <FaVolumeDown /> : <FaVolumeUp />}
           </button>
           <input
             type="range"
@@ -310,12 +371,12 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
 
         <button
           type="button"
-          className={`post-video-player-btn${minimized || isPip ? ' post-video-player-btn--active' : ''}`}
+          className={`post-video-player-btn${isPip ? ' post-video-player-btn--active' : ''}`}
           onClick={minimize}
-          aria-label={minimized || isPip ? t('post.video_expand') : t('post.video_minimize')}
-          title={minimized || isPip ? t('post.video_expand') : t('post.video_minimize')}
+          aria-label={isPip ? t('post.video_expand') : t('post.video_minimize')}
+          title={isFloatHost ? t('post.video_pip') : t('post.video_minimize')}
         >
-          <FaWindowMinimize />
+          {isPip ? <FaExpandArrowsAlt /> : <FaWindowMinimize />}
         </button>
 
         <button
