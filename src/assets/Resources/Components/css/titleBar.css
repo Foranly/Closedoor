@@ -10,6 +10,9 @@
 
 html.fc-desktop {
     --fc-titlebar-h: 40px; /* se sobreescribe en JS con titlebarHeight del puente */
+    /* El documento no scrollea: el gutter global de global.css solo reservaría
+       6px a la derecha y dejaría la titlebar cortada antes del borde. */
+    scrollbar-gutter: auto;
 }
 
 /* El documento no scrollea. #root ocupa el área bajo la titlebar y es el
