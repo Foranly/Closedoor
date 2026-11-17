@@ -23,6 +23,8 @@ import { MdLogout } from 'react-icons/md';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
 import ModalShell from '../Resources/Components/ModalShell';
+import EmojiText from '../Resources/Components/EmojiText';
+import EmojiPickerButton from '../Resources/Components/EmojiPickerButton';
 import '../Resources/Styles/settings.css';
 
 /* Entradas visibles del historial de actividad antes de desplegar el resto. */
@@ -753,6 +755,7 @@ export default function Settings() {
   const [nicknameList, setNicknameList] = useState([]);
   const [nicknameListLoading, setNicknameListLoading] = useState(false);
   const [editingNickname, setEditingNickname] = useState({ userId: null, current: '' });
+  const nicknameEditRef = useRef(null);
   const [removingNicknameId, setRemovingNicknameId] = useState(null);
   const [blockedUsers, setBlockedUsers] = useState(() => {
     if (!user?.id) return [];
@@ -2906,6 +2909,7 @@ export default function Settings() {
                   {editingNickname.userId === item.userId ? (
                     <div className="settings-nickname-edit-row">
                       <input
+                        ref={nicknameEditRef}
                         className="settings-nickname-input"
                         type="text"
                         value={editingNickname.current}
@@ -2917,6 +2921,12 @@ export default function Settings() {
                           if (e.key === 'Escape') setEditingNickname({ userId: null, current: '' });
                         }}
                       />
+                      <EmojiPickerButton
+                        title={t('common.emoji') || 'Emoji'}
+                        textareaRef={nicknameEditRef}
+                        value={editingNickname.current}
+                        onChange={(value) => setEditingNickname(prev => ({ ...prev, current: value }))}
+                      />
                       <button
                         className="settings-nickname-save-btn"
                         onClick={() => handleSaveNicknameSetting(item.userId, editingNickname.current)}
@@ -2926,7 +2936,7 @@ export default function Settings() {
                       </button>
                     </div>
                   ) : (
-                    <span className="settings-nickname-label">{item.nickname}</span>
+                    <span className="settings-nickname-label"><EmojiText text={item.nickname} /></span>
                   )}
                 </div>
                 <div className="settings-nickname-actions">

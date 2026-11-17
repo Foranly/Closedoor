@@ -1,0 +1,35 @@
+/* Botón que abre el picker de emojis. Se combina con las clases del toolbar
+   donde se use (create-post-toolbar-btn, comment-form-media-btn, etc.). */
+.emoji-picker-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.emoji-picker-trigger:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.emoji-picker-trigger.is-open {
+    color: var(--color-accent, #8b5cf6);
+}
+
+.emoji-picker-popover {
+    position: fixed;
+    z-index: 100000;
+    pointer-events: auto;
+    max-width: calc(100vw - 16px);
+}
+
+.emoji-picker-popover .epr-main {
+    border: 1px solid var(--color-border, #2a2a2a);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}

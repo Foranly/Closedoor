@@ -1,6 +1,6 @@
-import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { isSafeUrl } from '../../services/helpers';
+import EmojiText from './EmojiText';
 
 // Combined regex for @mentions, #hashtags, and URLs
 const COMBINED_REGEX = /(?<![\w@])(@[a-zA-Z0-9_]+)|(?<![#\w])#([a-zA-Z0-9_\u00C0-\u024F]+)|(https?:\/\/[^\s<]+)/gi;
@@ -99,7 +99,7 @@ export default function RichText({
             </a>
           );
         }
-        return <React.Fragment key={i}>{part}</React.Fragment>;
+        return <EmojiText key={i} text={part} />;
       })}
     </>
   );

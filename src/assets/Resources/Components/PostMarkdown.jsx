@@ -4,6 +4,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { isSafeUrl } from '../../services/helpers';
 import { remarkMentionsAndTags } from '../../services/postMarkdown';
+import { remarkTwemoji, TWEMOJI_CLASS } from '../../services/twemoji';
 
 /**
  * PostMarkdown — renderiza el contenido de un post con markdown (GFM),
@@ -26,6 +27,7 @@ export default function PostMarkdown({
   mentionClass = 'post-card-mention',
   hashtagClass = 'post-card-hashtag',
   className = 'post-markdown',
+  emojiImages = true,
 }) {
   const skipKey = skipUrls.join('|');
 
@@ -70,7 +72,18 @@ export default function PostMarkdown({
         </a>
       );
     },
-    img: ({ src = '', alt = '' }) => {
+    img: ({ src = '', alt = '', className: imgClassName }) => {
+      const imgClass = Array.isArray(imgClassName) ? imgClassName.join(' ') : imgClassName;
+      if (typeof imgClass === 'string' && imgClass.includes(TWEMOJI_CLASS)) {
+        return (
+          <img
+            src={src}
+            alt={alt}
+            className={imgClass}
+            draggable={false}
+          />
+        );
+      }
       const label = alt || src;
       if (!src || !isSafeUrl(src)) return <span>{label}</span>;
       return (
@@ -93,6 +106,13 @@ export default function PostMarkdown({
     },
   }), [linkClass, mentionClass, hashtagClass, onExternalLink]);
 
+  const remarkPlugins = useMemo(
+    () => (emojiImages
+      ? [remarkGfm, remarkMentionsAndTags, remarkTwemoji]
+      : [remarkGfm, remarkMentionsAndTags]),
+    [emojiImages],
+  );
+
   if (!text) return null;
 
   return (
@@ -101,7 +121,7 @@ export default function PostMarkdown({
           tampoco se descarta: se muestra como texto escapado, así el post
           no pierde contenido si el autor escribe `<algo>`. */}
       <Markdown
-        remarkPlugins={[remarkGfm, remarkMentionsAndTags]}
+        remarkPlugins={remarkPlugins}
         components={components}
       >
         {source}

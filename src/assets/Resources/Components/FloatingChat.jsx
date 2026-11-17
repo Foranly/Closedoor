@@ -27,6 +27,8 @@ import Avatar from './Avatar';
 import ChatSongCard from './ChatSongCard';
 import ChatCommunityCard from './ChatCommunityCard';
 import ChatSharedPostCard from './ChatSharedPostCard';
+import EmojiText from './EmojiText';
+import EmojiPickerButton from './EmojiPickerButton';
 import './css/floatingChat.css';
 
 const HIDDEN_ROUTES = ['/chat', '/login', '/register', '/auth/callback'];
@@ -107,6 +109,7 @@ export default function FloatingChat() {
   const [bubbleColorsDb, setBubbleColorsDb] = useState({});
   const listRef = useRef(null);
   const threadRef = useRef(null);
+  const inputRef = useRef(null);
   const activeIdRef = useRef(null);
   const pendingAppStylesRef = useRef(false);
 
@@ -533,7 +536,7 @@ export default function FloatingChat() {
               <span className="fc-msg-reply-author">
                 {replyTarget.sender_id === userId ? (t('chat.replying_self') || 'You') : peerName(activeConv)}
               </span>
-              <span className="fc-msg-reply-text">{previewOf(replyTarget)}</span>
+              <span className="fc-msg-reply-text"><EmojiText text={previewOf(replyTarget)} /></span>
             </div>
           </div>
         )}
@@ -556,7 +559,7 @@ export default function FloatingChat() {
         {msg.shared_song && <ChatSongCard song={msg.shared_song} />}
 
         {imageUrl && <img className="fc-msg-img" src={imageUrl} alt="" loading="lazy" />}
-        {text ? <span>{text}</span> : null}
+        {text ? <span><EmojiText text={text} /></span> : null}
       </>
     );
   };
@@ -569,7 +572,7 @@ export default function FloatingChat() {
       <div className="fc-msg-reactions">
         {Object.entries(reactions).map(([emoji, uids]) => (
           <span key={emoji} className="fc-msg-reaction">
-            {emoji}
+            <EmojiText text={emoji} />
             {uids.length > 1 && (
               <span className="fc-msg-reaction-count">{uids.length}</span>
             )}
@@ -605,7 +608,7 @@ export default function FloatingChat() {
                   userId={activeConv?.isGroup ? undefined : activeConv?.otherUser?.id}
                 />
                 <div className="fc-panel-peer">
-                  <span className="fc-panel-peer-name">{peerName(activeConv)}</span>
+                  <span className="fc-panel-peer-name"><EmojiText text={peerName(activeConv)} /></span>
                   {!activeConv?.isGroup && activeConv?.otherUser?.username && (
                     <span className="fc-panel-peer-handle">@{activeConv.otherUser.username}</span>
                   )}
@@ -663,12 +666,14 @@ export default function FloatingChat() {
                     />
                     <div className="fc-item-body">
                       <span className="fc-item-top">
-                        <span className="fc-item-name">{peerName(conv)}</span>
+                        <span className="fc-item-name"><EmojiText text={peerName(conv)} /></span>
                         <span className="fc-item-time">
                           {getTimeAgo(t, locale, conv.last_message_at || conv.updated_at)}
                         </span>
                       </span>
-                      <span className="fc-item-preview">{stripMarkdownForPreview(conv.last_message_text) || ''}</span>
+                      <span className="fc-item-preview">
+                        <EmojiText text={stripMarkdownForPreview(conv.last_message_text) || ''} />
+                      </span>
                     </div>
                     {conv.unreadCount > 0 && (
                       <span className="fc-item-unread">{conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>
@@ -709,6 +714,7 @@ export default function FloatingChat() {
 
               <div className="fc-compose">
                 <textarea
+                  ref={inputRef}
                   className="fc-input"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -721,6 +727,13 @@ export default function FloatingChat() {
                   placeholder={t('chat.input_placeholder') || 'Write a message...'}
                   rows={1}
                   maxLength={2000}
+                />
+                <EmojiPickerButton
+                  className="fc-panel-icon-btn"
+                  title={t('common.emoji') || 'Emoji'}
+                  textareaRef={inputRef}
+                  value={input}
+                  onChange={setInput}
                 />
                 <button
                   type="button"

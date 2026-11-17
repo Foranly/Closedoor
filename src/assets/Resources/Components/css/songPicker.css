@@ -57,6 +57,8 @@
     text-align: left;
     cursor: pointer;
     transition: background 0.12s ease;
+    margin: 2px;
+    border-radius: 10px;
 }
 
 .chat-song-picker-item:hover {

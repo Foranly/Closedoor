@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { LiveKitRoom, RoomAudioRenderer, useLocalParticipant } from '@livekit/components-react';
 import { FaPhone, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaSpinner, FaWindowMinimize, FaExpand } from 'react-icons/fa';
 import Avatar from './Avatar';
+import EmojiText from './EmojiText';
 import { getLiveKitToken } from '../../services/callService';
 // Estilos propios: el overlay se monta en CallProvider (App), así que no puede
 // depender de chat.css, que solo se carga en el chunk lazy de /chat.
@@ -130,7 +131,7 @@ export default function CallOverlay({ call, role, peer, status, onAccept, onDecl
             <div className={`chat-call-avatar-wrap${isRinging ? ' chat-call-avatar-wrap--ringing' : ''}`}>
               <Avatar src={peer?.avatar_url} alt={displayName} className="chat-call-avatar" />
             </div>
-            <span className="chat-call-name">{displayName}</span>
+            <span className="chat-call-name"><EmojiText text={displayName} /></span>
             <span className="chat-call-status">
               {status === 'active' && !conn && !tokenError && (
                 <>
@@ -230,7 +231,7 @@ function CallActiveControls({ peer, onClose, t, seconds }) {
       <div className="chat-call-avatar-wrap">
         <Avatar src={peer?.avatar_url} alt={displayName} className="chat-call-avatar" />
       </div>
-      <span className="chat-call-name">{displayName}</span>
+      <span className="chat-call-name"><EmojiText text={displayName} /></span>
       <span className="chat-call-timer">{formatCallTime(seconds)}</span>
       <div className="chat-call-actions">
         <button
@@ -261,7 +262,7 @@ function CallMiniWindow({ peer, status, role, conn, seconds, onExpand, onClose, 
     <div className="chat-call-mini" onPointerDown={onDragStart}>
       <Avatar src={peer?.avatar_url} alt={displayName} className="chat-call-mini-avatar" />
       <div className="chat-call-mini-info">
-        <span className="chat-call-mini-name">{displayName}</span>
+        <span className="chat-call-mini-name"><EmojiText text={displayName} /></span>
         <span className="chat-call-mini-status">
           {conn && <span className="chat-call-mini-live" />}
           {statusText}

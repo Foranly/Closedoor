@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
   FaCamera,
@@ -11,6 +11,8 @@ import {
   FaComment,
 } from 'react-icons/fa';
 import ModalShell from './ModalShell';
+import EmojiText from './EmojiText';
+import EmojiPickerButton from './EmojiPickerButton';
 import { useAuth } from '../../../hooks/useAuth';
 import { useI18n } from '../../services/i18n/useI18n';
 import { uploadWithLocalPreview } from '../../services/cdnService';
@@ -65,6 +67,9 @@ export default function CommunitySettingsModal({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [rulesText, setRulesText] = useState('');
+  const nameRef = useRef(null);
+  const descriptionRef = useRef(null);
+  const rulesRef = useRef(null);
   const [interests, setInterests] = useState([]);
   const [interestInput, setInterestInput] = useState('');
   const [showSuggested, setShowSuggested] = useState(false);
@@ -298,7 +303,7 @@ export default function CommunitySettingsModal({
               </div>
             </div>
             <div className="community-create-preview-info">
-              <span className="community-create-preview-name">{name.trim() || t('comunidades.name_placeholder')}</span>
+              <span className="community-create-preview-name"><EmojiText text={name.trim() || t('comunidades.name_placeholder')} /></span>
               {isPrivate && (
                 <span className="community-create-preview-private"><FaLock /> {t('comunidades.private')}</span>
               )}
@@ -316,6 +321,7 @@ export default function CommunitySettingsModal({
                 )}
               </span>
               <input
+                ref={nameRef}
                 className="fc-modal-input"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -323,11 +329,20 @@ export default function CommunitySettingsModal({
                 maxLength={COMMUNITY_NAME_MAX}
               />
               <span className="fc-modal-char-count">{name.length}/{COMMUNITY_NAME_MAX}</span>
+              <div className="fc-modal-emoji-row">
+                <EmojiPickerButton
+                  title={t('common.emoji') || 'Emoji'}
+                  textareaRef={nameRef}
+                  value={name}
+                  onChange={setName}
+                />
+              </div>
             </label>
 
             <label className="fc-modal-label">
               {t('comunidades.description')}
               <textarea
+                ref={descriptionRef}
                 className="fc-modal-input"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -336,11 +351,20 @@ export default function CommunitySettingsModal({
                 placeholder={t('comunidades.description_placeholder')}
               />
               <span className="fc-modal-char-count">{description.length}/{COMMUNITY_DESC_MAX}</span>
+              <div className="fc-modal-emoji-row">
+                <EmojiPickerButton
+                  title={t('common.emoji') || 'Emoji'}
+                  textareaRef={descriptionRef}
+                  value={description}
+                  onChange={setDescription}
+                />
+              </div>
             </label>
 
             <label className="fc-modal-label" style={{ marginTop: 2 }}>
               {t('comunidades.rules')}
               <textarea
+                ref={rulesRef}
                 className="fc-modal-input"
                 value={rulesText}
                 onChange={(e) => setRulesText(e.target.value)}
@@ -349,6 +373,14 @@ export default function CommunitySettingsModal({
                 placeholder={t('comunidades.rules_placeholder')}
               />
               <span className="fc-modal-input-hint">{t('comunidades.rules_hint')}</span>
+              <div className="fc-modal-emoji-row">
+                <EmojiPickerButton
+                  title={t('common.emoji') || 'Emoji'}
+                  textareaRef={rulesRef}
+                  value={rulesText}
+                  onChange={setRulesText}
+                />
+              </div>
             </label>
           </div>
         </div>
@@ -614,7 +646,7 @@ export default function CommunitySettingsModal({
             <div className="community-roles-bar-list">
               {roles.map((r) => (
                 <span key={r.id} className="community-role-chip" style={{ '--cc-role': r.color || '#6366f1' }}>
-                  {r.name}
+                  <EmojiText text={r.name} />
                   <button type="button" onClick={() => onDeleteRole?.(r)}><FaTimes /></button>
                 </span>
               ))}

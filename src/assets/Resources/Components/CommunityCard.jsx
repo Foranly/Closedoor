@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaLock } from 'react-icons/fa';
 import { useI18n } from '../../services/i18n/useI18n';
+import EmojiText from './EmojiText';
 import '../Styles/explore.css';
 import './css/communityCard.css';
 
@@ -60,7 +61,7 @@ export default function CommunityCard({ community: c }) {
 
         <div className="explore-card-info">
           <div className="explore-card-name-row">
-            <span className="explore-card-name">{c.name}</span>
+            <span className="explore-card-name"><EmojiText text={c.name} /></span>
             <span className="comunidades-card-slug">c/{c.slug}</span>
             {c.is_private && (
               <span className="explore-card-private-icon" title={t('comunidades.private')}>
@@ -78,7 +79,7 @@ export default function CommunityCard({ community: c }) {
             {c.member_count || 0} {t('comunidades.members')} · {c.post_count || 0} {t('comunidades.posts')}
           </span>
 
-          {c.description && <p className="explore-card-bio">{c.description}</p>}
+          {c.description && <p className="explore-card-bio"><EmojiText text={c.description} /></p>}
 
           {c.interests?.length > 0 && (
             <div className="explore-card-interests">

@@ -40,6 +40,15 @@
     border-radius: var(--radius, 10px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
+/* El acento del fondo del chat tiñe SOLO el rail de usuarios (el sidebar
+   propio del chat). El sidebar general del app también lleva `.sidebar--chat`
+   en /chat, pero conserva la superficie del tema. */
+.sidebar.sidebar--users.sidebar--chat {
+    background: var(--chat-sidebar-accent, var(--chat-header-bg, var(--color-surface, #1a1a1a))) !important;
+}
+/* Solo en /chat la sidebar sólida adopta la superficie de las cards flotantes;
+   en el resto de rutas se queda con el negro de `.sidebar--solid` (arriba).
+   Si esta regla pierde `.sidebar--chat`, el surface pisa el negro en todas. */
 .sidebar--solid.sidebar--chat {
     background: var(--color-surface, #1a1a1a);
     backdrop-filter: none;

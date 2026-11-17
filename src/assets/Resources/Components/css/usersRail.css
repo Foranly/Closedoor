@@ -15,7 +15,20 @@
     transition: width 0.3s ease, padding 0.3s ease, background 0.2s ease,
                 backdrop-filter 0.2s ease, border 0.2s ease,
                 top 0.3s ease, right 0.3s ease, height 0.3s ease,
-                border-radius 0.3s ease, box-shadow 0.3s ease;
+                border-radius 0.3s ease, box-shadow 0.3s ease,
+                transform 0.28s ease, visibility 0.28s ease;
+}
+
+/* ── Entrada/salida del rail ──
+   El componente queda montado siempre (ver Chat.jsx) y `open` añade esta
+   clase: así el rail se desliza hacia la derecha al cerrar un grupo y vuelve
+   desde la derecha al abrirlo, en vez de aparecer/desaparecer de golpe.
+   `visibility` va en la transición para que, al ocultarse, el cambio sea
+   discreto al final (y los enlaces dejen de ser enfocables con Tab). */
+.sidebar--users--hidden {
+    transform: translateX(calc(100% + 24px));
+    visibility: hidden;
+    pointer-events: none;
 }
 
 /* /chat: el mismo tratamiento de card del sidebar (top 12, mismo radio en las

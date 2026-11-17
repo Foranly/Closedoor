@@ -43,7 +43,7 @@ import { getUserProfile, getCachedProfile } from '../services/userService';
 import { isBlocked, blockUser, unblockUser, unfollowBothWays, getCachedBlockStatus, cacheBlockStatus } from '../services/blockService';
 import FollowButton from '../Resources/Components/FollowButton';
 import ModalShell from '../Resources/Components/ModalShell';
-import { FaComment, FaSearch, FaArrowLeft, FaPlus, FaTimes, FaUserPlus, FaUsers, FaTrash, FaPalette, FaBan, FaThumbtack, FaCopy, FaEdit, FaCheck, FaSmile, FaReply, FaImage, FaMusic, FaUser, FaPhone, FaLock, FaSpinner, FaCamera, FaUserShield,  FaEllipsisH, FaArrowDown, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt, FaVideo, FaSignOutAlt, FaBold, FaItalic, FaStrikethrough, FaCode, FaQuoteLeft, FaListUl, FaLink, FaFont } from 'react-icons/fa';
+import { FaComment, FaSearch, FaArrowLeft, FaPlus, FaTimes, FaUserPlus, FaUsers, FaTrash, FaPalette, FaBan, FaThumbtack, FaCopy, FaEdit, FaCheck, FaSmile, FaReply, FaImage, FaMusic, FaUser, FaPhone, FaLock, FaSpinner, FaCamera, FaUserShield,  FaEllipsisH, FaArrowDown, FaPhoneSlash, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt, FaVideo, FaSignOutAlt, FaBold, FaItalic, FaStrikethrough, FaCode, FaQuoteLeft, FaListUl, FaLink, FaMarkdown } from 'react-icons/fa';
 import Avatar from '../Resources/Components/Avatar';
 import UsersRail from '../Resources/Components/UsersRail';
 import Badge from '../Resources/Components/Badge';
@@ -65,9 +65,13 @@ import ChatBackgroundModal from '../Resources/Components/ChatBackgroundModal';
 import { getPost } from '../services/postService';
 import { ensureDarkSurface, extractColors, getContrastFromHex, hexToRgba, mixHex } from '../services/colorExtractor';
 import PostMarkdown from '../Resources/Components/PostMarkdown';
+import { splitEmoji } from '../services/twemoji';
 import SafeImage from '../Resources/Components/SafeImage';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
 import LinkPreview from '../Resources/Components/LinkPreview';
+import EmojiText from '../Resources/Components/EmojiText';
+import EmojiPickerButton from '../Resources/Components/EmojiPickerButton';
+import EmojiPicker, { EmojiStyle, Theme } from 'emoji-picker-react';
 import { toast } from 'react-toastify';
 import { supabase } from '../services/supabaseclient';
 import { uploadImage, uploadWithLocalPreview } from '../services/cdnService';
@@ -176,6 +180,32 @@ function ChatImage({ src, alt, onClick }) {
 }
 
 /**
+ * Clase de tamaño para burbujas que sólo contienen emojis. Al no haber texto
+ * que leer, los emojis pueden ocupar más; el tamaño baja a medida que se
+ * acumulan para que la burbuja siga cabiendo. Devuelve '' si hay texto.
+ */
+function emojiOnlySizeClass(text) {
+  const value = String(text || '').trim();
+  if (!value) return '';
+  let count = 0;
+  for (const part of splitEmoji(value)) {
+    if (part.type === 'emoji') {
+      count += 1;
+      continue;
+    }
+    // Cualquier texto (aunque sea un signo) quita el modo «sólo emojis».
+    if (part.value.trim()) return '';
+  }
+  if (!count) return '';
+  const base = 'chat-message-text--emoji';
+  if (count === 1) return `${base} ${base}-xl`;
+  if (count === 2) return `${base} ${base}-lg`;
+  if (count === 3) return `${base} ${base}-md`;
+  if (count <= 6) return `${base} ${base}-sm`;
+  return base;
+}
+
+/**
  * Etiqueta corta para el preview de una conversación o de un mensaje citado:
  * si el texto contiene una imagen o un video, se muestra "Image" / "Video".
  * Devuelve null si no hay media (el caller pinta el texto tal cual).
@@ -245,6 +275,7 @@ export default function Chat() {
   const [pickerMode, setPickerMode] = useState('chat'); // 'chat' | 'create' | 'add'
   const [groupSelected, setGroupSelected] = useState([]);
   const [groupTitle, setGroupTitle] = useState('');
+  const groupTitleRef = useRef(null);
   const [groupBusy, setGroupBusy] = useState(false);
   const [addTargetConv, setAddTargetConv] = useState(null);
   const [groupInfo, setGroupInfo] = useState({ open: false, members: [], loading: false });
@@ -432,7 +463,6 @@ export default function Chat() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null); // mensaje al que se está respondiendo
   const [mediaUrl, setMediaUrl] = useState('');
-  const [inputEmojiTab, setInputEmojiTab] = useState(0);
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState('');
   const [uploadingChatMedia, setUploadingChatMedia] = useState(false);
   // Media/Pinned cargados DIRECTAMENTE de la BD al abrir la conversación (sin
@@ -455,48 +485,7 @@ export default function Chat() {
   // Emoji picker state
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState(null);
   const [emojiPickerPos, setEmojiPickerPos] = useState({ x: 0, y: 0 });
-  const [emojiTab, setEmojiTab] = useState(0);
-  const [recentEmojis, setRecentEmojis] = useState([]);
   const emojiPickerRef = useRef(null);
-
-  // Categorized emojis for reactions
-  const MAX_RECENT = 30;
-
-  const EMOJI_CATEGORIES = [
-    {
-      name: '😀', emojis: ['😀','😃','😄','😁','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🫣','🤫','🤔','🫡','🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','😮','😯','😲','😳','🥺','😢','😭','😤','😠','😡','🤬','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖','🎃','😺','😸','😹','😻','😼','😽','🙀','😿','😾']
-    },
-    {
-      name: '👋', emojis: ['👍','👎','👊','✊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✌️','🤟','🤘','👌','🤌','🤏','👉','👈','👆','👇','☝️','✋','🤚','🖐','🖖','👋','🤙','🫶','💪','🦵','🦶','👂','🦻','👃','🧠','🫀','🫁','👀','👁️','👅','👄','🦷','🦴','👶','🧒','👦','👧','🧑','👱','👨','👩','🧔','👴','👵','🙍','🙎','🙅','🙆','💁','🙋','🧏','🤦','🤷','👮','🕵️','💂','🥷','👷','🫅','🤴','👸','👳','👲','🧕','🤵','👰','🤰','🫃','🫄','🤱','👼','🎅','🤶','🦸','🦹','🧙','🧚','🧛','🧜','🧝','🧞','🧟','🧌']
-    },
-    {
-      name: '❤️', emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','❤️‍🔥','❤️‍🩹','💔','❣️','💕','💞','💗','💖','💘','💝','💟','💌','💋','💑','💏','👩‍❤️‍👨','👨‍❤️‍👨','👩‍❤️‍👩','💒','❤️‍💋‍👨','❤️‍💋‍👩']
-    },
-    {
-      name: '🐱', emojis: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🪸','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔','🐾','🐉','🐲']
-    },
-    {
-      name: '🔥', emojis: ['🔥','⭐','🌟','✨','💫','⚡','🌈','🌊','☀️','🌤️','⛅','🌥️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','💧','💦','🫧','☔','☂️','🌫️','🌪️','🌙','🌚','🌛','🌜','🌝','🌞','🪐','💥','☄️','🌍','🌎','🌏','🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘']
-    },
-    {
-      name: '🌸', emojis: ['🌸','💐','💮','🪷','🌹','🥀','🌺','🌻','🌼','🌷','🪻','🌱','🪴','🌿','☘️','🍀','🍁','🍂','🍃','🪹','🪺','🍄','🌾','🌵','🎄','🌲','🌳','🌴','🪵']
-    },
-    {
-      name: '🎉', emojis: ['🎉','🎊','🎈','🎁','🎀','🎃','🎄','🎆','🎇','🧨','✨','🎶','🎵','🎸','🎹','🎺','🎻','🥁','🪘','🎷','📯','🎙️','🎚️','🎛️','🎤','🎧','📻','🎯','🎱','🎲','🎮','🕹️','🎭','🎨','🎪','🎼','🪕','🎬','🎟️','🎫','🏆','🥇','🥈','🥉','🏅','🎖️','🏵️','🎗️']
-    },
-    {
-      name: '🍕', emojis: ['🍇','🍈','🍉','🍊','🍋','🍌','🍍','🥭','🍎','🍏','🍐','🍑','🍒','🍓','🫐','🥝','🍅','🫒','🥥','🥑','🍆','🥔','🥕','🌽','🌶️','🫑','🥒','🥬','🥦','🧄','🧅','🍄','🥜','🫘','🌰','🍞','🥐','🥖','🫓','🥨','🥯','🥞','🧇','🧀','🍖','🍗','🥩','🥓','🍔','🍟','🍕','🌭','🥪','🌮','🌯','🫔','🥙','🧆','🥚','🍳','🥘','🍲','🫕','🥣','🥗','🍿','🧈','🧂','🥫','🍱','🍘','🍙','🍚','🍛','🍜','🍝','🍠','🍢','🍣','🍤','🍥','🥮','🍡','🥟','🥠','🥡','🦀','🦞','🦐','🦑','🦪','🍦','🍧','🍨','🍩','🍪','🎂','🍰','🧁','🥧','🍫','🍬','🍭','🍮','🍯','🍼','🥛','☕','🫖','🍵','🍶','🍾','🍷','🍸','🍹','🍺','🍻','🥂','🥃','🫗','🥤','🧋','🧃','🧉','🧊']
-    },
-  ];
-
-  // Compute categories with "Recent" tab prepended when there are recent emojis
-  const categoriesWithRecent = React.useMemo(() => {
-    const cats = [...EMOJI_CATEGORIES];
-    if (recentEmojis.length > 0) {
-      cats.unshift({ name: '🕐', emojis: recentEmojis });
-    }
-    return cats;
-  }, [recentEmojis]);
 
   // Smart context menu positioning — flips if menu would overflow viewport
   const getSmartMenuPosition = useCallback((clientX, clientY, menuWidth = 180, menuHeight = 220) => {
@@ -562,6 +551,26 @@ export default function Chat() {
     };
   }, []);
 
+  // ── Cerrar con un clic fuera el panel abierto del chat ──
+  // Los paneles del header (búsqueda, media, fijados, perfil, menú) y del
+  // composer (emoji, GIF, media, música, markdown) comparten `openPanel`. El
+  // cierre va en `pointerdown` y en fase de CAPTURA: se ejecuta en el documento
+  // antes que los handlers de React, así un `stopPropagation` intermedio no lo
+  // deja sin correr (con `click` en burbuja no se cerraban). Los disparadores se
+  // excluyen para que su onClick siga haciendo el toggle del panel.
+  useEffect(() => {
+    const PANEL_SELECTOR = '.chat-float-panel, .chat-header-dropdown, .chat-mobile-header-menu, .gif-picker, .chat-input-emoji-picker, .chat-md-tools';
+    const TRIGGER_SELECTOR = '.chat-header-action-btn, .chat-header-mobile-menu-btn, .chat-mobile-header-menu-item, .chat-input-action-btn';
+    const handlePointerDown = (e) => {
+      const target = e.target;
+      if (!target?.closest) return;
+      if (target.closest(PANEL_SELECTOR) || target.closest(TRIGGER_SELECTOR)) return;
+      setOpenPanel(null);
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+  }, []);
+
   // Focus edit input when entering edit mode
   useEffect(() => {
     if (showEditModal && editMsgId && editRef.current) {
@@ -584,6 +593,17 @@ export default function Chat() {
   const staleBackgroundFetchRef = useRef(false); // true cuando se muestran datos stale mientras se fetchea en bg
   const messagesRef = useRef(messages); // ref sincronizada para evitar race conditions con Realtime
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // El textarea del composer crece con el contenido: al escribir, al hacer un
+  // salto de línea automático o manual, se recalcula la altura a partir de
+  // `scrollHeight`. El CSS pone el tope (`max-height`) y a partir de ahí el
+  // propio textarea scrollea. Sin esto el input se quedaba fijo en una fila.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [inputValue]);
 
   // ── Overrides locales para preview de conversaciones (persisten a loadConvs) ──
   const localConvOverridesRef = useRef({});
@@ -1083,6 +1103,25 @@ export default function Chat() {
     return () => { cancelled = true; };
   }, [activeChatBackground]);
 
+  // Publica el acento en <html> para los elementos del chat que viven fuera de
+  // `.chat-messages` y por tanto no heredan su estilo inline: los paneles
+  // flotantes (`.chat-float-panel`) y el rail de usuarios
+  // (`.sidebar--users.sidebar--chat`). El sidebar general del app comparte la
+  // clase `.sidebar--chat` en /chat, así que NO lee estas vars.
+  useEffect(() => {
+    const root = document.documentElement;
+    const accentBg = chatAccent
+      ? ensureDarkSurface(mixHex(chatAccent, '#1a1a1a', 0.5), 0.14) || 'transparent'
+      : '';
+    const vars = ['--chat-accent-header', '--chat-sidebar-accent'];
+    if (accentBg) {
+      vars.forEach((v) => root.style.setProperty(v, accentBg));
+    } else {
+      vars.forEach((v) => root.style.removeProperty(v));
+    }
+    return () => vars.forEach((v) => root.style.removeProperty(v));
+  }, [chatAccent]);
+
   // ── Fondos de chat del usuario (uno por conversación, privados) ──
   // Se cargan una vez por sesión: la tabla es pequeña (una fila por conversación
   // con fondo) y el RLS ya limita el resultado a las filas de auth.uid().
@@ -1342,17 +1381,6 @@ export default function Chat() {
       setTypingUserIds([]);
     };
   }, [activeConvId, user?.id]);
-
-  // ── Load stored emojis on mount, persist on change ──
-  useEffect(() => {
-    const stored = getItem('chatRecentEmojis');
-    if (Array.isArray(stored) && stored.length > 0) {
-      setRecentEmojis(stored);
-    }
-  }, []);
-  useEffect(() => {
-    setItem('chatRecentEmojis', recentEmojis);
-  }, [recentEmojis]);
 
   // ── Pre-fetch shared posts para los mensajes visibles ──
   // Corre SIEMPRE que `messages` cambie (fetch inicial, restore desde caché,
@@ -2059,13 +2087,6 @@ export default function Chat() {
     setEmojiPickerMsgId(null);
     setMsgMenu({ open: false, x: 0, y: 0, msg: null });
 
-    // Track emoji as recently used (move to front, no duplicates, max limit)
-    setRecentEmojis((prev) => {
-      const next = prev.filter(e => e !== emoji);
-      next.unshift(emoji);
-      return next.slice(0, MAX_RECENT);
-    });
-
     // Optimistic update: apply to local state immediately, no waiting for API
     const prevMessages = messages;
     const toggleReaction = (prev) => prev.map(m => {
@@ -2315,12 +2336,6 @@ export default function Chat() {
         el.focus();
       });
     }
-    // Track as recent
-    setRecentEmojis((prev) => {
-      const next = prev.filter(e => e !== emoji);
-      next.unshift(emoji);
-      return next.slice(0, MAX_RECENT);
-    });
   }, []);
 
   // ── Panel states for header actions (el abierto vive en `openPanel`) ──
@@ -2473,7 +2488,7 @@ export default function Chat() {
       if (prev === msgId) return null; // close
 
       // Calcular posición relativa a la burbuja del mensaje
-      const PICKER_W = 300, PICKER_H = 280;
+      const PICKER_W = 300, PICKER_H = 360;
       const msgEl = document.querySelector(`[data-msg-id="${CSS.escape(msgId)}"]`);
       if (msgEl) {
         const bubbleEl = msgEl.querySelector('.chat-message-bubble');
@@ -2499,7 +2514,6 @@ export default function Chat() {
         setEmojiPickerPos({ x, y });
       }
 
-      setEmojiTab(0);
       return msgId;
     });
     setMsgMenu({ open: false, x: 0, y: 0, msg: null });
@@ -3594,7 +3608,7 @@ export default function Chat() {
                   }}
                 >
                   <Avatar src={u.avatar_url} alt={u.username} className="chat-followers-modal-card-avatar" />
-                  <span className="chat-followers-modal-card-name">{getDisplayName(u)}</span>
+                  <span className="chat-followers-modal-card-name"><EmojiText text={getDisplayName(u)} /></span>
                   {Array.isArray(u.roles) && u.roles.includes('verified') && (
                     <img src="/verified_badge2.png" alt="Verified" className="chat-followers-modal-card-verified" draggable={false} loading="lazy" />
                   )}
@@ -3612,14 +3626,23 @@ export default function Chat() {
       {isPickerGroupMode && (
         <div className="chat-picker-footer">
           {pickerMode === 'create' && (
-            <input
-              className="chat-picker-name-input"
-              type="text"
-              maxLength={80}
-              value={groupTitle}
-              onChange={(e) => setGroupTitle(e.target.value)}
-              placeholder={t('chat.group_name_placeholder')}
-            />
+            <div className="chat-picker-name-row">
+              <input
+                ref={groupTitleRef}
+                className="chat-picker-name-input"
+                type="text"
+                maxLength={80}
+                value={groupTitle}
+                onChange={(e) => setGroupTitle(e.target.value)}
+                placeholder={t('chat.group_name_placeholder')}
+              />
+              <EmojiPickerButton
+                title={t('common.emoji') || 'Emoji'}
+                textareaRef={groupTitleRef}
+                value={groupTitle}
+                onChange={setGroupTitle}
+              />
+            </div>
           )}
           <div className="chat-picker-footer-row">
             <span className="chat-picker-count">
@@ -3691,7 +3714,7 @@ export default function Chat() {
             )}
           </div>
           <div className="chat-group-info-titles">
-            <span className="chat-group-info-title">{getConvTitle(activeConv)}</span>
+            <span className="chat-group-info-title"><EmojiText text={getConvTitle(activeConv)} /></span>
             <span className="chat-messages-header-sub">
               {t('chat.group_members', { count: activeMemberCount })}
             </span>
@@ -3705,7 +3728,7 @@ export default function Chat() {
             {groupInfo.members.map((m) => (
               <div key={m.user_id} className="chat-followers-modal-card chat-group-info-member">
                 <Avatar src={m.profile?.avatar_url} alt={m.profile?.username} className="chat-followers-modal-card-avatar" />
-                <span className="chat-followers-modal-card-name">{getDisplayName(m.profile)}</span>
+                <span className="chat-followers-modal-card-name"><EmojiText text={getDisplayName(m.profile)} /></span>
                 {m.role !== 'member' && (
                   <span className="chat-group-info-role">
                     {m.role === 'owner' ? t('chat.role_owner') : t('chat.role_admin')}
@@ -3859,7 +3882,7 @@ export default function Chat() {
                   />
                   <div className="chat-list-item-info">
                     <div className="chat-list-item-top">
-                      <span className="chat-list-item-name">{getDisplayName(peer)}</span>
+                      <span className="chat-list-item-name"><EmojiText text={getDisplayName(peer)} /></span>
                       <span className="chat-list-item-time">
                         {getTimeAgo(t, locale, call.created_at)}
                       </span>
@@ -3919,7 +3942,7 @@ export default function Chat() {
                 <div className="chat-list-item-top">
                   <span className="chat-list-item-name">
                     {conv.isGroup && <FaUsers className="chat-list-item-group-icon" />}
-                    {getConvTitle(conv)}
+                    <EmojiText text={getConvTitle(conv)} />
                   </span>
                   {(() => {
                     const o = localConvOverridesRef.current[conv.id];
@@ -3957,8 +3980,10 @@ export default function Chat() {
                       }
                       const previewText = o?.text ?? conv.last_message_text;
                       if (!previewText) return '';
+                      const mediaLabel = mediaPreviewLabel(previewText);
+                      if (mediaLabel) return mediaLabel;
                       // El historial es texto plano: sin marcadores de markdown.
-                      return mediaPreviewLabel(previewText) || stripMarkdownForPreview(previewText);
+                      return <EmojiText text={stripMarkdownForPreview(previewText)} />;
                     })()}
                   </span>
                   {conv.is_pinned && (
@@ -4002,7 +4027,7 @@ export default function Chat() {
           />
           <div className="chat-messages-header-info" style={{ cursor: 'pointer' }} onClick={isActiveGroup ? openGroupInfo : goToProfile}>
             <span className="chat-messages-header-name">
-              {isActiveGroup ? getConvTitle(activeConv) : getDisplayName(otherUser)}
+              <EmojiText text={isActiveGroup ? getConvTitle(activeConv) : getDisplayName(otherUser)} />
             </span>
             {isActiveGroup && (
               <span className="chat-messages-header-sub">
@@ -4262,13 +4287,13 @@ export default function Chat() {
                           className="chat-message-sender"
                           style={senderProfile.accent_color ? { color: senderProfile.accent_color } : undefined}
                         >
-                          {getDisplayName(senderProfile)}
+                          <EmojiText text={getDisplayName(senderProfile)} />
                         </span>
                       )}
                       <p className="chat-message-text chat-message-text--removed">
-                        {removerName
+                        <EmojiText text={removerName
                           ? t('chat.message_removed_by', { name: removerName })
-                          : t('chat.message_removed')}
+                          : t('chat.message_removed')} />
                       </p>
                     </div>
                   </div>
@@ -4283,7 +4308,7 @@ export default function Chat() {
               if (msg.decryptedContent !== 'background_changed') return null;
               return (
                 <div key={msg.id} className="chat-system-notice">
-                  {t('chat.background_changed_by', { name: getDisplayName(senderProfile) })}
+                  <EmojiText text={t('chat.background_changed_by', { name: getDisplayName(senderProfile) })} />
                 </div>
               );
             }
@@ -4333,7 +4358,7 @@ export default function Chat() {
                         className="chat-message-sender"
                         style={senderProfile.accent_color ? { color: senderProfile.accent_color } : undefined}
                       >
-                        {getDisplayName(senderProfile)}
+                        <EmojiText text={getDisplayName(senderProfile)} />
                       </span>
                     )}
                     {msg.is_pinned && (
@@ -4384,6 +4409,7 @@ export default function Chat() {
                                       mentionClass="chat-card-mention"
                                       hashtagClass="chat-card-hashtag"
                                       onExternalLink={handleExternalLink}
+                                      emojiImages
                                     />
                                   );
                                 })()}
@@ -4425,11 +4451,12 @@ export default function Chat() {
                           // confirmación de enlaces externos de RichText.
                           <PostMarkdown
                             text={content || ''}
-                            className="chat-message-text chat-message-text--md"
+                            className={`chat-message-text chat-message-text--md ${emojiOnlySizeClass(content)}`}
                             linkClass="chat-card-link"
                             mentionClass="chat-card-mention"
                             hashtagClass="chat-card-hashtag"
                             onExternalLink={handleExternalLink}
+                            emojiImages
                           />
                         );
                       }
@@ -4474,11 +4501,12 @@ export default function Chat() {
                           <PostMarkdown
                             text={textOnly}
                             skipUrls={mediaUrl ? [mediaUrl] : []}
-                            className="chat-message-text chat-message-text--md"
+                            className={`chat-message-text chat-message-text--md ${emojiOnlySizeClass(textOnly)}`}
                             linkClass="chat-card-link"
                             mentionClass="chat-card-mention"
                             hashtagClass="chat-card-hashtag"
                             onExternalLink={handleExternalLink}
+                            emojiImages
                           />
                         )}
                         {/* ── Link preview for non-media URLs ── */}
@@ -4534,7 +4562,7 @@ export default function Chat() {
                           }
                         }}
                       >
-                        {emoji}
+                        <EmojiText text={emoji} />
                         {count > 1 && <span className="chat-message-reaction-count">{count}</span>}
                       </span>
                     ))}
@@ -4581,7 +4609,7 @@ export default function Chat() {
               </span>
               <div className="chat-reply-bar-preview">
                 {replyingTo.shared_song?.title ? (
-                  `🎵 ${replyingTo.shared_song.title}`
+                  <EmojiText text={`🎵 ${replyingTo.shared_song.title}`} />
                 ) : replyingTo.decryptedContent ? (
                   // Mismo markdown en línea que la cita de la burbuja.
                   <PostMarkdown
@@ -4591,6 +4619,7 @@ export default function Chat() {
                     mentionClass="chat-card-mention"
                     hashtagClass="chat-card-hashtag"
                     onExternalLink={handleExternalLink}
+                    emojiImages
                   />
                 ) : (
                   t('chat.encrypted')
@@ -4681,29 +4710,17 @@ export default function Chat() {
         {/* Input emoji picker */}
         {showInputEmojiPicker && (
           <div className="chat-input-emoji-picker">
-            <div className="emoji-picker-tabs">
-              {categoriesWithRecent.map((cat, idx) => (
-                <button
-                  key={idx}
-                  className={`emoji-picker-tab ${inputEmojiTab === idx ? 'emoji-picker-tab--active' : ''}`}
-                  onClick={() => setInputEmojiTab(idx)}
-                  title={cat.name}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-            <div className="emoji-picker-grid">
-              {categoriesWithRecent[inputEmojiTab]?.emojis.map(emoji => (
-                <button
-                  key={emoji}
-                  className="emoji-picker-btn"
-                  onClick={() => handleInputEmojiSelect(emoji)}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
+            <EmojiPicker
+              onEmojiClick={(emojiData) => handleInputEmojiSelect(emojiData.emoji)}
+              emojiStyle={EmojiStyle.TWITTER}
+              theme={Theme.DARK}
+              width={320}
+              height={360}
+              lazyLoadEmojis
+              autoFocusSearch={false}
+              previewConfig={{ showPreview: false }}
+              searchPlaceholder={t('chat.search_emojis') || 'Search emoji'}
+            />
           </div>
         )}
         {/* Media (imagen) picker — mismo contenedor embebido que GIF, canciones
@@ -4759,42 +4776,56 @@ export default function Chat() {
           />
           <div className="chat-input-actions">
             <div className="chat-input-actions-desktop">
-              <button
-                className={`chat-input-action-btn ${showInputEmojiPicker ? 'chat-input-action-btn--active' : ''}`}
-                onClick={() => setShowInputEmojiPicker(s => !s)}
-                title="Emoji"
-              >
-                <FaSmile />
-              </button>
-              <button
-                className={`chat-input-action-btn ${showGifPicker ? 'chat-input-action-btn--active' : ''}`}
-                onClick={() => setShowGifPicker(s => !s)}
-                title="GIF"
-              >
-                <span className="chat-input-action-btn-gif">GIF</span>
-              </button>
-              <button
-                className={`chat-input-action-btn ${showMediaInput ? 'chat-input-action-btn--active' : ''}`}
-                onClick={() => setShowMediaInput(s => !s)}
-                title="Media"
-              >
-                <FaImage />
-              </button>
-              <button
-                className={`chat-input-action-btn ${showSongPicker ? 'chat-input-action-btn--active' : ''}`}
-                onClick={() => setShowSongPicker(s => !s)}
-                title={t('chat.share_song')}
-              >
-                <FaMusic />
-              </button>
-              <button
-                className={`chat-input-action-btn ${showMdTools ? 'chat-input-action-btn--active' : ''}`}
-                onClick={() => setShowMdTools(s => !s)}
-                title={t('chat.md_format') || 'Formato'}
-                aria-expanded={showMdTools}
-              >
-                <FaFont />
-              </button>
+              <Tooltip text={t('common.emoji') || 'Emoji'} placement="top">
+                <button
+                  className={`chat-input-action-btn ${showInputEmojiPicker ? 'chat-input-action-btn--active' : ''}`}
+                  onClick={() => setShowInputEmojiPicker(s => !s)}
+                  aria-label={t('common.emoji') || 'Emoji'}
+                  aria-expanded={showInputEmojiPicker}
+                >
+                  <FaSmile />
+                </button>
+              </Tooltip>
+              <Tooltip text={t('create_post.add_gif') || 'GIF'} placement="top">
+                <button
+                  className={`chat-input-action-btn ${showGifPicker ? 'chat-input-action-btn--active' : ''}`}
+                  onClick={() => setShowGifPicker(s => !s)}
+                  aria-label={t('create_post.add_gif') || 'GIF'}
+                  aria-expanded={showGifPicker}
+                >
+                  <span className="chat-input-action-btn-gif">GIF</span>
+                </button>
+              </Tooltip>
+              <Tooltip text={t('chat.media_gallery') || 'Media'} placement="top">
+                <button
+                  className={`chat-input-action-btn ${showMediaInput ? 'chat-input-action-btn--active' : ''}`}
+                  onClick={() => setShowMediaInput(s => !s)}
+                  aria-label={t('chat.media_gallery') || 'Media'}
+                  aria-expanded={showMediaInput}
+                >
+                  <FaImage />
+                </button>
+              </Tooltip>
+              <Tooltip text={t('chat.share_song') || 'Share a song'} placement="top">
+                <button
+                  className={`chat-input-action-btn ${showSongPicker ? 'chat-input-action-btn--active' : ''}`}
+                  onClick={() => setShowSongPicker(s => !s)}
+                  aria-label={t('chat.share_song') || 'Share a song'}
+                  aria-expanded={showSongPicker}
+                >
+                  <FaMusic />
+                </button>
+              </Tooltip>
+              <Tooltip text={t('chat.md_format') || 'Format'} placement="top">
+                <button
+                  className={`chat-input-action-btn ${showMdTools ? 'chat-input-action-btn--active' : ''}`}
+                  onClick={() => setShowMdTools(s => !s)}
+                  aria-label={t('chat.md_format') || 'Format'}
+                  aria-expanded={showMdTools}
+                >
+                  <FaMarkdown />
+                </button>
+              </Tooltip>
             </div>
 
           </div>
@@ -4807,14 +4838,16 @@ export default function Chat() {
 
   return (
     <div className="chat-page">
-      {/* Rail derecho con los miembros: solo en grupos (el componente se oculta
-          en móvil y aparta el layout con `body:has(.sidebar--users)`). */}
-      {isActiveGroup && (
-        <UsersRail
-          conversationId={activeConvId}
-          memberVersion={activeConv?.members?.length || 0}
-        />
-      )}
+      {/* Rail derecho con los miembros. Se monta siempre (el componente se
+          oculta en móvil) y `open` controla la visibilidad: así puede salir y
+          entrar deslizándose al cambiar entre grupo y privado, en vez de
+          aparecer/desaparecer de golpe al desmontarse. El layout se aparta con
+          `body:has(.sidebar--users:not(.sidebar--users--hidden))`. */}
+      <UsersRail
+        conversationId={isActiveGroup ? activeConvId : null}
+        memberVersion={activeConv?.members?.length || 0}
+        open={!!isActiveGroup}
+      />
       {/* ── Voice call overlay: ahora lo renderiza CallContext (global, cualquier ruta) ── */}
       <div className={`chat-list${!showList ? ' chat-list--hide-mobile' : ''}`}>
         {renderConversationListContent()}
@@ -4890,33 +4923,17 @@ export default function Chat() {
           style={{ left: emojiPickerPos.x, top: emojiPickerPos.y }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="emoji-picker-tabs">
-            {categoriesWithRecent.map((cat, idx) => (
-              <button
-                key={idx}
-                className={`emoji-picker-tab ${emojiTab === idx ? 'emoji-picker-tab--active' : ''}`}
-                onClick={() => setEmojiTab(idx)}
-                title={cat.name}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
-          <div className="emoji-picker-grid">
-            {(() => {
-              const targetMsg = messages.find(m => m.id === emojiPickerMsgId);
-              const currentOwnReaction = targetMsg?.reactions?.[user?.id];
-              return categoriesWithRecent[emojiTab]?.emojis.map(emoji => (
-                <button
-                  key={emoji}
-                  className={`emoji-picker-btn ${currentOwnReaction === emoji ? 'emoji-picker-btn--active' : ''}`}
-                  onClick={() => handleReact(emoji)}
-                >
-                  {emoji}
-                </button>
-              ));
-            })()}
-          </div>
+          <EmojiPicker
+            onEmojiClick={(emojiData) => handleReact(emojiData.emoji)}
+            emojiStyle={EmojiStyle.TWITTER}
+            theme={Theme.DARK}
+            width={300}
+            height={360}
+            lazyLoadEmojis
+            autoFocusSearch={false}
+            previewConfig={{ showPreview: false }}
+            searchPlaceholder={t('chat.search_emojis') || 'Search emoji'}
+          />
         </div>
       )}
 
@@ -4985,7 +5002,8 @@ export default function Chat() {
                             if (!txt) return <span>{t('chat.encrypted')}</span>;
                             const mediaLabel = mediaPreviewLabel(txt);
                             if (mediaLabel) return mediaLabel;
-                            return <>{txt.slice(0, 60)}{txt.length > 60 ? '...' : ''}</>;
+                            const snippet = `${txt.slice(0, 60)}${txt.length > 60 ? '...' : ''}`;
+                            return <EmojiText text={snippet} />;
                           })()}
                         </span>
                       </div>
@@ -5088,17 +5106,17 @@ export default function Chat() {
                     <FaThumbtack className="chat-pinned-item-icon" />
                     <Avatar src={sender.avatar} alt={sender.name} className="chat-pinned-item-avatar" />
                     <div className="chat-pinned-item-info">
-                      <span className="chat-pinned-item-sender">{sender.name}</span>
+                      <span className="chat-pinned-item-sender"><EmojiText text={sender.name} /></span>
                       <span className="chat-pinned-item-text">
                         {(() => {
                           if (msg.shared_song?.title) {
-                            return <><FaMusic className="chat-list-item-preview-icon" /> {msg.shared_song.title}</>;
+                            return <><FaMusic className="chat-list-item-preview-icon" /> <EmojiText text={msg.shared_song.title} /></>;
                           }
                           const txt = msg.decryptedContent || '';
                           if (!txt) return t('chat.encrypted');
                           const mediaLabel = mediaPreviewLabel(txt);
                           if (mediaLabel) return mediaLabel;
-                          return txt;
+                          return <EmojiText text={txt} />;
                         })()}
                       </span>
                     </div>
@@ -5140,7 +5158,7 @@ export default function Chat() {
               />
               <div className="explore-card-info">
                 <div className="explore-card-name-row">
-                  <span className="explore-card-name">{getDisplayName(otherUser)}</span>
+                  <span className="explore-card-name"><EmojiText text={getDisplayName(otherUser)} /></span>
                               <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.5 }}> · @{otherUser.username || ''}</span>
                   {otherUser.is_private === true && (
                     <span className="explore-card-private-icon" title={t('profile.private_profile')}>
@@ -5163,9 +5181,9 @@ export default function Chat() {
                 </span>
                 {(otherUser.bio || otherUser.pronouns) && (
                   <p className="explore-card-bio">
-                    {otherUser.bio || ''}
-                    {otherUser.bio && otherUser.pronouns && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}> · {otherUser.pronouns}</span>}
-                    {!otherUser.bio && otherUser.pronouns && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}>{otherUser.pronouns}</span>}
+                    <EmojiText text={otherUser.bio || ''} />
+                    {otherUser.bio && otherUser.pronouns && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}> · <EmojiText text={otherUser.pronouns} /></span>}
+                    {!otherUser.bio && otherUser.pronouns && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}><EmojiText text={otherUser.pronouns} /></span>}
                   </p>
                 )}
                 {Array.isArray(otherUser.interests) && otherUser.interests.length > 0 && (
@@ -5289,6 +5307,15 @@ export default function Chat() {
                   placeholder={t('chat.edit_placeholder')}
                 />
               </label>
+              <div className="chat-edit-modal-tools">
+                <EmojiPickerButton
+                  className="chat-input-action-btn"
+                  title={t('common.emoji') || 'Emoji'}
+                  textareaRef={editRef}
+                  value={editText}
+                  onChange={setEditText}
+                />
+              </div>
             </div>
             <div className="chat-edit-modal-preview">
               <div className="chat-edit-modal-preview-header">
@@ -5297,7 +5324,7 @@ export default function Chat() {
               <div className="chat-edit-modal-preview-bubble">
                 <div className="chat-edit-modal-preview-content">
                   <p className="chat-edit-modal-preview-text">
-                    {editText || editContentRef.current || t('chat.encrypted')}
+                    <EmojiText text={editText || editContentRef.current || t('chat.encrypted')} />
                   </p>
                 </div>
                 {editMediaUrlRef.current && IMG_RE.test(editMediaUrlRef.current) && (

@@ -3,6 +3,7 @@ import { useI18n } from '../../services/i18n/useI18n';
 import { useMusicPlayer } from '../../../hooks/useMusicPlayer';
 import { songKey } from '../../services/musicService';
 import SongArtwork from './SongArtwork';
+import EmojiText from './EmojiText';
 
 /**
  * PostSongCard — canción adjunta a un post.
@@ -68,9 +69,9 @@ export default function PostSongCard({ song }) {
       </button>
 
       <div className="post-card-song-info">
-        <span className="post-card-song-title" title={song.title}>{song.title}</span>
+        <span className="post-card-song-title" title={song.title}><EmojiText text={song.title} /></span>
         {song.artist && (
-          <span className="post-card-song-artist" title={song.artist}>{song.artist}</span>
+          <span className="post-card-song-artist" title={song.artist}><EmojiText text={song.artist} /></span>
         )}
       </div>
 

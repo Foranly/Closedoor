@@ -858,6 +858,12 @@ textarea.fc-modal-input {
     margin-top: 4px;
 }
 
+.fc-modal-emoji-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
 /* ── Card wrapper for each option section ── */
 
 .fc-modal-card {

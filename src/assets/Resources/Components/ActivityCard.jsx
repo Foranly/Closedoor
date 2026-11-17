@@ -23,6 +23,7 @@ import { isFollowing, getCachedFollowStatus } from '../../services/followService
 import { resolveActivityArtwork } from '../../services/musicService';
 import { appLogoUrl, APP_LOGO_CREDIT_URL } from '../../services/appLogos';
 import ProgramLogo from './ProgramLogo';
+import EmojiText from './EmojiText';
 import {
   normalizeActivity,
   activityFromProfile,
@@ -214,11 +215,11 @@ export default function ActivityCard({ profile, isOwnProfile, surfaceStyle }) {
 
             <div className="profile-activity-meta">
               <span className="profile-activity-title" title={activity.title}>
-                {activity.title}
+                <EmojiText text={activity.title} />
               </span>
               {activity.subtitle && (
                 <span className="profile-activity-subtitle" title={activity.subtitle}>
-                  {activity.subtitle}
+                  <EmojiText text={activity.subtitle} />
                 </span>
               )}
             </div>
@@ -247,7 +248,7 @@ export default function ActivityCard({ profile, isOwnProfile, surfaceStyle }) {
 
             <div className="profile-activity-meta">
               <span className="profile-activity-title" title={program.title}>
-                {program.title}
+                <EmojiText text={program.title} />
               </span>
             </div>
           </div>

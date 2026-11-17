@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ModalShell from './ModalShell';
+import EmojiText from './EmojiText';
+import EmojiPickerButton from './EmojiPickerButton';
 import { useAuth } from '../../../hooks/useAuth';
 import { useI18n } from '../../services/i18n/useI18n';
 import { toast } from 'react-toastify';
@@ -53,6 +55,9 @@ export default function CreateCommunityModal({ isOpen, onClose, onSuccess }) {
   const [uploading, setUploading] = useState(false);
 
   const nameTimerRef = useRef(null);
+  const nameRef = useRef(null);
+  const descriptionRef = useRef(null);
+  const rulesRef = useRef(null);
 
   // ── Reset al abrir ──
   useEffect(() => {
@@ -326,7 +331,7 @@ export default function CreateCommunityModal({ isOpen, onClose, onSuccess }) {
                 </div>
               </div>
               <div className="community-create-preview-info">
-                <span className="community-create-preview-name">{name.trim() || t('comunidades.name_placeholder')}</span>
+                <span className="community-create-preview-name"><EmojiText text={name.trim() || t('comunidades.name_placeholder')} /></span>
                 {slug && (
                   <span className="community-create-preview-slug">
                     c/{slug}
@@ -344,6 +349,7 @@ export default function CreateCommunityModal({ isOpen, onClose, onSuccess }) {
                 {t('comunidades.name')}
                 <div className="community-create-name-wrap">
                   <input
+                    ref={nameRef}
                     className="fc-modal-input community-create-name-input"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -367,11 +373,20 @@ export default function CreateCommunityModal({ isOpen, onClose, onSuccess }) {
                   )}
                 </div>
                 <span className="fc-modal-char-count">{name.length}/{COMMUNITY_NAME_MAX}</span>
+                <div className="fc-modal-emoji-row">
+                  <EmojiPickerButton
+                    title={t('common.emoji') || 'Emoji'}
+                    textareaRef={nameRef}
+                    value={name}
+                    onChange={setName}
+                  />
+                </div>
               </label>
 
               <label className="fc-modal-label">
                 {t('comunidades.description')}
                 <textarea
+                  ref={descriptionRef}
                   className="fc-modal-input"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -380,11 +395,20 @@ export default function CreateCommunityModal({ isOpen, onClose, onSuccess }) {
                   placeholder={t('comunidades.description_placeholder')}
                 />
                 <span className="fc-modal-char-count">{description.length}/{COMMUNITY_DESC_MAX}</span>
+                <div className="fc-modal-emoji-row">
+                  <EmojiPickerButton
+                    title={t('common.emoji') || 'Emoji'}
+                    textareaRef={descriptionRef}
+                    value={description}
+                    onChange={setDescription}
+                  />
+                </div>
               </label>
 
               <label className="fc-modal-label" style={{ marginTop: 2 }}>
                 {t('comunidades.rules')}
                 <textarea
+                  ref={rulesRef}
                   className="fc-modal-input"
                   value={rulesText}
                   onChange={(e) => setRulesText(e.target.value)}
@@ -393,6 +417,14 @@ export default function CreateCommunityModal({ isOpen, onClose, onSuccess }) {
                   placeholder={t('comunidades.rules_placeholder')}
                 />
                 <span className="fc-modal-input-hint">{t('comunidades.rules_hint')}</span>
+                <div className="fc-modal-emoji-row">
+                  <EmojiPickerButton
+                    title={t('common.emoji') || 'Emoji'}
+                    textareaRef={rulesRef}
+                    value={rulesText}
+                    onChange={setRulesText}
+                  />
+                </div>
               </label>
             </div>
           </div>

@@ -18,6 +18,7 @@ import { getCdnUrl } from '../../services/cdnService';
 import { useBgContrastSides } from '../../../hooks/useBgContrast';
 import Avatar from './Avatar';
 import ExploreCard from './ExploreCard';
+import EmojiText from './EmojiText';
 
 /**
  * Posición de la card en pantalla, para flotar el panel justo encima.
@@ -320,7 +321,7 @@ export default function ChatAccountCard() {
           />
 
           <span className="chat-account-card-info">
-            <span className="chat-account-card-name" title={name}>{name}</span>
+            <span className="chat-account-card-name" title={name}><EmojiText text={name} /></span>
             <span
               className={`chat-account-card-activity${activity ? '' : ' chat-account-card-activity--idle'}`}
               title={activityDetail || t('chat.account_idle')}
@@ -388,7 +389,7 @@ export default function ChatAccountCard() {
                   className="chat-account-modal-avatar"
                 />
                 <div className="chat-account-modal-identity">
-                  <span className="chat-account-modal-name">{name}</span>
+                  <span className="chat-account-modal-name"><EmojiText text={name} /></span>
                   {username && <span className="chat-account-modal-username">@{username}</span>}
                 </div>
                 <button

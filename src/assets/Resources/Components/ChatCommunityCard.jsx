@@ -1,4 +1,5 @@
 import { useI18n } from '../../services/i18n/useI18n';
+import EmojiText from './EmojiText';
 
 /**
  * ChatCommunityCard — invitación a una comunidad compartida en un mensaje.
@@ -54,12 +55,12 @@ export default function ChatCommunityCard({ community, inviteToken = null, isOwn
             </div>
           )}
           <div className="chat-community-card-info">
-            <span className="chat-community-card-name">{community.name}</span>
+            <span className="chat-community-card-name"><EmojiText text={community.name} /></span>
             <span className="chat-community-card-slug">c/{community.slug}</span>
           </div>
         </div>
         {/* Bloque de 2 líneas fijo (clamp en CSS) para que todas las tarjetas midan igual */}
-        <p className="chat-community-card-desc">{community.description || ''}</p>
+        <p className="chat-community-card-desc"><EmojiText text={community.description || ''} /></p>
         <div className="chat-community-card-stats">
           <span>{community.member_count || 0} {t('comunidades.members')}</span>
           <span>{community.post_count || 0} {t('comunidades.posts')}</span>

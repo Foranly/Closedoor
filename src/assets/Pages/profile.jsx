@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useMemo, useCallback, useContext } 
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import EmojiText from "../Resources/Components/EmojiText";
 import { supabase } from "../services/supabaseclient";
 import {
     updateUserProfile,
@@ -1672,7 +1673,7 @@ function Profile() {
 
                     <div className="profile-user-info">
                         <div className="profile-username">
-                            <span>{profileDisplayName} <span style={{ fontSize: '0.78rem', fontWeight: 400, opacity: 0.55, verticalAlign: 'middle' }}>· @{activeProfile?.username || user?.user_metadata?.username || ''}</span></span>
+                            <span><EmojiText text={profileDisplayName} /> <span style={{ fontSize: '0.78rem', fontWeight: 400, opacity: 0.55, verticalAlign: 'middle' }}>· @{activeProfile?.username || user?.user_metadata?.username || ''}</span></span>
                             {showBadges && <Badge roles={visibleRoles} />}
                         </div>
 
@@ -1725,9 +1726,9 @@ function Profile() {
                         </div>
 
                         {activeProfile?.bio ? (
-                            <p className="profile-bio">{activeProfile.bio}{activeProfile?.pronouns && <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.5 }}> · {activeProfile.pronouns}</span>}</p>
+                            <p className="profile-bio"><EmojiText text={activeProfile.bio} />{activeProfile?.pronouns && <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.5 }}> · <EmojiText text={activeProfile.pronouns} /></span>}</p>
                         ) : activeProfile?.pronouns ? (
-                            <p className="profile-bio" style={{ opacity: 0.5 }}>{activeProfile.pronouns}</p>
+                            <p className="profile-bio" style={{ opacity: 0.5 }}><EmojiText text={activeProfile.pronouns} /></p>
                         ) : (
                             <p className="profile-bio profile-bio--empty">{t('profile.no_bio')}</p>
                         )}
