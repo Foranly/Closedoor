@@ -55,6 +55,7 @@ if (!bin) {
 
 const env = { ...process.env };
 if (isLinux && !env.DRI_PRIME) env.DRI_PRIME = '1';
+if (isLinux && !env.ELECTRON_OZONE_PLATFORM_HINT) env.ELECTRON_OZONE_PLATFORM_HINT = 'auto';
 const binDir = path.dirname(bin);
 if (!isWin && (binDir.includes('linux-unpacked') || binDir.includes('win-unpacked'))) {
   env.LD_LIBRARY_PATH = binDir + (env.LD_LIBRARY_PATH ? ':' + env.LD_LIBRARY_PATH : '');

@@ -20,6 +20,10 @@ module.exports = async function afterPack(context) {
     '  DRI_PRIME=1',
     '  export DRI_PRIME',
     'fi',
+    'if [ -z "${ELECTRON_OZONE_PLATFORM_HINT:-}" ]; then',
+    '  ELECTRON_OZONE_PLATFORM_HINT=auto',
+    '  export ELECTRON_OZONE_PLATFORM_HINT',
+    'fi',
     `exec "$(dirname "$0")/${executableName}.bin" "$@"`,
     '',
   ].join('\n');
