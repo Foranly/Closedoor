@@ -2,7 +2,7 @@
  * desktopApp.js (datos) — versión y enlaces de descarga de la app de escritorio.
  */
 
-export const DESKTOP_VERSION = '0.1.4';
+export const DESKTOP_VERSION = '0.1.5';
 
 /** Tag del Release que contiene los instaladores. */
 export const DESKTOP_RELEASE_TAG = `v${DESKTOP_VERSION}`;
