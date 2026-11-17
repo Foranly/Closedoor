@@ -3,6 +3,7 @@ import { FaMusic, FaPaperPlane, FaSearch, FaSpinner, FaTimes } from 'react-icons
 import { useI18n } from '../../services/i18n/useI18n';
 import { searchMusic } from '../../services/musicService';
 import SongArtwork from './SongArtwork';
+import EmojiText from './EmojiText';
 // Shell compartida con el picker de GIF: así el contenedor de búsqueda de
 // canciones tiene exactamente la misma estética que el resto de contenedores
 // embebidos del chat (borde, radios, superficie, header y buscador).
@@ -134,11 +135,8 @@ export default function SongPicker({ onSelect, onClose }) {
                   loading="lazy"
                 />
                 <span className="chat-song-picker-info">
-                  <span className="chat-song-picker-title">{song.title}</span>
-                  <span className="chat-song-picker-artist">{song.artist}</span>
-                </span>
-                <span className="chat-song-picker-send" aria-hidden="true">
-                  <FaPaperPlane size={12} />
+                  <span className="chat-song-picker-title"><EmojiText text={song.title} /></span>
+                  <span className="chat-song-picker-artist"><EmojiText text={song.artist} /></span>
                 </span>
               </button>
             ))}

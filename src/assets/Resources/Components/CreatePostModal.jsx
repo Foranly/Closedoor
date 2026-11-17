@@ -12,6 +12,8 @@ import Badge from './Badge';
 import GifPicker from './GifPicker';
 import SongPicker from './SongPicker';
 import SongArtwork from './SongArtwork';
+import EmojiPickerButton from './EmojiPickerButton';
+import EmojiText from './EmojiText';
 import { withPreviewFallback } from '../../services/musicService';
 import { IMG_RE, VID_RE, YOUTUBE_PATTERN, VIMEO_PATTERN, isAttachableVideoUrl, extractUrls, detectMediaFromContent, getRateLimitInfo, getEmbedUrl as getEmbedUrlHelper } from '../../services/helpers';
 import { getClipboardImageFile } from '../../services/clipboard';
@@ -94,6 +96,7 @@ export default function CreatePostModal({
     handleTextareaKeyDown,
     mentionDropdown,
     followedUsers,
+    resetMentions,
   } = useMentionAutocomplete(isOpen ? userId : null, content, setContent);
 
   // ── Encrypted post state ──
@@ -110,6 +113,11 @@ export default function CreatePostModal({
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [pollExpiresAt, setPollExpiresAt] = useState('');
+  const pollQuestionRef = useRef(null);
+  const pollOptionRefs = useMemo(
+    () => Array.from({ length: 10 }, () => ({ current: null })),
+    [],
+  );
 
   // ── Comment permissions state ──
   const [commentsAllowed, setCommentsAllowed] = useState('everyone');
@@ -951,6 +959,20 @@ export default function CreatePostModal({
               </button>
               </Tooltip>
 
+              {/* ── Emoji picker ── */}
+              <Tooltip text={t('common.emoji') || 'Emoji'} placement="bottom">
+                <EmojiPickerButton
+                  className="create-post-toolbar-btn"
+                  title={t('common.emoji') || 'Emoji'}
+                  textareaRef={textareaRef}
+                  value={content}
+                  onChange={(nextContent) => {
+                    setContent(nextContent);
+                    resetMentions();
+                  }}
+                />
+              </Tooltip>
+
               {/* ── Song picker toggle ── */}
               <Tooltip text={song ? t('create_post.remove_song') : t('create_post.add_song')} placement="bottom">
               <button
@@ -992,8 +1014,8 @@ export default function CreatePostModal({
                   loading="lazy"
                 />
                 <span className="create-post-song-info">
-                  <span className="create-post-song-title">{song.title}</span>
-                  {song.artist && <span className="create-post-song-artist">{song.artist}</span>}
+                  <span className="create-post-song-title"><EmojiText text={song.title} /></span>
+                  {song.artist && <span className="create-post-song-artist"><EmojiText text={song.artist} /></span>}
                 </span>
                 <button
                   type="button"
@@ -1116,25 +1138,42 @@ export default function CreatePostModal({
                   <FaPoll className="create-post-poll-section-icon" />
                   <span className="create-post-poll-section-label">{t('create_post.poll_title') || 'Encuesta'}</span>
                 </div>
-                <input
-                  className="fc-modal-input create-post-poll-input"
-                  type="text"
-                  value={pollQuestion}
-                  onChange={(e) => setPollQuestion(e.target.value)}
-                  placeholder={t('create_post.poll_question_placeholder') || 'Escribe una pregunta...'}
-                  maxLength={280}
-                />
+                <div className="create-post-poll-question-row">
+                  <input
+                    ref={pollQuestionRef}
+                    className="fc-modal-input create-post-poll-input"
+                    type="text"
+                    value={pollQuestion}
+                    onChange={(e) => setPollQuestion(e.target.value)}
+                    placeholder={t('create_post.poll_question_placeholder') || 'Escribe una pregunta...'}
+                    maxLength={280}
+                  />
+                  <EmojiPickerButton
+                    title={t('common.emoji') || 'Emoji'}
+                    textareaRef={pollQuestionRef}
+                    value={pollQuestion}
+                    onChange={setPollQuestion}
+                  />
+                </div>
                 <div className="create-post-poll-options">
                   {pollOptions.map((option, index) => (
                     <div key={index} className="create-post-poll-option-row">
                       <span className="create-post-poll-option-num">{index + 1}</span>
                       <input
+                        ref={pollOptionRefs[index]}
                         className="fc-modal-input create-post-poll-option-input"
                         type="text"
                         value={option}
                         onChange={(e) => handlePollOptionChange(index, e.target.value)}
                         placeholder={t('create_post.poll_option_placeholder', { n: index + 1 }) || `Opción ${index + 1}`}
                         maxLength={120}
+                      />
+                      <EmojiPickerButton
+                        className="create-post-poll-emoji-btn"
+                        title={t('common.emoji') || 'Emoji'}
+                        textareaRef={pollOptionRefs[index]}
+                        value={option}
+                        onChange={(nextValue) => handlePollOptionChange(index, nextValue)}
                       />
                       {pollOptions.length > 2 && (
                         <Tooltip text={t('common.delete')} placement="bottom">
@@ -1413,7 +1452,7 @@ export default function CreatePostModal({
                 />
                 <div className="create-post-live-preview-content">
                   <div className="create-post-live-preview-author">
-                    <span className="create-post-live-preview-username">{displayName}</span>
+                    <span className="create-post-live-preview-username"><EmojiText text={displayName} /></span>
                     <Badge roles={profile?.roles || []} />
                   </div>
                   <div className="create-post-live-preview-text">
@@ -1498,7 +1537,7 @@ export default function CreatePostModal({
                   />
                   <div className="create-post-live-preview-content">
                     <div className="create-post-live-preview-author">
-                      <span className="create-post-live-preview-username">{displayName}</span>
+                      <span className="create-post-live-preview-username"><EmojiText text={displayName} /></span>
                       <Badge roles={profile?.roles || []} />
                     </div>
                     <p className="create-post-live-preview-text">

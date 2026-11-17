@@ -916,12 +916,44 @@
     color: var(--color-text, #ffffff);
 }
 
+.create-post-poll-question-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.create-post-poll-question-row .create-post-poll-input {
+    flex: 1;
+    margin-bottom: 0;
+}
+
 .create-post-poll-input {
     width: 100%;
     padding: 10px 12px !important;
     font-size: 0.9rem !important;
     margin-bottom: 10px;
     border-radius: var(--radius-sm, 6px) !important;
+}
+
+.create-post-poll-emoji-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-border, #2a2a2a);
+    border-radius: var(--radius-sm, 6px);
+    background: transparent;
+    color: var(--color-text-muted, #6b7280);
+    cursor: pointer;
+}
+
+.create-post-poll-emoji-btn:hover {
+    background: var(--color-surface-hover, #252525);
+    color: var(--color-text, #ffffff);
 }
 
 .create-post-poll-options {

@@ -186,11 +186,14 @@ body:has(.sidebar--collapsed:not(.sidebar--users)) .app-layout--chat {
    Espejo del padding-left del sidebar, solo en /chat: el rail únicamente se
    monta ahí (y solo en escritorio, así que en móvil estas reglas nunca
    aplican). Ancho del rail + 12px de separación con las cards del chat. */
-body:has(.sidebar--users) .app-layout--chat {
+/* `:not(.sidebar--users--hidden)`: el rail queda montado aunque la
+   conversación activa sea un privado (para poder deslizarse fuera); oculto no
+   debe apartar el layout. */
+body:has(.sidebar--users:not(.sidebar--users--hidden)) .app-layout--chat {
     padding-right: 222px !important;
 }
 
-body:has(.sidebar--users.sidebar--collapsed) .app-layout--chat {
+body:has(.sidebar--users.sidebar--collapsed:not(.sidebar--users--hidden)) .app-layout--chat {
     padding-right: 88px !important;
 }
 
@@ -729,4 +732,13 @@ html.fc-sidebar-text .sidebar-brand-logo {
 .chat-account-card-banner {
     transform: translateZ(0);
     backface-visibility: hidden;
+}
+
+/* Emojis renderizados como SVG de Twemoji (mismos en todos los OS). */
+.twemoji-emoji {
+    width: 1.2em;
+    height: 1.2em;
+    margin: 0 0.04em;
+    vertical-align: -0.22em;
+    display: inline-block;
 }

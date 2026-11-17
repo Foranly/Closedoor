@@ -3,6 +3,7 @@ import { useI18n } from '../../services/i18n/useI18n';
 import { useMusicPlayer } from '../../../hooks/useMusicPlayer';
 import { songKey } from '../../services/musicService';
 import SongArtwork from './SongArtwork';
+import EmojiText from './EmojiText';
 
 /**
  * ChatSongCard — canción compartida en un mensaje del chat.
@@ -70,8 +71,8 @@ export default function ChatSongCard({ song }) {
       </button>
 
       <div className="chat-song-info">
-        <span className="chat-song-title" title={song.title}>{song.title}</span>
-        <span className="chat-song-artist" title={song.artist}>{song.artist}</span>
+        <span className="chat-song-title" title={song.title}><EmojiText text={song.title} /></span>
+        <span className="chat-song-artist" title={song.artist}><EmojiText text={song.artist} /></span>
       </div>
     </div>
   );

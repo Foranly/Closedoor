@@ -4,6 +4,7 @@ import { FaLock } from 'react-icons/fa';
 import { useI18n } from '../../services/i18n/useI18n';
 import { getImageStyle } from '../../services/helpers';
 import Avatar from './Avatar';
+import EmojiText from './EmojiText';
 import Badge from './Badge';
 import SafeImage from './SafeImage';
 import FollowButton from './FollowButton';
@@ -69,7 +70,7 @@ export default function ExploreCard({ profile, counts, isOwnProfile, showAccent,
 
         <div className="explore-card-info">
           <div className="explore-card-name-row">
-            <span className="explore-card-name">{getDisplayName ? getDisplayName(profile) : (profile.displayname || profile.username)}</span>
+            <span className="explore-card-name"><EmojiText text={getDisplayName ? getDisplayName(profile) : (profile.displayname || profile.username)} /></span>
             <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.5 }}> · @{profile.username}</span>
             {profile.is_private === true && (
               <span className="explore-card-private-icon" title={t('profile.private_profile')}>
@@ -83,9 +84,9 @@ export default function ExploreCard({ profile, counts, isOwnProfile, showAccent,
             {followers} {followers === 1 ? t('explore.followers_singular') : t('explore.followers_plural')}
           </span>                          {bio || profile.pronouns ? (
                             <p className="explore-card-bio">
-                              {bio}
-                              {bio && profile.pronouns && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}> · {profile.pronouns}</span>}
-                              {!bio && profile.pronouns && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}>{profile.pronouns}</span>}
+                              <EmojiText text={bio} />
+                              {bio && profile.pronouns && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}> · <EmojiText text={profile.pronouns} /></span>}
+                              {!bio && profile.pronouns && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}><EmojiText text={profile.pronouns} /></span>}
                             </p>
                           ) : null}
 

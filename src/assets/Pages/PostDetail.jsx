@@ -37,6 +37,8 @@ import ProfileHoverCard from '../Resources/Components/ProfileHoverCard';
 import Badge from '../Resources/Components/Badge';
 import GifPicker from '../Resources/Components/GifPicker';
 import RichText from '../Resources/Components/RichText';
+import EmojiText from '../Resources/Components/EmojiText';
+import EmojiPickerButton from '../Resources/Components/EmojiPickerButton';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
 import Tooltip from '../Resources/Components/Tooltip';
 import CreatePostModal from '../Resources/Components/CreatePostModal';
@@ -118,6 +120,7 @@ export default function PostDetail() {
   const [editingComment, setEditingComment] = useState(null); // { id, content }
   const [savingCommentEdit, setSavingCommentEdit] = useState(false);
   const commentMenuDropdownRef = useRef(null);
+  const editCommentRef = useRef(null);
 
   const openCommentMenu = (e, commentId) => {
     e.stopPropagation();
@@ -944,7 +947,7 @@ export default function PostDetail() {
               href={`/profile/${reply.profiles?.username}`}
               onClick={(e) => { e.preventDefault(); navigate(`/profile/${reply.profiles?.username}`); }}
             >
-              {reply.profiles?.displayname || reply.profiles?.username || 'unknown'}
+              <EmojiText text={reply.profiles?.displayname || reply.profiles?.username || 'unknown'} />
             </a>
             {reply.profiles?.roles && <Badge roles={reply.profiles.roles} />}
             {isOp && <span className="comment-card-op">{t('post.op')}</span>}
@@ -963,6 +966,7 @@ export default function PostDetail() {
           {isEditing ? (
             <div className="comment-card-edit">
               <textarea
+                ref={editCommentRef}
                 className="comment-form-input"
                 value={editingComment.content}
                 onChange={(e) => setEditingComment((prev) => ({ ...prev, content: e.target.value }))}
@@ -971,6 +975,13 @@ export default function PostDetail() {
                 autoFocus
               />
               <div className="comment-card-edit-actions">
+                <EmojiPickerButton
+                  className="comment-form-media-btn"
+                  title={t('common.emoji') || 'Emoji'}
+                  textareaRef={editCommentRef}
+                  value={editingComment.content}
+                  onChange={(nextContent) => setEditingComment((prev) => ({ ...prev, content: nextContent }))}
+                />
                 <button className="comment-form-cancel-reply" onClick={cancelCommentEdit}>{t('common.cancel')}</button>
                 <button
                   className="comment-form-submit"
@@ -1135,6 +1146,16 @@ export default function PostDetail() {
                   >
                     <span style={{ fontWeight: 800, fontSize: '0.72rem', lineHeight: 1 }}>GIF</span>
                   </button>
+                  <EmojiPickerButton
+                    className="comment-form-media-btn"
+                    title={t('common.emoji') || 'Emoji'}
+                    textareaRef={replyMention.textareaRef}
+                    value={replyContent}
+                    onChange={(nextContent) => {
+                      setReplyContent(nextContent);
+                      replyMention.resetMentions();
+                    }}
+                  />
                 </div>
                 <button
                   className="comment-form-submit"
@@ -1236,7 +1257,7 @@ export default function PostDetail() {
               href={`/profile/${comment.profiles?.username}`}
               onClick={(e) => { e.preventDefault(); navigate(`/profile/${comment.profiles?.username}`); }}
             >
-              {comment.profiles?.displayname || comment.profiles?.username || 'unknown'}
+              <EmojiText text={comment.profiles?.displayname || comment.profiles?.username || 'unknown'} />
             </a>
             {comment.profiles?.roles && <Badge roles={comment.profiles.roles} />}
             {isOp && <span className="comment-card-op">{t('post.op')}</span>}
@@ -1250,6 +1271,7 @@ export default function PostDetail() {
           {isEditing ? (
             <div className="comment-card-edit">
               <textarea
+                ref={editCommentRef}
                 className="comment-form-input"
                 value={editingComment.content}
                 onChange={(e) => setEditingComment((prev) => ({ ...prev, content: e.target.value }))}
@@ -1258,6 +1280,13 @@ export default function PostDetail() {
                 autoFocus
               />
               <div className="comment-card-edit-actions">
+                <EmojiPickerButton
+                  className="comment-form-media-btn"
+                  title={t('common.emoji') || 'Emoji'}
+                  textareaRef={editCommentRef}
+                  value={editingComment.content}
+                  onChange={(nextContent) => setEditingComment((prev) => ({ ...prev, content: nextContent }))}
+                />
                 <button className="comment-form-cancel-reply" onClick={cancelCommentEdit}>{t('common.cancel')}</button>
                 <button
                   className="comment-form-submit"
@@ -1429,6 +1458,16 @@ export default function PostDetail() {
                   >
                     <span style={{ fontWeight: 800, fontSize: '0.72rem', lineHeight: 1 }}>GIF</span>
                   </button>
+                  <EmojiPickerButton
+                    className="comment-form-media-btn"
+                    title={t('common.emoji') || 'Emoji'}
+                    textareaRef={replyMention.textareaRef}
+                    value={replyContent}
+                    onChange={(nextContent) => {
+                      setReplyContent(nextContent);
+                      replyMention.resetMentions();
+                    }}
+                  />
                 </div>
                 <button
                   className="comment-form-submit"
@@ -1589,6 +1628,16 @@ export default function PostDetail() {
                   >
                     <span style={{ fontWeight: 800, fontSize: '0.72rem', lineHeight: 1 }}>GIF</span>
                   </button>
+                  <EmojiPickerButton
+                    className="comment-form-media-btn"
+                    title={t('common.emoji') || 'Emoji'}
+                    textareaRef={mainMention.textareaRef}
+                    value={commentInput}
+                    onChange={(nextContent) => {
+                      setCommentInput(nextContent);
+                      mainMention.resetMentions();
+                    }}
+                  />
                 </div>
                 <button
                   className="comment-form-submit"

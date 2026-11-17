@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import './css/header.css';
 import './css/usersRail.css';
 import { IconBars, IconUsers } from './ShellIcons';
+import EmojiText from './EmojiText';
 import { useAuth } from '../../../hooks/useAuth';
 import { useI18n } from '../../services/i18n/useI18n';
 import { subscribePresence } from '../../services/presenceService';
@@ -12,7 +13,7 @@ import {
   subscribeToConversationParticipants,
   subscribeToProfilesUpdates,
 } from '../../services/chatService';
-import { getItem, setItem } from '../../services/secureStorage';
+import { getItem, setItem, getSessionItem, setSessionItem } from '../../services/secureStorage';
 import Tooltip from './Tooltip';
 import Avatar from './Avatar';
 import ProfileHoverCard from './ProfileHoverCard';
@@ -26,11 +27,28 @@ import ProfileHoverCard from './ProfileHoverCard';
  * que superficie, anchos, animación de colapso, hover y menú de modos vienen de
  * header.css; usersRail.css solo lo espeja a la derecha.
  *
- * Se monta únicamente desde Chat.jsx cuando la conversación activa es un grupo,
- * y solo en escritorio.
+ * Se monta desde Chat.jsx (en escritorio) y `open` decide si está visible;
+ * los miembros de cada grupo se cachean en sessionStorage para pintarlos al
+ * instante al volver a la conversación, mientras Realtime/refetch los corrige.
  */
 
 const RAIL_MODE_KEY = 'fc_users_rail_mode';
+const MEMBERS_CACHE_PREFIX = 'usersRailMembers_';
+
+function membersCacheKey(userId, conversationId) {
+  return `${MEMBERS_CACHE_PREFIX}${userId}_${conversationId}`;
+}
+
+/** Miembros cacheados de una conversación, o null si no hay caché válida. */
+function readCachedMembers(userId, conversationId) {
+  if (!userId || !conversationId) return null;
+  try {
+    const cached = getSessionItem(membersCacheKey(userId, conversationId));
+    return Array.isArray(cached) ? cached : null;
+  } catch {
+    return null;
+  }
+}
 const MODES = ['expanded', 'collapsed', 'hover'];
 const DESKTOP_QUERY = '(min-width: 1025px)';
 
@@ -57,7 +75,7 @@ function useIsDesktop() {
   return isDesktop;
 }
 
-function UsersRail({ conversationId, memberVersion = 0 }) {
+function UsersRail({ conversationId, memberVersion = 0, open = true }) {
   const { user } = useAuth();
   const { t, showGlobalBg } = useI18n();
   const isDesktop = useIsDesktop();
@@ -68,8 +86,20 @@ function UsersRail({ conversationId, memberVersion = 0 }) {
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   // { [userId]: 'online' | 'dnd' | 'idle' } — el canal global ya lo abre AuthContext.
   const [statuses, setStatuses] = useState({});
-  // Participantes con su rol y perfil (incluye a uno mismo). `null` = cargando.
-  const [rows, setRows] = useState(null);
+  // Participantes con su rol y perfil (incluye a uno mismo), por conversación.
+  // `null` = sin datos todavía (cargando). La caché de sesión permite pintar la
+  // última lista conocida del grupo al instante al volver o cambiar de chat.
+  const [rowsByConv, setRowsByConv] = useState({});
+  // Al volver a un privado el rail se desliza fuera: conserva los últimos
+  // miembros del grupo para no vaciarse a mitad de la animación.
+  const lastConvIdRef = useRef(null);
+  if (conversationId) lastConvIdRef.current = conversationId;
+  const shownConvId = conversationId || lastConvIdRef.current;
+  const cachedRows = useMemo(
+    () => readCachedMembers(user?.id, shownConvId),
+    [user?.id, shownConvId],
+  );
+  const rows = shownConvId ? (rowsByConv[shownConvId] ?? cachedRows) : null;
   // Se incrementa para volver a pedir la lista (realtime o al recuperar foco).
   const [refreshTick, setRefreshTick] = useState(0);
   const menuRef = useRef(null);
@@ -196,10 +226,12 @@ function UsersRail({ conversationId, memberVersion = 0 }) {
     (async () => {
       const data = await getConversationMembersWithProfiles(conversationId).catch(() => []);
       if (cancelled) return;
-      setRows((data || []).filter((m) => m.profile && m.profile.username));
+      const next = (data || []).filter((m) => m.profile && m.profile.username);
+      setRowsByConv((prev) => ({ ...prev, [conversationId]: next }));
+      if (user?.id) setSessionItem(membersCacheKey(user.id, conversationId), next);
     })();
     return () => { cancelled = true; };
-  }, [conversationId, memberVersion, refreshTick]);
+  }, [conversationId, memberVersion, refreshTick, user?.id]);
 
   // Altas, bajas y cambios de rol de los participantes, en vivo.
   useEffect(() => {
@@ -257,7 +289,7 @@ function UsersRail({ conversationId, memberVersion = 0 }) {
   return (
     <aside
       ref={asideRef}
-      className={`sidebar sidebar--users sidebar--chat${collapsed ? ' sidebar--collapsed' : ''}${!showGlobalBg ? ' sidebar--solid' : ''}`}
+      className={`sidebar sidebar--users sidebar--chat${collapsed ? ' sidebar--collapsed' : ''}${!showGlobalBg ? ' sidebar--solid' : ''}${open ? '' : ' sidebar--users--hidden'}`}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onFocus={onFocus}
@@ -301,7 +333,7 @@ function UsersRail({ conversationId, memberVersion = 0 }) {
                         />
                       </span>
                       <div className="users-rail-text">
-                        <p className="users-rail-nick">{label}</p>
+                        <p className="users-rail-nick"><EmojiText text={label} /></p>
                         <p className="users-rail-handle">@{member.username}</p>
                       </div>
                     </Link>

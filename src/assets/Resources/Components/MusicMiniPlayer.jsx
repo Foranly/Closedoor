@@ -5,6 +5,7 @@ import { FaPlay, FaPause, FaTimes, FaExpand, FaSpinner } from 'react-icons/fa';
 import { useI18n } from '../../services/i18n/useI18n';
 import { useAuth } from '../../../hooks/useAuth';
 import SongArtwork from './SongArtwork';
+import EmojiText from './EmojiText';
 import './css/musicMiniPlayer.css';
 
 function formatTime(s) {
@@ -170,8 +171,8 @@ export default function MusicMiniPlayer({
         </button>
 
         <div className="music-mini-info">
-          <span className="music-mini-title" title={song.title}>{song.title}</span>
-          <span className="music-mini-artist" title={song.artist}>{song.artist || t('music.now_playing') || 'Now playing'}</span>
+          <span className="music-mini-title" title={song.title}><EmojiText text={song.title} /></span>
+          <span className="music-mini-artist" title={song.artist}><EmojiText text={song.artist || t('music.now_playing') || 'Now playing'} /></span>
         </div>
 
         <div className="music-mini-actions">

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sanitizeUrl } from '../../services/helpers';
+import EmojiText from './EmojiText';
 import { getSessionItem, setSessionItem } from '../../services/secureStorage';
 
 /**
@@ -174,10 +175,10 @@ export default function LinkPreview({ url, onExternalLink, className = '' }) {
           </span>
         </div>
         {data.title && (
-          <span className="chat-link-preview-title">{data.title}</span>
+          <span className="chat-link-preview-title"><EmojiText text={data.title} /></span>
         )}
         {data.description && (
-          <span className="chat-link-preview-desc">{data.description}</span>
+          <span className="chat-link-preview-desc"><EmojiText text={data.description} /></span>
         )}
       </div>
     </a>

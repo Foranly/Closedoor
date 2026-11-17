@@ -7,6 +7,7 @@ import { useI18n } from '../services/i18n/useI18n';
 import { acceptFollowRequest, rejectFollowRequest } from '../services/followService';
 import { FaUserPlus, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaBullhorn, FaBell, FaLock, FaPoll, FaCheck, FaTimes, FaChevronDown } from 'react-icons/fa';
 import Avatar from '../Resources/Components/Avatar';
+import EmojiText from '../Resources/Components/EmojiText';
 import Tooltip from '../Resources/Components/Tooltip';
 import VirtualPostList from '../Resources/Components/VirtualPostList';
 import '../Resources/Styles/post.css';
@@ -486,7 +487,7 @@ function NotificationItem({
           {/* Preview del contenido del post */}
           {isPostNotification && postPreview && (
             <p className="notification-post-preview">
-              &ldquo;{postPreview}&rdquo;
+              &ldquo;<EmojiText text={postPreview} />&rdquo;
             </p>
           )}
           <span className="notification-time">

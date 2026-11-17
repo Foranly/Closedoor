@@ -4,6 +4,7 @@ import { useI18n } from '../../services/i18n/useI18n';
 import { useAuth } from '../../../hooks/useAuth';
 import { searchMusic, songArtworkUrl, songKey, withPreviewFallback } from '../../services/musicService';
 import SongArtwork from './SongArtwork';
+import EmojiText from './EmojiText';
 import { useMusicPlayer } from '../../../hooks/useMusicPlayer';
 import { updateUserProfile } from '../../services/userService';
 import { toast } from 'react-toastify';
@@ -237,8 +238,8 @@ export default function SongCard({ song, isOwnProfile, surfaceStyle, owner }) {
                       loading="lazy"
                     />
                     <span className="song-card-result-info">
-                      <span className="song-card-result-title">{r.title}</span>
-                      <span className="song-card-result-artist">{r.artist}</span>
+                      <span className="song-card-result-title"><EmojiText text={r.title} /></span>
+                      <span className="song-card-result-artist"><EmojiText text={r.artist} /></span>
                     </span>
                   </button>
                 ))}
@@ -341,8 +342,8 @@ export default function SongCard({ song, isOwnProfile, surfaceStyle, owner }) {
           {/* Título/artista (el progreso se ve en el contador de la portada) */}
           <div className="song-card-info">
             <span className="song-card-texts">
-              <span className="song-card-title">{selected.title}</span>
-              <span className="song-card-artist">{selected.artist}</span>
+              <span className="song-card-title"><EmojiText text={selected.title} /></span>
+              <span className="song-card-artist"><EmojiText text={selected.artist} /></span>
             </span>
           </div>
         </div>

@@ -30,6 +30,7 @@ import SafeImage from './SafeImage';
 import { getCdnThumbUrl } from '../../services/cdnService';
 import Avatar from './Avatar';
 import PostMarkdown from './PostMarkdown';
+import EmojiText from './EmojiText';
 import usePostTranslation from '../../../hooks/usePostTranslation';
 import { closeUnbalancedMarkers } from '../../services/postMarkdown';
 import LinkPreview from './LinkPreview';
@@ -831,12 +832,12 @@ const PostCard = React.memo(function PostCard({
       {repostInfo ? (
         <div className="post-card-repost-banner">
           <FaRetweet className="post-card-repost-icon" />
-          <span>{t('post.reposted_by', { user: repostInfo.repostedBy })}</span>
+          <span><EmojiText text={t('post.reposted_by', { user: repostInfo.repostedBy })} /></span>
         </div>
       ) : replyInfo ? (
         <div className="post-card-repost-banner">
           <FaComment className="post-card-repost-icon" />
-          <span>{t('post.reply_to', { user: replyInfo.replyTo })}</span>
+          <span><EmojiText text={t('post.reply_to', { user: replyInfo.replyTo })} /></span>
         </div>
       ) : null}
 
@@ -874,7 +875,7 @@ const PostCard = React.memo(function PostCard({
               className="post-card-author"
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="post-card-username">{profile?.displayname || profile?.username || 'unknown'}</span>
+              <span className="post-card-username"><EmojiText text={profile?.displayname || profile?.username || 'unknown'} /></span>
               {profile?.roles && <Badge roles={profile.roles} />}
               <Tooltip text={fullDate}>
                 <span className="post-card-time">{timeAgo}{postedAt && ` · ${postedAt}`}</span>
@@ -1172,7 +1173,7 @@ const PostCard = React.memo(function PostCard({
             const showAllResults = true;
             return (
             <div className="post-card-poll" onClick={(e) => e.stopPropagation()}>
-              <p className="post-card-poll-question">{post.poll_data.question}</p>
+              <p className="post-card-poll-question"><EmojiText text={post.poll_data.question} /></p>
               <div className="post-card-poll-options">
                 {(() => {
                   const hasVoted = !!pollUserVote;
@@ -1195,7 +1196,7 @@ const PostCard = React.memo(function PostCard({
                         <span className="post-card-poll-option-check">
                           {isSelected ? <FaCheckCircle /> : <FaRegCheckCircle />}
                         </span>
-                        <span className="post-card-poll-option-text">{option.text}</span>
+                        <span className="post-card-poll-option-text"><EmojiText text={option.text} /></span>
                         {showResults && (
                           <span className="post-card-poll-option-pct">{votesCount} · {percentage}%</span>
                         )}
@@ -1553,7 +1554,7 @@ const PostCard = React.memo(function PostCard({
                     return (
                       <div key={option.id} className="post-card-poll-voters-group">
                         <div className="post-card-poll-voters-group-header">
-                          <span className="post-card-poll-voters-group-name">{option.text}</span>
+                          <span className="post-card-poll-voters-group-name"><EmojiText text={option.text} /></span>
                           <span className="post-card-poll-voters-group-stats">{votesCount} · {percentage}%</span>
                         </div>
                         {voters.length === 0 ? (

@@ -5,6 +5,8 @@ import '../Styles/explore.css';
 import Badge from './Badge';
 import ConfirmModal from './ConfirmModal';
 import Avatar from './Avatar';
+import EmojiText from './EmojiText';
+import EmojiPickerButton from './EmojiPickerButton';
 import { DEFAULT_AVATAR, getImageStyle, getBackgroundStyle, sanitizeUrl } from '../../services/helpers';
 import { USERNAME_MIN, USERNAME_MAX, USERNAME_RE, DISPLAYNAME_MAX, PRONOUNS_MAX } from '../../services/userService';
 import ImagePositionEditor from './ImagePositionEditor';
@@ -83,6 +85,9 @@ export default function Modal({
   const [avatar, setAvatar] = useState(initialAvatar || '');
   const [bio, setBio] = useState(initialBio || '');
   const [pronouns, setPronouns] = useState(initialPronouns || '');
+  const displaynameRef = useRef(null);
+  const bioRef = useRef(null);
+  const pronounsRef = useRef(null);
   const [bannerCredits, setBannerCredits] = useState(initialBannerCredits || '');
   const [avatarCredits, setAvatarCredits] = useState(initialAvatarCredits || '');
   const [saving, setSaving] = useState(false);
@@ -800,7 +805,7 @@ export default function Modal({
                   </button>
                 </div>                <div className="fc-preview-card-info" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
                   <div style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                    <span className="fc-preview-card-name">{previewDisplayname}</span>
+                    <span className="fc-preview-card-name"><EmojiText text={previewDisplayname} /></span>
                     <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.6, color: 'rgba(255,255,255,0.7)' }}>@{username}</span>
                     <Badge roles={userRoles} />
                   </div>
@@ -825,9 +830,9 @@ export default function Modal({
                       maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis',
                       display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                     }}>
-                      {bio.trim()}
-                      {bio.trim() && pronouns.trim() && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}> · {pronouns.trim()}</span>}
-                      {!bio.trim() && pronouns.trim() && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}>{pronouns.trim()}</span>}
+                      <EmojiText text={bio.trim()} />
+                      {bio.trim() && pronouns.trim() && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}> · <EmojiText text={pronouns.trim()} /></span>}
+                      {!bio.trim() && pronouns.trim() && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}><EmojiText text={pronouns.trim()} /></span>}
                     </p>
                   )}
 
@@ -867,6 +872,7 @@ export default function Modal({
               <label className="fc-modal-label">
                 {t('modal.nickname_label') || 'Nickname'}
                 <input
+                  ref={displaynameRef}
                   className="fc-modal-input"
                   value={displayname}
                   onChange={(e) => setDisplayname(e.target.value)}
@@ -874,6 +880,14 @@ export default function Modal({
                   maxLength={DISPLAYNAME_MAX}
                 />
                 <span className="fc-modal-char-count">{displayname.length}/{DISPLAYNAME_MAX}</span>
+                <div className="fc-modal-emoji-row">
+                  <EmojiPickerButton
+                    title={t('common.emoji') || 'Emoji'}
+                    textareaRef={displaynameRef}
+                    value={displayname}
+                    onChange={setDisplayname}
+                  />
+                </div>
               </label>
               <label className="fc-modal-label">
                 {t('modal.username_label')}
@@ -889,6 +903,7 @@ export default function Modal({
               <label className="fc-modal-label" style={{ marginTop: 2 }}>
                 {t('modal.pronouns_label')}
                 <input
+                  ref={pronounsRef}
                   className="fc-modal-input"
                   value={pronouns}
                   onChange={(e) => setPronouns(e.target.value)}
@@ -896,6 +911,14 @@ export default function Modal({
                   maxLength={PRONOUNS_MAX}
                 />
                 <span className="fc-modal-char-count">{pronouns.length}/{PRONOUNS_MAX}</span>
+                <div className="fc-modal-emoji-row">
+                  <EmojiPickerButton
+                    title={t('common.emoji') || 'Emoji'}
+                    textareaRef={pronounsRef}
+                    value={pronouns}
+                    onChange={setPronouns}
+                  />
+                </div>
                 {/* Hint text below the input
                 <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #6b7280)', marginTop: 2, display: 'block' }}>
                   {t('modal.pronouns_hint')}
@@ -905,6 +928,7 @@ export default function Modal({
               <label className="fc-modal-label">
                 {t('modal.bio_label')}
                 <textarea
+                  ref={bioRef}
                   className="fc-modal-input"
                   value={bio}
                   onChange={(e) => {
@@ -917,6 +941,14 @@ export default function Modal({
                 <span className="fc-modal-char-count">
                   {bio.length}/{BIO_MAX_LENGTH}
                 </span>
+                <div className="fc-modal-emoji-row">
+                  <EmojiPickerButton
+                    title={t('common.emoji') || 'Emoji'}
+                    textareaRef={bioRef}
+                    value={bio}
+                    onChange={setBio}
+                  />
+                </div>
               </label>
             </div>
 
@@ -1179,7 +1211,7 @@ export default function Modal({
 
                 <div className="explore-card-info">
                   <div className="explore-card-name-row">
-                    <span className="explore-card-name">{previewDisplayname}</span>
+                    <span className="explore-card-name"><EmojiText text={previewDisplayname} /></span>
                     <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.5 }}>@{username}</span>
                     <Badge roles={userRoles} />
                   </div>
@@ -1188,9 +1220,9 @@ export default function Modal({
                   </span>
                   {(bio.trim() || pronouns.trim()) && (
                     <p className="explore-card-bio">
-                      {bio.trim()}
-                      {bio.trim() && pronouns.trim() && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}> · {pronouns.trim()}</span>}
-                      {!bio.trim() && pronouns.trim() && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}>{pronouns.trim()}</span>}
+                      <EmojiText text={bio.trim()} />
+                      {bio.trim() && pronouns.trim() && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}> · <EmojiText text={pronouns.trim()} /></span>}
+                      {!bio.trim() && pronouns.trim() && <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.5 }}><EmojiText text={pronouns.trim()} /></span>}
                     </p>
                   )}
 

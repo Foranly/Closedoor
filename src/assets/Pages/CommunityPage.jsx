@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import EmojiText from '../Resources/Components/EmojiText';
 import { useI18n } from '../services/i18n/useI18n';
 import usePageTitle from '../../hooks/usePageTitle';
 import useBgContrast from '../../hooks/useBgContrast';
@@ -1035,7 +1036,7 @@ export default function CommunityPage() {
           </div>
 
           <h1 className="community-header-name" style={{ color: contrastColor }}>
-            {community.name}
+            <EmojiText text={community.name} />
           </h1>
           <span className="community-header-slug" style={{ color: contrastColor }}>
             c/{community.slug}
@@ -1064,7 +1065,7 @@ export default function CommunityPage() {
           </div>
 
           {community.description && (
-            <p className="community-header-desc" style={{ color: contrastColor }}>{community.description}</p>
+            <p className="community-header-desc" style={{ color: contrastColor }}><EmojiText text={community.description} /></p>
           )}
 
           {community.interests?.length > 0 && (

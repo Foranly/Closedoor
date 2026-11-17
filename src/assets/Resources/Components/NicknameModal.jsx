@@ -1,10 +1,12 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FaTimes, FaUser } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../../hooks/useAuth';
 import { useI18n } from '../../services/i18n/useI18n';
 import { setNickname, removeNickname } from '../../services/chatService';
+import EmojiText from './EmojiText';
+import EmojiPickerButton from './EmojiPickerButton';
 import { DEFAULT_AVATAR, getImageStyle } from '../../services/helpers';
 import Badge from './Badge';
 import Avatar from './Avatar';
@@ -32,6 +34,7 @@ export default function NicknameModal({ userData, currentName = '', onClose, onS
   const { t } = useI18n();
   const { user } = useAuth();
   const [input, setInput] = useState(currentName || '');
+  const inputRef = useRef(null);
   const [saving, setSaving] = useState(false);
 
   // Reset del input al abrir para otro usuario (incluye cambiar de usuario
@@ -130,7 +133,7 @@ export default function NicknameModal({ userData, currentName = '', onClose, onS
               <div className="fc-preview-card-info" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
                 <div style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                   <span className="fc-preview-card-name">
-                    {input.trim() || userData?.displayname || userData?.username || t('common.unknown')}
+                    <EmojiText text={input.trim() || userData?.displayname || userData?.username || t('common.unknown')} />
                   </span>
                   <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.6, color: 'rgba(255,255,255,0.7)' }}>
                     @{userData?.username || ''}
@@ -149,12 +152,12 @@ export default function NicknameModal({ userData, currentName = '', onClose, onS
 
                 {(userData?.bio || userData?.pronouns) && (
                   <p style={{ margin: 0, fontSize: '0.7rem', lineHeight: 1.4, color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 2px rgba(0,0,0,0.6)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                    {userData?.bio || ''}
+                    <EmojiText text={userData?.bio || ''} />
                     {userData?.bio && userData?.pronouns && (
-                      <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.5 }}> · {userData.pronouns}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.5 }}> · <EmojiText text={userData.pronouns} /></span>
                     )}
                     {!userData?.bio && userData?.pronouns && (
-                      <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.5 }}>{userData.pronouns}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.5 }}><EmojiText text={userData.pronouns} /></span>
                     )}
                   </p>
                 )}
@@ -192,7 +195,7 @@ export default function NicknameModal({ userData, currentName = '', onClose, onS
               <div className="explore-card-info">
                 <div className="explore-card-name-row">
                   <span className="explore-card-name">
-                    {input.trim() || userData?.displayname || userData?.username || t('common.unknown')}
+                    <EmojiText text={input.trim() || userData?.displayname || userData?.username || t('common.unknown')} />
                   </span>
                   <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.5 }}>@{userData?.username || ''}</span>
                   {Array.isArray(userData?.roles) && userData.roles.some(r => r !== 'user') && (
@@ -204,9 +207,9 @@ export default function NicknameModal({ userData, currentName = '', onClose, onS
                 </span>
                 {(userData?.bio || userData?.pronouns) && (
                   <p className="explore-card-bio">
-                    {userData?.bio || ''}
-                    {userData?.bio && userData?.pronouns && <span> · {userData?.pronouns}</span>}
-                    {!userData?.bio && userData?.pronouns && <span>{userData?.pronouns}</span>}
+                    <EmojiText text={userData?.bio || ''} />
+                    {userData?.bio && userData?.pronouns && <span> · <EmojiText text={userData?.pronouns} /></span>}
+                    {!userData?.bio && userData?.pronouns && <span><EmojiText text={userData?.pronouns} /></span>}
                   </p>
                 )}
               </div>
@@ -222,6 +225,7 @@ export default function NicknameModal({ userData, currentName = '', onClose, onS
           <label className="fc-modal-label" style={{ marginBottom: 0 }}>
             {t('chat.nickname_placeholder') || 'Enter a nickname...'}
             <input
+              ref={inputRef}
               className="fc-modal-input"
               type="text"
               value={input}
@@ -232,6 +236,14 @@ export default function NicknameModal({ userData, currentName = '', onClose, onS
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') close(); }}
             />
             <span className="fc-modal-char-count">{input.length}/50</span>
+            <div className="fc-modal-emoji-row">
+              <EmojiPickerButton
+                title={t('common.emoji') || 'Emoji'}
+                textareaRef={inputRef}
+                value={input}
+                onChange={setInput}
+              />
+            </div>
           </label>
         </div>
 
