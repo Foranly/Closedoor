@@ -21,6 +21,7 @@ import http from 'http';
 import { Readable } from 'stream';
 import { buildSitemapUrls, wrapSitemapXml } from './api/_sitemap.js';
 import { issueLiveKitToken } from './api/_livekit.js';
+import { handleKlipyRequest } from './api/_klipy.js';
 import { searchMusicServer, resolveTrackPreview, normalizeYouTubeTracks } from './api/_music.js';
 import {
   searchYouTubeMusic,
@@ -461,6 +462,12 @@ app.post('/api/livekit-token', express.json(), async (req, res) => {
   } else {
     res.status(result.status).json({ success: false, error: result.error });
   }
+});
+
+app.get('/api/klipy', async (req, res) => {
+  await handleKlipyRequest(req, res, {
+    apiKey: process.env.KLIPY_API_KEY || '',
+  });
 });
 
 // ── Music search proxy (local dev) — matches api/music-search.js ──

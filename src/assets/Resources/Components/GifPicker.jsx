@@ -2,10 +2,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import './css/gifPicker.css';
 
 // ── KLIPY API ──
-// Get a free key at https://klipy.com (Developer section)
-// The API key goes in the URL path: https://api.klipy.com/api/v1/{KEY}/
-const API_KEY = import.meta.env.VITE_KLIPY_API_KEY || '';
-const BASE_URL = `https://api.klipy.com/api/v1/${API_KEY}`;
+// La clave vive solo en el servidor: el navegador llama a este proxy.
+const PROXY_URL = '/api/klipy';
 
 const DEFAULT_LIMIT = 30;
 
@@ -90,26 +88,27 @@ export default function GifPicker({ onSelect, onClose }) {
     setError(null);
     try {
       const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) throw new Error(`Klipy error: ${res.status}`);
 
-      // 204 No Content = API key invalid or no results
       if (res.status === 204) {
-        throw new Error('Klipy returned no content — check your API key');
+        setGifs([]);
+        return;
       }
 
-      // Verify response is JSON
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`Klipy returned ${contentType || 'empty'} instead of JSON`);
+        throw new Error(`GIF service returned ${contentType || 'empty'} instead of JSON`);
       }
 
       const json = await res.json();
       if (controller.signal.aborted) return;
 
+      if (!res.ok) {
+        throw new Error(json?.error || `GIF service error: ${res.status}`);
+      }
+
       // Klipy response format: { result: true, data: { data: [...], current_page, ... } }
       if (!json.result) {
-        throw new Error(json.message || 'Klipy API returned error');
+        throw new Error(json.message || 'GIF service returned an error');
       }
 
       const items = json.data?.data || [];
@@ -128,11 +127,7 @@ export default function GifPicker({ onSelect, onClose }) {
 
   // ── Fetch trending GIFs on mount ──
   useEffect(() => {
-    if (!API_KEY) {
-      setError('Klipy API key not configured. Set VITE_KLIPY_API_KEY in .env');
-      return;
-    }
-    fetchGifs(`${BASE_URL}/gifs/trending?per_page=${DEFAULT_LIMIT}`);
+    fetchGifs(`${PROXY_URL}?type=trending&per_page=${DEFAULT_LIMIT}`);
     if (inputRef.current) inputRef.current.focus();
   }, [fetchGifs]);
 
@@ -144,13 +139,13 @@ export default function GifPicker({ onSelect, onClose }) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (!value.trim()) {
-      fetchGifs(`${BASE_URL}/gifs/trending?per_page=${DEFAULT_LIMIT}`);
+      fetchGifs(`${PROXY_URL}?type=trending&per_page=${DEFAULT_LIMIT}`);
       return;
     }
 
     debounceRef.current = setTimeout(() => {
       fetchGifs(
-        `${BASE_URL}/gifs/search?q=${encodeURIComponent(value.trim())}&per_page=${DEFAULT_LIMIT}`
+        `${PROXY_URL}?type=search&q=${encodeURIComponent(value.trim())}&per_page=${DEFAULT_LIMIT}`
       );
     }, 400);
   }, [fetchGifs]);

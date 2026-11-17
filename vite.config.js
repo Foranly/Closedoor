@@ -4,6 +4,7 @@ import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import ogTagsPlugin from './plugins/ogTagsPlugin'
 import livekitTokenPlugin from './plugins/livekitTokenPlugin'
+import klipyDevApiPlugin from './plugins/klipyDevApiPlugin'
 import preloadRouteChunks from './plugins/preloadRouteChunks'
 import inlineCssPlugin from './plugins/inlineCssPlugin'
 import musicDevApiPlugin from './plugins/musicDevApiPlugin'
@@ -66,6 +67,7 @@ export default defineConfig({
   plugins: [
     ogTagsPlugin(),
     livekitTokenPlugin(),
+    klipyDevApiPlugin(),
     preloadRouteChunks(),
     inlineCssPlugin(),
     musicDevApiPlugin(),
