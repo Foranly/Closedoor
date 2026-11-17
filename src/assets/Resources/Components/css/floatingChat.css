@@ -438,6 +438,35 @@
     color: var(--chat-bubble-own-text, #ffffff);
 }
 
+/* Burbujas que sólo contienen emojis: más grandes cuando hay pocos y van
+   bajando de tamaño a medida que se acumulan. */
+.fc-msg-emoji {
+    line-height: 1.2;
+}
+
+.fc-msg-emoji .twemoji-emoji {
+    width: 1em;
+    height: 1em;
+    margin: 0 0.02em;
+    vertical-align: -0.12em;
+}
+
+.fc-msg-emoji--xl {
+    font-size: 2.2rem;
+}
+
+.fc-msg-emoji--lg {
+    font-size: 1.8rem;
+}
+
+.fc-msg-emoji--md {
+    font-size: 1.5rem;
+}
+
+.fc-msg-emoji--sm {
+    font-size: 1.15rem;
+}
+
 /* Burbuja sin globo: el mensaje es solo una tarjeta (canción compartida o
    invitación a comunidad), así que se pinta sobre la superficie del panel. */
 .fc-msg-bubble--bare,

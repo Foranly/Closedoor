@@ -21,6 +21,7 @@ import {
 } from '../../services/chatService';
 import { getContrastFromHex } from '../../services/colorExtractor';
 import { detectMediaFromContent, getTimeAgo } from '../../services/helpers';
+import { countEmojiOnly } from '../../services/twemoji';
 import { supabase } from '../../services/supabaseclient';
 import { getPost } from '../../services/postService';
 import Avatar from './Avatar';
@@ -64,6 +65,18 @@ function peerName(conv) {
 // Avatar del hilo: el del grupo o el de la otra persona en un 1:1.
 function peerAvatar(conv) {
   return conv?.isGroup ? (conv.avatar_url || null) : (conv?.otherUser?.avatar_url || null);
+}
+
+// Emojis solos: crecen en la burbuja y bajan de tamaño según cuántos haya.
+function emojiSizeClass(text) {
+  const count = countEmojiOnly(text);
+  if (!count) return '';
+  const base = 'fc-msg-emoji';
+  if (count === 1) return `${base} ${base}--xl`;
+  if (count === 2) return `${base} ${base}--lg`;
+  if (count === 3) return `${base} ${base}--md`;
+  if (count <= 6) return `${base} ${base}--sm`;
+  return base;
 }
 
 /**
@@ -559,7 +572,7 @@ export default function FloatingChat() {
         {msg.shared_song && <ChatSongCard song={msg.shared_song} />}
 
         {imageUrl && <img className="fc-msg-img" src={imageUrl} alt="" loading="lazy" />}
-        {text ? <span><EmojiText text={text} /></span> : null}
+        {text ? <span className={emojiSizeClass(text)}><EmojiText text={text} /></span> : null}
       </>
     );
   };

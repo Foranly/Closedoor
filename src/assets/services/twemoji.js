@@ -51,6 +51,24 @@ export function splitEmoji(text) {
 }
 
 /**
+ * Devuelve cuántos emojis contiene el texto SOLO si todo el contenido son
+ * emojis y espacios. Si hay cualquier texto/signo, devuelve 0.
+ */
+export function countEmojiOnly(text) {
+  const value = String(text ?? '').trim();
+  if (!value) return 0;
+  let count = 0;
+  for (const part of splitEmoji(value)) {
+    if (part.type === 'emoji') {
+      count += 1;
+      continue;
+    }
+    if (part.value.trim()) return 0;
+  }
+  return count;
+}
+
+/**
  * Plugin de remark: sustituye los emojis de los nodos de texto por nodos que
  * react-markdown convierte en <img> (Twemoji). Se omiten bloques de código.
  */

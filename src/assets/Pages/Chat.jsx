@@ -65,7 +65,7 @@ import ChatBackgroundModal from '../Resources/Components/ChatBackgroundModal';
 import { getPost } from '../services/postService';
 import { ensureDarkSurface, extractColors, getContrastFromHex, hexToRgba, mixHex } from '../services/colorExtractor';
 import PostMarkdown from '../Resources/Components/PostMarkdown';
-import { splitEmoji } from '../services/twemoji';
+import { countEmojiOnly } from '../services/twemoji';
 import SafeImage from '../Resources/Components/SafeImage';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
 import LinkPreview from '../Resources/Components/LinkPreview';
@@ -185,17 +185,7 @@ function ChatImage({ src, alt, onClick }) {
  * acumulan para que la burbuja siga cabiendo. Devuelve '' si hay texto.
  */
 function emojiOnlySizeClass(text) {
-  const value = String(text || '').trim();
-  if (!value) return '';
-  let count = 0;
-  for (const part of splitEmoji(value)) {
-    if (part.type === 'emoji') {
-      count += 1;
-      continue;
-    }
-    // Cualquier texto (aunque sea un signo) quita el modo «sólo emojis».
-    if (part.value.trim()) return '';
-  }
+  const count = countEmojiOnly(text);
   if (!count) return '';
   const base = 'chat-message-text--emoji';
   if (count === 1) return `${base} ${base}-xl`;
@@ -3552,7 +3542,7 @@ export default function Chat() {
   );
 
   const renderFollowersModal = () => (
-    <ModalShell isOpen={showFollowersModal} onClose={closeUserPicker} onEscape={closeUserPicker} className="chat-followers-modal">
+    <ModalShell isOpen={showFollowersModal} onClose={closeUserPicker} onEscape={closeUserPicker} className="chat-followers-modal chat-followers-modal--picker">
       <div className="chat-followers-modal-header">
         <h3 className="fc-modal-title">
           {pickerMode === 'create'

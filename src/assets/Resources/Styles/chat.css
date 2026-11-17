@@ -2915,6 +2915,19 @@ dialog.fc-modal.chat-followers-modal {
     padding: 0;
 }
 
+/* Nuevo chat / crear grupo: el diálogo no scrollea; solo la lista de usuarios.
+   Header, tabs y footer (nombre del grupo + acciones) quedan fijos. */
+dialog.fc-modal.chat-followers-modal--picker {
+    overflow: hidden;
+}
+
+dialog.fc-modal.chat-followers-modal--picker .fc-modal-inner {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
 .chat-followers-modal-header {
     display: flex;
     align-items: center;
@@ -2972,7 +2985,9 @@ dialog.fc-modal.chat-followers-modal {
     gap: 2px;
     padding: 8px 12px 12px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     flex: 1;
+    min-height: 0;
 }
 
 .chat-followers-modal-card {
@@ -3598,7 +3613,6 @@ dialog.fc-modal.chat-followers-modal {
     max-height: 420px;
     overflow-y: auto;
     background: var(--chat-accent-header, var(--color-surface, #1a1a1a));
-    border: 1px solid var(--color-border, #2a2a2a);
     border-radius: var(--radius, 10px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
     padding: 12px 16px;
