@@ -489,12 +489,20 @@
 .post-card-action-icon {
     display: flex;
     align-items: center;
-    font-size: 0.9rem;
+    font-size: 1rem;
     line-height: 1;
+    flex-shrink: 0;
 }
 
+/* El path de los corazones de FontAwesome llega justo al borde del viewBox y
+   el <svg> lo recorta por defecto (`overflow:hidden`), así que a tamaños
+   pequeños los picos salían planos/cortados. Se deja el viewport visible y se
+   centra el icono para que el trazo se dibuje completo. */
 .post-card-action-icon svg {
     display: block;
+    overflow: visible;
+    flex-shrink: 0;
+    margin: 1px;
 }
 
 .post-card-action-count {
@@ -920,7 +928,7 @@
     }
 
     .post-card-action-icon {
-        font-size: 0.8rem;
+        font-size: 0.9rem;
     }
 
     .post-card-actions {
@@ -964,7 +972,7 @@
     }
 
     .post-card-action-icon {
-        font-size: 0.72rem;
+        font-size: 0.85rem;
     }
 
     .post-card-actions {

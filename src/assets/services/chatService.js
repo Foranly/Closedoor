@@ -266,7 +266,7 @@ export async function getConversationMembersWithProfiles(conversationId) {
 
   const { data: profiles } = await dbPublic
     .from('profiles')
-    .select('id, username, displayname, avatar_url, avatar_position, accent_color, user_status, user_status_updated_at')
+    .select('id, username, displayname, avatar_url, avatar_position, accent_color, roles, user_status, user_status_updated_at')
     .in('id', members.map((m) => m.user_id));
 
   const byId = {};
