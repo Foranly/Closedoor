@@ -428,7 +428,6 @@
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    margin-bottom: 4px;
 }
 
 .comment-form-media-btns {
@@ -441,13 +440,12 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    border: 1px solid var(--color-border, #2a2a2a);
+    padding: 6px 14px;
+    border: none;
     border-radius: var(--radius, 10px);
-    background: transparent;
+    background: var(--color-surface-hover);
     color: var(--color-text-secondary, #9ca3af);
-    font-size: 0.95rem;
+    font-size: 1rem;
     cursor: pointer;
     transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
@@ -455,7 +453,6 @@
 .comment-form-media-btn:hover {
     background: var(--color-surface-hover, #252525);
     color: var(--color-text, #ffffff);
-    border-color: #444;
 }
 
 .comment-form-media-btn--active {
@@ -493,22 +490,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--color-border, #333);
-  border-radius: var(--radius-sm, 6px);
-  background: var(--color-bg-tertiary, #1a1a2e);
-  color: var(--color-text-muted, #6b7280);
+  padding: 8px 12px;
+  border-radius: var(--radius, 10px);
+  background: var(--color-text, #ffffff);
+  color: var(--bg-color, #000000);
   cursor: pointer;
   font-size: 0.8rem;
   flex-shrink: 0;
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
-.comment-form-cdn-upload-btn:hover {
-  background: var(--color-bg-secondary, #2a2a3e);
-  color: var(--color-text, #fff);
-  border-color: var(--color-accent, #6366f1);
-}
+
 .comment-form-cdn-upload-btn:active {
   transform: scale(0.95);
 }
@@ -516,12 +507,12 @@
 .comment-form-media-input {
     width: 100%;
     padding: 8px 12px;
-    border: 1.5px solid var(--color-border, #2a2a2a);
+    border: none;
     border-radius: var(--radius, 10px);
     font-size: 0.82rem;
     font-family: inherit;
     color: var(--color-text, #ffffff);
-    background: var(--color-bg, #000000);
+    background: var(--color-surface-hover);
     outline: none;
     transition: border-color 0.2s ease;
     box-sizing: border-box;
