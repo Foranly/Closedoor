@@ -697,14 +697,18 @@
 
 /* Marca del autor del post en sus propios comentarios */
 .comment-card-op {
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    line-height: 1;
-    padding: 3px 7px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-text, #ffffff);
+    background: rgba(0, 0, 0, 0.24);
+    background: color-mix(in srgb, #000000 24%, transparent);
+    border: none;
     border-radius: 999px;
-    background: var(--accent-color, #ffffff);
-    color: var(--accent-text-color, #000000);
+    padding: 2px 9px;
 }
 
 .comment-card-replying-to {
@@ -893,13 +897,13 @@
 }
 
 .comment-card-btn--liked {
-    background: color-mix(in srgb, var(--accent-color, #6b7280) 8%, transparent);
-    color: var(--accent-color, #6b7280);
+    background: var(--color-text, #ffffff);
+    color: var(--bg-color, #000000);
 }
 
 .comment-card-btn--liked:hover {
-    background: color-mix(in srgb, var(--accent-color, #6b7280) 15%, transparent);
-    color: var(--accent-color, #6b7280);
+    background: var(--color-text, #ffffff);
+    color: var(--bg-color, #000000);
 }
 
 .comment-card-btn--disliked {

@@ -435,13 +435,13 @@
 
 /* Like activo: usa el color de acento */
 .post-card-action--liked {
-    background: color-mix(in srgb, var(--accent-color, #6b7280) 8%, transparent);
-    color: var(--accent-color, #6b7280);
+    background: var(--color-text, #ffffff);
+    color: var(--bg-color, #000000);
 }
 
 .post-card-action--liked:hover {
-    background: color-mix(in srgb, var(--accent-color, #6b7280) 15%, transparent);
-    color: var(--accent-color, #6b7280);
+    background: var(--color-text, #ffffff);
+    color: var(--bg-color, #000000);
 }
 
 /* Comentarios restringidos (nobody / followers_only) */
@@ -737,7 +737,7 @@
     height: 48px;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: none;
     color: rgba(255, 255, 255, 0.85);
     cursor: pointer;
     transition: background 0.2s ease, transform 0.15s ease;
