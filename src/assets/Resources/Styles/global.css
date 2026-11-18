@@ -615,8 +615,9 @@ body:has(.sidebar--users.sidebar--collapsed:not(.sidebar--users--hidden)) .app-l
    página de perfil, las vars inline del perfil ganan sobre las heredadas, así
    que allí las cards conservan el tratamiento configurado por su dueño.
 
-   El panel derecho queda fuera a propósito: su superficie solo sigue al
-   perfil en /profile (ver rightPanel.css).
+   El panel derecho no va en esta lista: sus cards ya leen las vars
+   --accent-surface-* (ver rightPanel.css), así que toman el vidrio heredado
+   de <html> sin reglas extra; sin el toggle siguen con la superficie del tema.
 
    .sidebar--chat sí entra aquí (en /chat el sidebar flota como una card y
    debe seguir viéndose translúcido), pero NO en la regla de color de texto:
@@ -625,6 +626,11 @@ body:has(.sidebar--users.sidebar--collapsed:not(.sidebar--users--hidden)) .app-l
    :not(.fc-chat-default) — Ajustes → "Chat con estilos por defecto": en /chat
    se desactivan estas reglas (y AppSurfaceTheme deja de publicar las vars), así
    la página vuelve a su aspecto original conservando el tema claro/oscuro.
+
+   :not(.community-page *) — El detalle de comunidad (/c/:slug) no pinta el
+   fondo global del perfil (ver GlobalProfileBg), así que el vidrio allí no
+   tiene nada que dejar ver: las cards vuelven a su superficie sólida por
+   defecto. El listado (/Communities) sí muestra el fondo y mantiene el vidrio.
    ========================================== */
 html.fc-cards-glass:not(.fc-chat-default) :is(
     .post-card,
@@ -634,12 +640,8 @@ html.fc-cards-glass:not(.fc-chat-default) :is(
     .profile-card,
     .profile-blocked-card,
     .chat-list,
-    .chat-messages,
-    .community-header,
-    .community-composer,
-    .community-feed-controls,
-    .community-join-prompt
-) {
+    .chat-messages
+):not(.community-page *) {
     /* background-color (no el shorthand): .chat-messages puede llevar una
        imagen de fondo inline (wallpaper del chat) y no debe perderse. */
     background-color: var(--accent-surface-rgba, rgba(255, 255, 255, 0.04));
@@ -653,8 +655,58 @@ html.fc-cards-glass:not(.fc-chat-default) :is(
 html.fc-cards-glass:not(.fc-chat-default) :is(
     .post-card:hover,
     .notification-item:hover
+):not(.community-page *) {
+    background-color: var(--accent-surface-rgba-hover, rgba(255, 255, 255, 0.07));
+}
+
+/* Comentarios del detalle de post: mismo vidrio que las cards, incluida la
+   caja para escribir (`.comment-form`). Las respuestas
+   (`.comment-card--reply`) quedan fuera a propósito: no son card, van
+   transparentes sobre la guía que las une al comentario padre. */
+html.fc-cards-glass:not(.fc-chat-default) :is(
+    .comment-form,
+    .comment-card:not(.comment-card--reply)
+):not(.community-page *) {
+    background-color: var(--accent-surface-rgba, rgba(255, 255, 255, 0.04));
+    backdrop-filter: var(--accent-surface-blur, blur(20px));
+    -webkit-backdrop-filter: var(--accent-surface-blur, blur(20px));
+    border: var(--accent-surface-border, none);
+    isolation: isolate;
+    transition: background 0.2s ease, backdrop-filter 0.2s ease, border 0.2s ease;
+}
+
+/* Campo de texto del composer de comentarios (también se usa en el formulario
+   de respuesta): un escalón más de blanco para que siga leyéndose como input
+   sobre el vidrio del `.comment-form`. */
+html.fc-cards-glass:not(.fc-chat-default) .comment-form-input:not(.community-page *) {
+    background: var(--accent-surface-rgba-hover, rgba(255, 255, 255, 0.07));
+}
+
+/* Piezas internas de las cards de /chat. Con vidrio, los estados que usaban
+   una superficie opaca del tema (item activo/hover del historial, botones y
+   buscador de la card izquierda, botones de la cabecera y del composer)
+   pasan a una capa translúcida encima de la card: así no tapan el blur con
+   un gris sólido. El item activo usa el mismo tono que el hover del vidrio. */
+html.fc-cards-glass:not(.fc-chat-default) :is(
+    .chat-list-item:hover,
+    .chat-list-item--active,
+    .chat-search-bar-input,
+    .chat-list-new-btn,
+    .chat-list-new-btn:hover,
+    .chat-header-action-btn--active,
+    .chat-header-action-btn:hover:not(:disabled),
+    .chat-input-action-btn--active,
+    .chat-input-action-btn:hover:not(:disabled)
 ) {
     background-color: var(--accent-surface-rgba-hover, rgba(255, 255, 255, 0.07));
+}
+
+/* Cabecera de la conversación: en 1 a 1 también es vidrio (en grupos se
+   mantiene el acento del fondo o la superficie del tema). */
+html.fc-cards-glass:not(.fc-chat-default) .chat-messages--dm .chat-messages-header {
+    background-color: var(--accent-surface-rgba, rgba(255, 255, 255, 0.04));
+    backdrop-filter: var(--accent-surface-blur, blur(20px));
+    -webkit-backdrop-filter: var(--accent-surface-blur, blur(20px));
 }
 
 /* Sidebar flotante de /chat: mismo vidrio que las cards (el sidebar no va en la

@@ -16,6 +16,7 @@ import {
 import { getItem, setItem, getSessionItem, setSessionItem } from '../../services/secureStorage';
 import Tooltip from './Tooltip';
 import Avatar from './Avatar';
+import Badge from './Badge';
 import ProfileHoverCard from './ProfileHoverCard';
 
 /**
@@ -324,7 +325,10 @@ function UsersRail({ conversationId, memberVersion = 0, open = true }) {
                       to={`/profile/${encodeURIComponent(member.username)}`}
                       className="sidebar-link"
                     >
-                      <span className="sidebar-icon users-rail-icon">
+                      <span
+                        className="sidebar-icon users-rail-icon"
+                        style={{ '--fc-user-accent': member.accent_color || undefined }}
+                      >
                         <Avatar
                           src={member.avatar_url}
                           alt={label}
@@ -333,7 +337,10 @@ function UsersRail({ conversationId, memberVersion = 0, open = true }) {
                         />
                       </span>
                       <div className="users-rail-text">
-                        <p className="users-rail-nick"><EmojiText text={label} /></p>
+                        <div className="users-rail-nick-row">
+                          <p className="users-rail-nick"><EmojiText text={label} /></p>
+                          <Badge roles={member.roles} />
+                        </div>
                         <p className="users-rail-handle">@{member.username}</p>
                       </div>
                     </Link>

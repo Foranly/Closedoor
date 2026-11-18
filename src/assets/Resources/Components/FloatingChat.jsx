@@ -705,18 +705,35 @@ export default function FloatingChat() {
                     <p className="fc-list-state-sub">{t('chat.no_messages') || 'No messages yet'}</p>
                   </div>
                 ) : (
-                  messages.map((msg) => {
+                  messages.map((msg, index) => {
                     const own = msg.sender_id === userId;
                     // Sin texto y con tarjeta (canción / invitación) el globo no
                     // se pinta: la card va sola, igual que en el chat completo.
                     const isBare = !(msg.decryptedContent || '').trim()
                       && !!(msg.shared_song || msg.shared_community_id || msg.shared_post_id);
+                    // Perfil del remitente (los fetch traen `profiles`; los que
+                    // llegan por realtime se resuelven con los miembros del grupo).
+                    const senderProfile = own
+                      ? null
+                      : (msg.profiles || activeConv?.members?.find((m) => m.id === msg.sender_id) || null);
+                    // En grupos, el nombre se pinta solo en la primera burbuja de
+                    // cada racha del mismo usuario (igual que el chat completo).
+                    const prevMsg = messages[index - 1];
+                    const showSender = !!activeConv?.isGroup && !own && !!senderProfile
+                      && (!prevMsg || prevMsg.sender_id !== msg.sender_id);
                     return (
                       <div
                         key={msg.id}
                         className={`fc-msg${own ? ' fc-msg--own' : ''}${msg._optimistic ? ' fc-msg--pending' : ''}`}
                       >
-                        <div className={`fc-msg-bubble${isBare ? ' fc-msg-bubble--bare' : ''}`}>{renderMessageBody(msg)}</div>
+                        <div className={`fc-msg-bubble${isBare ? ' fc-msg-bubble--bare' : ''}`}>
+                          {showSender && (
+                            <span className="fc-msg-sender">
+                              <EmojiText text={senderProfile.displayname || senderProfile.username} />
+                            </span>
+                          )}
+                          {renderMessageBody(msg)}
+                        </div>
                         {renderReactions(msg)}
                         <span className="fc-msg-time">{getTimeAgo(t, locale, msg.created_at)}</span>
                       </div>

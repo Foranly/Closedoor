@@ -4843,7 +4843,7 @@ export default function Chat() {
         {renderConversationListContent()}
       </div>
       <div
-        className={`chat-messages${showList ? ' chat-messages--hide-mobile' : ''}${chatAccent ? ' chat-messages--accent' : ''}`}
+        className={`chat-messages${showList ? ' chat-messages--hide-mobile' : ''}${chatAccent ? ' chat-messages--accent' : ''}${activeConvId && !isActiveGroup ? ' chat-messages--dm' : ''}`}
         style={activeChatBackground ? {
           // Fondo personalizado de ESTA conversación (tabla privada
           // chat_background_settings), en la CARD y no en el body: así cubre

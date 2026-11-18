@@ -886,7 +886,11 @@
 }
 
 .comment-card-btn svg {
-    font-size: 0.8rem;
+    font-size: 0.95rem;
+    /* Mismo caso que en los posts: los corazones tocan el borde del viewBox y
+       el <svg> los recortaba a este tamaño. */
+    overflow: visible;
+    flex-shrink: 0;
 }
 
 .comment-card-btn-count {
