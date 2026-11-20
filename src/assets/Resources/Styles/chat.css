@@ -1672,8 +1672,7 @@
     width: auto;
     height: auto;
     max-width: min(100%, 320px);
-    max-height: 260px;
-    border-radius: 18px;
+    border-radius: 15px;
     object-fit: contain;
     cursor: pointer;
 }
@@ -2427,7 +2426,7 @@
 
 .chat-message--own .chat-message-reactions {
     justify-content: flex-end;
-    margin-right: 38px;
+    margin-right: 42px;
 }
 
 .chat-message--other .chat-message-reactions {
@@ -2436,11 +2435,10 @@
 }
 
 .chat-message-reaction {
-    font-size: 0.82rem;
-    padding: 2px 6px;
-    border-radius: 999px;
+    font-size: 1rem;
+    padding: 4px 12px;
+    border-radius: var(--radius, 10px);
     background: var(--color-surface, #1a1a1a);
-    border: 1px solid var(--color-border, #2a2a2a);
     cursor: default;
     line-height: 1;
     transition: background 0.12s ease;
