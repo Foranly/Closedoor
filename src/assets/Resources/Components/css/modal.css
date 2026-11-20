@@ -813,7 +813,7 @@ textarea.fc-modal-input {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-bottom: 12px;
+    padding: 20px 24px 12px;
 }
 
 .fc-modal-header-actions {
@@ -828,7 +828,7 @@ textarea.fc-modal-input {
     justify-content: center;
     width: 32px;
     height: 32px;
-    border-radius: 50%;
+    border-radius: 10px;
     background: transparent;
     border: none;
     color: var(--color-text-secondary, #9ca3af);

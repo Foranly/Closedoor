@@ -66,11 +66,14 @@ import { getPost } from '../services/postService';
 import { ensureDarkSurface, extractColors, getContrastFromHex, hexToRgba, mixHex } from '../services/colorExtractor';
 import PostMarkdown from '../Resources/Components/PostMarkdown';
 import { countEmojiOnly } from '../services/twemoji';
+import { replaceShortcodes } from '../services/emojiShortcodes';
+import { useShortcodeSuggest } from '../../hooks/useShortcodeSuggest';
 import SafeImage from '../Resources/Components/SafeImage';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
 import LinkPreview from '../Resources/Components/LinkPreview';
 import EmojiText from '../Resources/Components/EmojiText';
 import EmojiPickerButton from '../Resources/Components/EmojiPickerButton';
+import EmojiShortcodeSuggest from '../Resources/Components/EmojiShortcodeSuggest';
 import EmojiPicker, { EmojiStyle, Theme } from 'emoji-picker-react';
 import { toast } from 'react-toastify';
 import { supabase } from '../services/supabaseclient';
@@ -594,6 +597,25 @@ export default function Chat() {
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   }, [inputValue]);
+
+  // ── Shortcodes de emoji (`:sm` → 😄) ──
+  const [inputCaret, setInputCaret] = useState(0);
+  const applyShortcode = useCallback(({ emoji, start, end }) => {
+    const nextChar = inputValue.slice(end, end + 1);
+    // Si ya hay un espacio detrás no se duplica.
+    const insert = nextChar === ' ' ? emoji : `${emoji} `;
+    const next = inputValue.slice(0, start) + insert + inputValue.slice(end);
+    const caret = start + insert.length;
+    setInputValue(next);
+    setInputCaret(caret);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.setSelectionRange(caret, caret);
+    });
+  }, [inputValue]);
+  const shortcodes = useShortcodeSuggest({ value: inputValue, caret: inputCaret, onApply: applyShortcode });
 
   // ── Overrides locales para preview de conversaciones (persisten a loadConvs) ──
   const localConvOverridesRef = useRef({});
@@ -1627,6 +1649,9 @@ export default function Chat() {
   }, []);
 
   const handleKeyDown = (e) => {
+    // Con sugerencias de shortcode abiertas, Enter/Tab/flechas las controlan
+    // en vez de enviar el mensaje.
+    if (shortcodes.handleKeyDown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -2035,7 +2060,7 @@ export default function Chat() {
     if (!editMsgId || (!editText.trim() && !editMediaUrlRef.current) || !user?.id) return;
     try {
       // Reconstruct full content: text + image URL
-      const textPart = editText.trim();
+      const textPart = replaceShortcodes(editText.trim());
       const imagePart = editMediaUrlRef.current || '';
       const fullContent = imagePart ? (textPart ? `${textPart}\n${imagePart}` : imagePart) : textPart;
 
@@ -2762,6 +2787,10 @@ export default function Chat() {
 
   const sendContent = useCallback(async (content, { clearInput = false, sharedSong = null } = {}) => {
     if ((!content && !sharedSong) || !user?.id || sendingRef.current) return null;
+
+    // `:smile:` → 😄. Se expande antes de guardar, así el mensaje, la vista
+    // previa de la conversación y las notificaciones llevan el emoji real.
+    content = replaceShortcodes(content);
 
     // Al enviar se cierra cualquier panel abierto del composer: todos los envíos
     // pasan por aquí (texto, GIF, canción y media con preview).
@@ -4752,18 +4781,33 @@ export default function Chat() {
           </div>
         )}
         <div className="chat-input-inner">
-          <textarea
-            ref={inputRef}
-            className="chat-input"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onPaste={handleChatPaste}
-            title={t('chat.paste_image_hint') || 'Paste an image with Ctrl+V'}
-            placeholder={t('chat.input_placeholder')}
-            rows={1}
-            maxLength={2000}
-          />
+          {/* Envoltura del textarea sin padding: el selector de shortcodes se
+              ancla aquí y queda alineado con el borde izquierdo del input. */}
+          <div className="chat-input-field">
+            <EmojiShortcodeSuggest
+              open={shortcodes.open}
+              options={shortcodes.options}
+              activeIndex={shortcodes.activeIndex}
+              onHover={shortcodes.setActiveIndex}
+              onPick={shortcodes.pick}
+            />
+            <textarea
+              ref={inputRef}
+              className="chat-input"
+              value={inputValue}
+              onChange={(e) => {
+                setInputValue(e.target.value);
+                setInputCaret(e.target.selectionStart ?? e.target.value.length);
+              }}
+              onSelect={(e) => setInputCaret(e.target.selectionStart ?? 0)}
+              onKeyDown={handleKeyDown}
+              onPaste={handleChatPaste}
+              title={t('chat.paste_image_hint') || 'Paste an image with Ctrl+V'}
+              placeholder={t('chat.input_placeholder')}
+              rows={1}
+              maxLength={2000}
+            />
+          </div>
           <div className="chat-input-actions">
             <div className="chat-input-actions-desktop">
               <Tooltip text={t('common.emoji') || 'Emoji'} placement="top">

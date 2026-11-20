@@ -1915,11 +1915,6 @@
     transition: border-color 0.15s ease;
 }
 
-.post-card-song:hover,
-.post-card-song--playing {
-    border-color: var(--accent-color, var(--color-text-muted, #6b7280));
-}
-
 .post-card-song-art {
     position: relative;
     width: 52px;

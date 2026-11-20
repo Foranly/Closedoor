@@ -1,0 +1,75 @@
+/* Sugerencias de shortcodes de emoji (`:sm` → 😄) del composer. Se posiciona
+   respecto al contenedor del input, que debe ser `position: relative`. */
+.emoji-shortcode-suggest {
+    /* Acento del chat: el de la conversación en el chat completo (tiñe el
+       composer), el del usuario en el dock flotante y, si no hay ninguno, el
+       acento global de la app. */
+    --shortcode-accent: var(--chat-accent, var(--fc-user-accent, var(--color-accent, #8b5cf6)));
+    /* Superficie del panel = la misma que la cabecera del chat: el acento del
+       fondo ya mezclado y oscurecido por Chat.jsx. En el dock flotante no
+       existe, así que se mezcla el acento del usuario con la superficie. */
+    --shortcode-surface: var(--chat-accent-header, color-mix(in srgb, var(--fc-user-accent, var(--color-surface, #1b1b1b)) 14%, var(--color-surface, #1b1b1b)));
+    position: absolute;
+    bottom: calc(100% + 8px);
+    /* El contenedor del panel es el mismo que el del textarea y termina justo
+       en su borde izquierdo (ver `.chat-input-field` / `.fc-input-wrap`). */
+    left: 0;
+    z-index: 70;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 180px;
+    max-width: min(280px, calc(100vw - 32px));
+    max-height: 232px;
+    overflow-y: auto;
+    padding: 4px;
+    border-radius: 10px;
+    /* Sólido, como el resto de paneles del chat (picker de emojis, GIF,
+       formato): no sigue el modo de tarjetas transparentes. */
+    background-color: var(--shortcode-surface, var(--color-surface, #1b1b1b));
+    border: 1px solid var(--chat-accent-border, var(--color-border, #2a2a2a));
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+
+.emoji-shortcode-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.emoji-shortcode-option--active {
+    background: color-mix(in srgb, var(--shortcode-accent) 26%, transparent);
+}
+
+.emoji-shortcode-option--active .emoji-shortcode-name {
+    opacity: 1;
+}
+
+.emoji-shortcode-option img.twemoji-emoji {
+    width: 1.15em;
+    height: 1.15em;
+    flex-shrink: 0;
+}
+
+.emoji-shortcode-fallback {
+    font-size: 1.05em;
+    line-height: 1.15;
+    flex-shrink: 0;
+}
+
+.emoji-shortcode-name {
+    overflow: hidden;
+    font-size: 0.82rem;
+    opacity: 0.85;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

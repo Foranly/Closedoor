@@ -200,9 +200,6 @@
   background:
     radial-gradient(circle at center, #0a0a0a 0 5px, #1d1d1f 5.5px 7px, transparent 7.5px),
     repeating-radial-gradient(circle at center, #101012 0 1px, #1b1b1e 1px 2.5px, #141417 2.5px 4px);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 4px 14px rgba(0, 0, 0, 0.45);
   animation: songCardSpin 5s linear infinite;
   animation-play-state: paused;
 }

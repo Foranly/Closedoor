@@ -2283,6 +2283,15 @@
     transition: box-shadow 0.2s ease;
 }
 
+/* Envoltura del textarea: misma caja que el input (sin padding ni borde) para
+   que el selector de shortcodes quede alineado con su borde izquierdo. */
+.chat-input-field {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-width: 0;
+}
+
 .chat-input {
     flex: 1;
     padding: 6px 0;
@@ -2660,12 +2669,9 @@
 }
 
 .chat-edit-modal-preview-label {
-    display: block;
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--color-text-muted, #6b7280);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-secondary, #9ca3af);
 }
 
 /* ── Preview bubble: same style as chat message bubbles ── */
@@ -2864,8 +2870,7 @@
     position: fixed;
     z-index: 1100;
     background: var(--color-surface, #1a1a1a);
-    border: 1px solid var(--color-border, #2a2a2a);
-    border-radius: var(--radius-sm, 6px);
+    border-radius: var(--radius, 10px);
     overflow: hidden;
     min-width: 160px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -2899,7 +2904,7 @@
 }
 
 .chat-context-menu-btn--danger {
-    color: #6b7280 !important;
+    color: var(--color-text-danger, #ef4444) !important;
 }
 
 .chat-context-menu-btn--danger:hover {
@@ -2998,7 +3003,7 @@ dialog.fc-modal.chat-followers-modal--picker .fc-modal-inner {
     width: 100%;
     padding: 8px 10px;
     border: none;
-    border-radius: var(--radius-sm, 6px);
+    border-radius: var(--radius, 10px);
     background: transparent;
     color: var(--color-text, #ffffff);
     cursor: pointer;
@@ -3095,6 +3100,10 @@ dialog.fc-modal.chat-followers-modal--picker .fc-modal-inner {
 }
 
 .chat-picker-mode-btn {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    align-items: center;
     padding: 8px 16px;
     border: none;
     border-radius: var(--radius, 10px);
@@ -3194,10 +3203,10 @@ dialog.fc-modal.chat-followers-modal--picker .fc-modal-inner {
     align-items: center;
     gap: 6px;
     padding: 7px 14px;
-    border-radius: var(--radius-sm, 6px);
-    border: 1px solid var(--color-border, #2a2a2a);
-    background: transparent;
-    color: var(--color-text, #ffffff);
+    border-radius: var(--radius, 10px);
+    border: none;
+    background: var(--color-text, #ffffff);
+    color: var(--bg-color, #000000);
     font-family: inherit;
     font-size: 0.8rem;
     font-weight: 600;
@@ -3215,19 +3224,25 @@ dialog.fc-modal.chat-followers-modal--picker .fc-modal-inner {
 .chat-picker-create-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
-}
-
-.chat-picker-secondary-btn:hover {
-    background: var(--color-surface-hover, #252525);
-}
+} 
 
 .chat-picker-danger-btn {
-    color: var(--color-danger, #ef4444);
-    border-color: var(--color-danger, #ef4444);
-}
-
-.chat-picker-danger-btn:hover {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius, 10px);
+    border: none;
+    color: var(--bg-color, #000000);
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s ease;
+    white-space: nowrap;
     background: rgba(239, 68, 68, 0.12);
+    color: var(--color-danger, #ef4444);
+
 }
 
 .chat-group-info-actions {
@@ -4257,9 +4272,8 @@ dialog.fc-modal.chat-followers-modal--picker .fc-modal-inner {
     right: 0;
     min-width: 160px;
     z-index: 1100;
-    background: var(--color-surface, #1a1a1a);
-    border: 1px solid var(--color-border, #2a2a2a);
-    border-radius: var(--radius-sm, 6px);
+    background: var(--chat-accent-header, var(--color-surface, #1a1a1a));
+    border-radius: var(--radius, 10px);
     overflow: hidden;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
     animation: fcFadeIn 0.1s ease;
