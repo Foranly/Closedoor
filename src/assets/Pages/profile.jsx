@@ -36,6 +36,10 @@ import {
     getRepostedPostIds,
     getSavedPostIds,
     getSavedPosts,
+    getBookmarkCollections,
+    getCachedBookmarkCollections,
+    setCachedBookmarkCollections,
+    deleteBookmarkCollection,
     getLikedPosts,
     getScheduledPosts,
     getDislikedPostIds,
@@ -56,7 +60,7 @@ import Badge from "../Resources/Components/Badge";
 import Avatar from "../Resources/Components/Avatar";
 import Tooltip from "../Resources/Components/Tooltip";
 import { getPlatformIcon, getPlatformName } from "../services/socialPlatforms";
-import { FaFeather, FaBookmark, FaLock, FaEllipsisH, FaBan, FaClock, FaHeart, FaRetweet, FaChevronDown, FaShareAlt, FaComment, FaCommentDots, FaTag, FaPlus } from 'react-icons/fa';
+import { FaFeather, FaBookmark, FaLock, FaEllipsisH, FaBan, FaClock, FaHeart, FaRetweet, FaChevronDown, FaChevronLeft, FaShareAlt, FaComment, FaCommentDots, FaTag, FaPlus } from 'react-icons/fa';
 import FollowButton from "../Resources/Components/FollowButton";
 import { blockUser, unblockUser, isBlocked, cacheBlockStatus, getCachedBlockStatus, unfollowBothWays } from "../services/blockService";
 import { useI18n } from "../services/i18n/useI18n";
@@ -66,10 +70,12 @@ import useBgContrast from "../../hooks/useBgContrast";
 import FollowersModal from "../Resources/Components/FollowersModal";
 import ModalShell from "../Resources/Components/ModalShell";
 import ConfirmModal from "../Resources/Components/ConfirmModal";
+import BookmarkEditModal from "../Resources/Components/BookmarkEditModal";
 import CreatePostModal from "../Resources/Components/CreatePostModal";
 import FloatingActionButton from "../Resources/Components/FloatingActionButton";
 import { toast } from 'react-toastify';
 import { getCdnUrl } from '../services/cdnService';
+import { preloadBookmarkCovers } from '../services/imageCache';
 import { useUserStatus } from '../services/useUserStatus';
 import { useRegisterUserStatus, UserStatusContext } from '../../context/UserStatusContext';
 import { getNicknames, getCachedNicknames, cacheNicknames } from "../services/chatService";
@@ -438,7 +444,7 @@ function Profile() {
 
     const [showCreatePost, setShowCreatePost] = useState(false);
     const [editingPost, setEditingPost] = useState(null);
-    const [tab, setTab] = useState('posts'); // 'posts' | 'likes' | 'saved' | 'scheduled' | 'replies' | 'communities'
+    const [tab, setTab] = useState('posts'); // 'posts' | 'likes' | 'bookmarks' | 'scheduled' | 'replies' | 'communities'
     const [postSubFilter, setPostSubFilter] = useState('all'); // 'all' | 'reposts'
     const [postFilterOpen, setPostFilterOpen] = useState(false);
     const [postFilterDropdownStyle, setPostFilterDropdownStyle] = useState(null);
@@ -463,9 +469,8 @@ function Profile() {
     useEffect(() => {
         if (!isOwnProfile) setTab('posts');
     }, [isOwnProfile]);
-    // ── Para likes/saves: usar el ID del perfil activo (propio o ajeno) ──
+    // ── Para likes: usar el ID del perfil activo (propio o ajeno) ──
     const likesUserId = isOwnProfile ? user?.id : activeProfile?.id;
-    const savesUserId = isOwnProfile ? user?.id : activeProfile?.id;
     const [scheduledPosts, setScheduledPosts] = useState([]);
     const [scheduledPostsLoading, setScheduledPostsLoading] = useState(true);
     // v2: las respuestas se filtran por visibilidad del post padre (privacidad
@@ -489,27 +494,24 @@ function Profile() {
         const cached = repliesCacheKey ? getCachedFeed(repliesCacheKey) : null;
         return cached?.dislikedIds || [];
     });
-    const savedCacheKey = savesUserId ? `saved_posts_${savesUserId}` : null;
-    const [savedPosts, setSavedPosts] = useState(() => {
-        const cached = savedCacheKey ? getCachedFeed(savedCacheKey) : null;
-        return cached?.items || [];
-    });
-    const [savedLikedIds, setSavedLikedIds] = useState(() => {
-        const cached = savedCacheKey ? getCachedFeed(savedCacheKey) : null;
-        return cached?.likedIds || [];
-    });
-    const [savedRepostedIds, setSavedRepostedIds] = useState(() => {
-        const cached = savedCacheKey ? getCachedFeed(savedCacheKey) : null;
-        return cached?.repostedIds || [];
-    });
-    const [savedDislikedIds, setSavedDislikedIds] = useState(() => {
-        const cached = savedCacheKey ? getCachedFeed(savedCacheKey) : null;
-        return cached?.dislikedIds || [];
-    });
-    const [savedPostsLoading, setSavedPostsLoading] = useState(() => {
-        const cached = savedCacheKey ? getCachedFeed(savedCacheKey) : null;
-        return !cached;
-    });
+
+    // ── Bookmarks (colecciones privadas de guardados, migración 104) ──
+    // Solo se cargan en la pestaña propia y con el perfil propio delante.
+    const [bookmarkCollections, setBookmarkCollections] = useState(() => (
+        getCachedBookmarkCollections(user?.id) || []
+    ));
+    const [activeBookmarkId, setActiveBookmarkId] = useState(null); // null = Todos
+    const [bookmarkPosts, setBookmarkPosts] = useState([]);
+    const [bookmarkLoading, setBookmarkLoading] = useState(false);
+    // Grid / menú contextual / edición / borrado de bookmarks
+    // Las colecciones arrancan desde el caché local (si existe) para que el
+    // grid y sus portadas se pinten al instante.
+    const [bookmarkMenu, setBookmarkMenu] = useState(null); // { collection, x, y }
+    const [editingBookmark, setEditingBookmark] = useState(null);
+    const [deletingBookmark, setDeletingBookmark] = useState(null);
+    const [bookmarkLikedIds, setBookmarkLikedIds] = useState([]);
+    const [bookmarkRepostedIds, setBookmarkRepostedIds] = useState([]);
+    const [bookmarkDislikedIds, setBookmarkDislikedIds] = useState([]);
     const likedCacheKey = likesUserId ? `liked_posts_${likesUserId}` : null;
     const [likedPosts, setLikedPosts] = useState(() => {
         const cached = likedCacheKey ? getCachedFeed(likedCacheKey) : null;
@@ -786,50 +788,51 @@ function Profile() {
             });
     }, [user?.id]);
 
-    // ── Load saved posts (con cache + background refresh, solo perfil propio) ──
+    // ── Bookmarks: colecciones + posts de la colección activa ──
     useEffect(() => {
-        if (!savesUserId || !isOwnProfile) return;
-        const cacheKey = `saved_posts_${savesUserId}`;
-
-        // Restaurar cache inmediatamente (síncrono)
-        const cached = getCachedFeed(cacheKey);
-        if (cached) {
-            setSavedPosts(cached.items || []);
-            setSavedLikedIds(cached.likedIds || []);
-            setSavedRepostedIds(cached.repostedIds || []);
-            setSavedPostsLoading(false);
-        } else {
-            setSavedPostsLoading(true);
-        }
-
-        // Fetch en segundo plano
-        const loadSaved = async () => {
+        if (tab !== 'bookmarks' || !isOwnProfile || !user?.id) return;
+        let cancelled = false;
+        (async () => {
             try {
-                const items = await getSavedPosts(savesUserId);
-                setSavedPosts(items);
-                // Check liked/reposted/disliked state for these posts
-                let likedIds = [], repostedIds = [], dislikedIds = [];
+                // null = grid de bookmarks (solo se necesitan las colecciones).
+                // 'all' = bookmark general, sin colección.
+                const collectionId = activeBookmarkId === 'all' ? null : activeBookmarkId;
+                const [collections, items] = await Promise.all([
+                    getBookmarkCollections(user.id),
+                    activeBookmarkId === null
+                        ? Promise.resolve(null)
+                        : getSavedPosts(user.id, { collectionId }),
+                ]);
+                if (cancelled) return;
+                setBookmarkCollections(collections);
+                // Portadas al caché de imágenes en cuanto llegan.
+                preloadBookmarkCovers(collections);
+                if (!items) return;
+                setBookmarkPosts(items);
                 if (items.length > 0) {
                     const postIds = items.map((p) => p.id);
-                    [likedIds, repostedIds, dislikedIds] = await Promise.all([
+                    const [likedIds, repostedIds, dislikedIds] = await Promise.all([
                         getLikedPostIds(postIds, user.id),
                         getRepostedPostIds(postIds, user.id),
                         getDislikedPostIds(postIds, user.id),
                     ]);
-                    setSavedLikedIds(likedIds);
-                    setSavedRepostedIds(repostedIds);
-                    setSavedDislikedIds(dislikedIds);
+                    if (cancelled) return;
+                    setBookmarkLikedIds(likedIds);
+                    setBookmarkRepostedIds(repostedIds);
+                    setBookmarkDislikedIds(dislikedIds);
+                } else {
+                    setBookmarkLikedIds([]);
+                    setBookmarkRepostedIds([]);
+                    setBookmarkDislikedIds([]);
                 }
-                setCachedFeed(cacheKey, items, likedIds, repostedIds, [], dislikedIds);
             } catch (err) {
-                console.error('Error loading saved posts:', err);
+                console.error('Error loading bookmarks:', err);
             } finally {
-                setSavedPostsLoading(false);
+                if (!cancelled) setBookmarkLoading(false);
             }
-        };
-
-        loadSaved();
-    }, [savesUserId]);
+        })();
+        return () => { cancelled = true; };
+    }, [tab, isOwnProfile, user, activeBookmarkId]);
 
     // ── Load replies (comments by this user, con cache) ──
     useEffect(() => {
@@ -924,33 +927,6 @@ function Profile() {
         loadLiked();
     }, [likesUserId, user?.id]);
 
-    // ── Refresh saved posts when switching to Saved tab ──
-    useEffect(() => {
-        if (tab !== 'saved' || !savesUserId) return;
-        const cacheKey = `saved_posts_${savesUserId}`;
-        (async () => {
-            try {
-                const items = await getSavedPosts(savesUserId);
-                setSavedPosts(items);
-                let likedIds = [], repostedIds = [], dislikedIds = [];
-                if (items.length > 0) {
-                    const postIds = items.map((p) => p.id);
-                    [likedIds, repostedIds, dislikedIds] = await Promise.all([
-                        getLikedPostIds(postIds, user.id),
-                        getRepostedPostIds(postIds, user.id),
-                        getDislikedPostIds(postIds, user.id),
-                    ]);
-                    setSavedLikedIds(likedIds);
-                    setSavedRepostedIds(repostedIds);
-                    setSavedDislikedIds(dislikedIds);
-                }
-                setCachedFeed(cacheKey, items, likedIds, repostedIds, [], dislikedIds);
-            } catch (err) {
-                console.warn('Error refreshing saved posts:', err);
-            }
-        })();
-    }, [tab, savesUserId]);
-
     // ── Refresh liked posts when switching to Likes tab ──
     useEffect(() => {
         if (tab !== 'likes' || !likesUserId) return;
@@ -988,9 +964,7 @@ function Profile() {
       setLikedPostIds((prev) =>
         nowLiked ? [...prev, postId] : prev.filter((id) => id !== postId)
       );
-      setSavedLikedIds((prev) =>
-        nowLiked ? [...prev, postId] : prev.filter((id) => id !== postId)
-      );
+
       setLikedLikedIds((prev) =>
         nowLiked ? [...prev, postId] : prev.filter((id) => id !== postId)
       );
@@ -1000,9 +974,7 @@ function Profile() {
       setRepostedPostIds((prev) =>
         nowReposted ? [...prev, postId] : prev.filter((id) => id !== postId)
       );
-      setSavedRepostedIds((prev) =>
-        nowReposted ? [...prev, postId] : prev.filter((id) => id !== postId)
-      );
+
       setLikedRepostedIds((prev) =>
         nowReposted ? [...prev, postId] : prev.filter((id) => id !== postId)
       );
@@ -1012,9 +984,7 @@ function Profile() {
       setDislikedPostIds((prev) =>
         nowDisliked ? [...prev, postId] : prev.filter((id) => id !== postId)
       );
-      setSavedDislikedIds((prev) =>
-        nowDisliked ? [...prev, postId] : prev.filter((id) => id !== postId)
-      );
+
       setLikedDislikedIds((prev) =>
         nowDisliked ? [...prev, postId] : prev.filter((id) => id !== postId)
       );
@@ -1105,42 +1075,81 @@ function Profile() {
     }, []);
 
     // ── Sincronizar saved state desde PostCard ──
+    // Solo los IDs booleanos: el icono de bookmark de las cards de Posts y la
+    // lista real viven en la pestaña Bookmarks (handleBookmarkSaveToggle).
     const handleSaveToggle = useCallback((postId, nowSaved) => {
-        // Actualizar savedPostIds inmediatamente (para icono bookmark en Posts tab)
         setSavedPostIds((prev) =>
             nowSaved ? [...prev, postId] : prev.filter((id) => id !== postId)
         );
         setLikedSavedIds((prev) =>
             nowSaved ? [...prev, postId] : prev.filter((id) => id !== postId)
         );
-        // Refrescar la lista de guardados en background, incluyendo liked/reposted IDs
-        if (user?.id && nowSaved) {
-            (async () => {
-                try {
-                    const items = await getSavedPosts(user.id);
-                    setSavedPosts(items);
-                    if (items.length > 0) {
-                        const postIds = items.map((p) => p.id);
-                        const [likedIds, repostedIds] = await Promise.all([
-                            getLikedPostIds(postIds, user.id),
-                            getRepostedPostIds(postIds, user.id),
-                        ]);
-                        setSavedLikedIds(likedIds);
-                        setSavedRepostedIds(repostedIds);
-                        setCachedFeed(`saved_posts_${user.id}`, items, likedIds, repostedIds, []);
-                    }
-                } catch (err) {
-                    console.warn('Error refreshing saved posts:', err);
-                }
-            })();
-        } else if (user?.id && !nowSaved) {
-            // Quitar de savedPosts sin refetch
-            setSavedPosts((prev) => prev.filter((p) => p.id !== postId));
-            // También remover el postId de savedLikedIds/savedRepostedIds
-            setSavedLikedIds((prev) => prev.filter((id) => id !== postId));
-            setSavedRepostedIds((prev) => prev.filter((id) => id !== postId));
+    }, []);
+
+    // ── Menú contextual de bookmarks: cerrar al hacer clic fuera o al scrollear ──
+    const bookmarkMenuRef = useRef(null);
+    useEffect(() => {
+        if (!bookmarkMenu) return;
+        // Solo cierra si el mousedown es FUERA del menú: si se cierra en el
+        // mousedown del propio botón, el menú se desmonta antes del click y
+        // Editar/Eliminar nunca llegan a ejecutarse.
+        const close = (e) => {
+            if (bookmarkMenuRef.current?.contains(e.target)) return;
+            setBookmarkMenu(null);
+        };
+        document.addEventListener('mousedown', close);
+        window.addEventListener('scroll', close, true);
+        return () => {
+            document.removeEventListener('mousedown', close);
+            window.removeEventListener('scroll', close, true);
+        };
+    }, [bookmarkMenu]);
+
+    const handleDeleteBookmark = async () => {
+        const target = deletingBookmark;
+        if (!target || !user?.id) return;
+        setDeletingBookmark(null);
+        try {
+            await deleteBookmarkCollection(target.id, user.id);
+            const next = bookmarkCollections.filter((c) => c.id !== target.id);
+            setBookmarkCollections(next);
+            setCachedBookmarkCollections(user.id, next);
+            if (activeBookmarkId === target.id) setActiveBookmarkId(null);
+            toast.success(t('bookmarks.deleted'));
+        } catch (err) {
+            console.error('Error deleting bookmark:', err);
+            toast.error(t('bookmarks.delete_error'));
         }
-    }, [user?.id]);
+    };
+
+    const handleBookmarkSaved = (updated) => {
+        if (!updated?.id) return;
+        const next = bookmarkCollections.map((c) => (c.id === updated.id ? { ...c, ...updated } : c));
+        setBookmarkCollections(next);
+        if (bookmarksUserId) setCachedBookmarkCollections(bookmarksUserId, next);
+        // Nueva portada → calentar el caché de imágenes para el próximo render.
+        preloadBookmarkCovers([updated]);
+    };
+
+    // ── Bookmarks: guardar/quitar desde la pestaña ──
+    // Al guardar (o mover de colección) se refrescan la lista y los conteos; al
+    // quitar, el post sale de la lista sin esperar al servidor.
+    const bookmarksUserId = user?.id || null;
+    const handleBookmarkSaveToggle = (postId, nowSaved) => {
+        if (!nowSaved) {
+            setBookmarkPosts((prev) => prev.filter((p) => p.id !== postId));
+            setBookmarkLikedIds((prev) => prev.filter((id) => id !== postId));
+            setBookmarkRepostedIds((prev) => prev.filter((id) => id !== postId));
+            return;
+        }
+        if (!bookmarksUserId) return;
+        getSavedPosts(bookmarksUserId, { collectionId: activeBookmarkId })
+            .then((items) => setBookmarkPosts(items))
+            .catch(() => {});
+        getBookmarkCollections(bookmarksUserId)
+            .then((cols) => setBookmarkCollections(cols))
+            .catch(() => {});
+    };
 
     // ── Re-fetch counts when follow changes ──
     const handleFollowChange = useCallback(() => {
@@ -1607,7 +1616,7 @@ function Profile() {
         } : {}),
     };
 
-    return (            <div className="profile-page" style={styleVars}>
+    return (            <div className={`profile-page${surfGlass ? ' profile-page--glass' : ''}`} style={styleVars}>
             {/* ── Dim & blur overlay for profile background (imagen vía .profile-page::before) ── */}
             {hasBg && (
               <div
@@ -2128,12 +2137,14 @@ function Profile() {
                                 {t('profile.likes_tab')}
                             </button>
                         )}
+                        {/* Bookmarks: privados, solo el dueño del perfil los ve. */}
                         {isOwnProfile && (
                             <button
-                                className={`posts-section-tab ${tab === 'saved' ? 'posts-section-tab--active' : ''}`}
-                                onClick={() => setTab('saved')}
+                                className={`posts-section-tab ${tab === 'bookmarks' ? 'posts-section-tab--active' : ''}`}
+                                onClick={() => { setBookmarkLoading(true); setTab('bookmarks'); }}
+                                title={t('bookmarks.private_hint')}
                             >
-                                {t('profile.saved_tab')}
+                                {t('bookmarks.tab')}
                             </button>
                         )}
                         {isOwnProfile && (
@@ -2217,45 +2228,147 @@ function Profile() {
                             onRepostToggle={handleRepostToggle}
                         />
                     )
-                ) : tab === 'saved' ? (
-                    savedPostsLoading ? (
-                        <div className="posts-skeleton">
-                            {[1, 2, 3].map((i) => (
-                                <div key={i} className="posts-skeleton-card">
-                                    <div className="skeleton posts-skeleton-avatar" />
-                                    <div className="posts-skeleton-lines">
-                                        <div className="posts-skeleton-line posts-skeleton-line--short" />
-                                        <div className="posts-skeleton-line" />
-                                        <div className="posts-skeleton-line posts-skeleton-line--medium" />
-                                    </div>
+                ) : tab === 'bookmarks' ? (
+                    activeBookmarkId === null ? (
+                        /* ── Grid de bookmarks (cards 1:1, 3 por fila) ── */
+                        <div className="bookmark-grid">
+                            {/* Bookmark general: todos los guardados. No se edita ni se borra. */}
+                            <button
+                                type="button"
+                                className="bookmark-card bookmark-card--default"
+                                onClick={() => { setBookmarkLoading(true); setActiveBookmarkId('all'); }}
+                            >
+                                <span className="bookmark-card-placeholder"><FaBookmark /></span>
+                                <span className="bookmark-card-overlay">
+                                    <span className="bookmark-card-name">{t('bookmarks.all_saved')}</span>
+                                </span>
+                            </button>
+
+                            {bookmarkCollections.map((c) => (
+                                <div
+                                    key={c.id}
+                                    role="button"
+                                    tabIndex={0}
+                                    className="bookmark-card"
+                                    onClick={() => { setBookmarkLoading(true); setActiveBookmarkId(c.id); }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            setBookmarkLoading(true);
+                                            setActiveBookmarkId(c.id);
+                                        }
+                                    }}
+                                    onContextMenu={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setBookmarkMenu({ collection: c, x: e.clientX, y: e.clientY });
+                                    }}
+                                    title={c.name}
+                                >
+                                    {c.cover_url ? (
+                                        <img
+                                            className="bookmark-card-cover"
+                                            src={getCdnUrl(c.cover_url) || c.cover_url}
+                                            alt=""
+                                            loading="lazy"
+                                            style={{ position: 'absolute', top: 0, left: 0, ...getImageStyle(c.cover_position), objectFit: 'cover' }}
+                                        />
+                                    ) : (
+                                        <span className="bookmark-card-placeholder"><FaBookmark /></span>
+                                    )}
+                                    <span className="bookmark-card-overlay">
+                                        <span className="bookmark-card-name">{c.name}</span>
+                                        {c.description && (
+                                            <span className="bookmark-card-desc">{c.description}</span>
+                                        )}
+                                    </span>
+                                    {c.count > 0 && <span className="bookmark-card-count">{c.count}</span>}
                                 </div>
                             ))}
                         </div>
-                    ) : savedPosts.length === 0 ? (
-                        <div className="posts-empty">
-                            <span className="posts-empty-icon"><FaBookmark /></span>
-                            <p className="posts-empty-text">
-                                {t('profile.no_saved')}
-                            </p>
-                            <p className="posts-empty-subtext">
-                                {t('profile.no_saved_sub')}
-                            </p>
-                        </div>
                     ) : (
+                    <>
+                        <div className="bookmark-detail-header">
+                            <button
+                                type="button"
+                                className="bookmark-back"
+                                onClick={() => { setActiveBookmarkId(null); setBookmarkLoading(false); }}
+                            >
+                                <FaChevronLeft />
+                                {t('bookmarks.back')}
+                            </button>
+                            <span className="bookmark-detail-title">
+                                {activeBookmarkId === 'all'
+                                    ? t('bookmarks.all_saved')
+                                    : (bookmarkCollections.find((c) => c.id === activeBookmarkId)?.name || '')}
+                            </span>
+                            {/* Menú de la colección abierta: mismo context menu que
+                                el clic derecho en la card. El bookmark general no
+                                se edita ni se borra, así que no lo muestra. */}
+                            {activeBookmarkId !== 'all' && (() => {
+                                const activeCollection = bookmarkCollections.find((c) => c.id === activeBookmarkId);
+                                if (!activeCollection) return null;
+                                return (
+                                    <button
+                                        type="button"
+                                        className="bookmark-detail-menu-btn"
+                                        aria-label={t('bookmarks.actions')}
+                                        title={t('bookmarks.actions')}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            setBookmarkMenu({
+                                                collection: activeCollection,
+                                                x: rect.right - 180,
+                                                y: rect.bottom + 6,
+                                            });
+                                        }}
+                                    >
+                                        <FaEllipsisH />
+                                    </button>
+                                );
+                            })()}
+                        </div>
+                        {bookmarkLoading ? (
+                            <div className="posts-skeleton">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="posts-skeleton-card">
+                                        <div className="skeleton posts-skeleton-avatar" />
+                                        <div className="posts-skeleton-lines">
+                                            <div className="skeleton posts-skeleton-line posts-skeleton-line--short" />
+                                            <div className="skeleton posts-skeleton-line" />
+                                            <div className="skeleton posts-skeleton-line posts-skeleton-line--medium" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : bookmarkPosts.length === 0 ? (
+                            <div className="posts-empty">
+                                <span className="posts-empty-icon"><FaBookmark /></span>
+                                <p className="posts-empty-text">
+                                    {activeBookmarkId === 'all' ? t('bookmarks.empty') : t('bookmarks.empty_collection')}
+                                </p>
+                                <p className="posts-empty-subtext">
+                                    {t('bookmarks.empty_sub')}
+                                </p>
+                            </div>
+                        ) : (
                             <VirtualPostList
-                                posts={savedPosts}
-                                likedIds={savedLikedIds}
-                                dislikedIds={savedDislikedIds}
-                                repostedIds={savedRepostedIds}
-                                savedIds={savedPosts.map((p) => p.id)}
+                                posts={bookmarkPosts}
+                                likedIds={bookmarkLikedIds}
+                                dislikedIds={bookmarkDislikedIds}
+                                repostedIds={bookmarkRepostedIds}
+                                savedIds={bookmarkPosts.map((p) => p.id)}
                                 onUpdate={handlePostUpdate}
                                 onDelete={handlePostDelete}
-                                onSaveToggle={handleSaveToggle}
+                                onSaveToggle={handleBookmarkSaveToggle}
                                 onLikeToggle={handleLikeToggle}
                                 onDislikeToggle={handleDislikeToggle}
                                 onRepostToggle={handleRepostToggle}
                             />
-                        )
+                        )}
+                    </>
+                    )
                 ) : tab === 'likes' ? (
                     likedPostsLoading ? (
                         <div className="posts-skeleton">
@@ -2410,6 +2523,65 @@ function Profile() {
                     onClose={() => setNicknameModalUser(null)}
                     onSaved={handleSavedNickname}
                 />
+
+            {/* ── Menú contextual de un bookmark (clic derecho en la card) ── */}
+            {bookmarkMenu && createPortal(
+                <div
+                    ref={bookmarkMenuRef}
+                    className="fc-dropdown bookmark-menu"
+                    style={{
+                        position: 'fixed',
+                        top: `${Math.min(bookmarkMenu.y, window.innerHeight - 100)}px`,
+                        left: `${Math.min(bookmarkMenu.x, window.innerWidth - 190)}px`,
+                        zIndex: 9999,
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        className="fc-dropdown-btn"
+                        onClick={() => {
+                            setEditingBookmark(bookmarkMenu.collection);
+                            setBookmarkMenu(null);
+                        }}
+                    >
+                        <FaFeather />
+                        {t('bookmarks.edit')}
+                    </button>
+                    <button
+                        type="button"
+                        className="fc-dropdown-btn fc-dropdown-btn--danger"
+                        onClick={() => {
+                            setDeletingBookmark(bookmarkMenu.collection);
+                            setBookmarkMenu(null);
+                        }}
+                    >
+                        <FaBan />
+                        {t('bookmarks.delete')}
+                    </button>
+                </div>,
+                document.body
+            )}
+
+            {/* Editar bookmark: nombre, descripción y portada */}
+            {editingBookmark && (
+                <BookmarkEditModal
+                    key={editingBookmark.id}
+                    isOpen
+                    collection={editingBookmark}
+                    onClose={() => setEditingBookmark(null)}
+                    onSaved={handleBookmarkSaved}
+                />
+            )}
+
+            {/* Confirmación de borrado del bookmark */}
+            {deletingBookmark && (
+                <ConfirmModal
+                    message={t('bookmarks.confirm_delete', { name: deletingBookmark.name })}
+                    onConfirm={handleDeleteBookmark}
+                    onCancel={() => setDeletingBookmark(null)}
+                />
+            )}
 
             {/* Block confirmation */}
             {confirmBlock && (

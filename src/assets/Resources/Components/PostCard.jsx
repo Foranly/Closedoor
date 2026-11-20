@@ -35,6 +35,7 @@ import usePostTranslation from '../../../hooks/usePostTranslation';
 import { closeUnbalancedMarkers } from '../../services/postMarkdown';
 import LinkPreview from './LinkPreview';
 import PostSongCard from './PostSongCard';
+import BookmarkPickerModal from './BookmarkPickerModal';
 import PostVideoPlayer from './PostVideoPlayer';
 import { useI18n } from '../../services/i18n/useI18n';
 import { DEFAULT_AVATAR, getTimeAgo, formatClockTime, formatFullDate, getEmbedUrl as getEmbedUrlHelper, isVideoUrl as isVideoUrlHelper, IMG_RE, VID_RE, VID_RE_EXTENDED, getImageStyle, sanitizeUrl } from '../../services/helpers';
@@ -93,6 +94,8 @@ const PostCard = React.memo(function PostCard({
   const [reposted, setReposted] = useState(initialReposted);
   const [repostsCount, setRepostsCount] = useState(post.reposts_count || 0);
   const [saved, setSaved] = useState(initialSaved);
+  // Guardar pregunta primero en qué bookmark (colección) va el post.
+  const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [galleryUrls, setGalleryUrls] = useState(null);
@@ -601,22 +604,36 @@ const PostCard = React.memo(function PostCard({
       navigate(`/Login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
-    // ── Optimistic update ──
-    const wasSaved = saved;
 
-    setSaved(!wasSaved);
-
-    try {
-      if (wasSaved) {
+    // Quitar de guardados: directo (sin preguntar nada).
+    if (saved) {
+      setSaved(false);
+      try {
         await unsavePost(post.id, user.id);
-      } else {
-        await savePost(post.id, user.id);
+        if (onSaveToggle) onSaveToggle(post.id, false);
+      } catch (err) {
+        setSaved(true);
+        console.error('Save error:', err);
       }
-      if (onSaveToggle) onSaveToggle(post.id, !wasSaved);
+      return;
+    }
+
+    // Guardar: primero se elige la colección (BookmarkPickerModal).
+    setShowBookmarkPicker(true);
+  };
+
+  // Elegido el destino (collectionId null = "Todos los guardados").
+  const handleBookmarkPick = async (collectionId) => {
+    setShowBookmarkPicker(false);
+    if (!user) return;
+    setSaved(true);
+    try {
+      await savePost(post.id, user.id, collectionId || null);
+      if (onSaveToggle) onSaveToggle(post.id, true);
     } catch (err) {
-      // Rollback on error
-      setSaved(wasSaved);
+      setSaved(false);
       console.error('Save error:', err);
+      toast.error(t('bookmarks.save_error'));
     }
   };
 
@@ -1701,6 +1718,16 @@ const PostCard = React.memo(function PostCard({
           )}
         </div>,
         document.body
+      )}
+
+      {/* Elegir bookmark al guardar (privado: solo el dueño los ve) */}
+      {showBookmarkPicker && user && (
+        <BookmarkPickerModal
+          isOpen={showBookmarkPicker}
+          userId={user.id}
+          onClose={() => setShowBookmarkPicker(false)}
+          onConfirm={handleBookmarkPick}
+        />
       )}
     </article>
   );
