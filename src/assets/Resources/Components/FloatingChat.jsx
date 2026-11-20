@@ -22,6 +22,8 @@ import {
 import { getContrastFromHex } from '../../services/colorExtractor';
 import { detectMediaFromContent, getTimeAgo } from '../../services/helpers';
 import { countEmojiOnly } from '../../services/twemoji';
+import { replaceShortcodes } from '../../services/emojiShortcodes';
+import { useShortcodeSuggest } from '../../../hooks/useShortcodeSuggest';
 import { supabase } from '../../services/supabaseclient';
 import { getPost } from '../../services/postService';
 import Avatar from './Avatar';
@@ -30,6 +32,7 @@ import ChatCommunityCard from './ChatCommunityCard';
 import ChatSharedPostCard from './ChatSharedPostCard';
 import EmojiText from './EmojiText';
 import EmojiPickerButton from './EmojiPickerButton';
+import EmojiShortcodeSuggest from './EmojiShortcodeSuggest';
 import './css/floatingChat.css';
 
 const HIDDEN_ROUTES = ['/chat', '/login', '/register', '/auth/callback'];
@@ -111,6 +114,7 @@ export default function FloatingChat() {
   const [messages, setMessages] = useState([]);
   const [loadingThread, setLoadingThread] = useState(false);
   const [input, setInput] = useState('');
+  const [inputCaret, setInputCaret] = useState(0);
   const [sending, setSending] = useState(false);
   // Comunidades de las invitaciones compartidas (se piden una vez por id).
   const [sharedCommunities, setSharedCommunities] = useState({});
@@ -459,7 +463,8 @@ export default function FloatingChat() {
   }, [messages, open, view, loadingThread]);
 
   const send = useCallback(async () => {
-    const text = input.trim();
+    // `:smile:` → 😄 antes de guardar (igual que en el chat completo).
+    const text = replaceShortcodes(input.trim());
     // Destinatarios: el otro usuario en un 1:1, todos los miembros en un grupo.
     const recipients = activeConv?.isGroup
       ? (activeConv.memberIds || [])
@@ -492,11 +497,28 @@ export default function FloatingChat() {
     } catch (err) {
       console.warn('[FloatingChat] send failed:', err);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      setInput(text);
+      setInput(input);
     } finally {
       setSending(false);
     }
   }, [input, activeId, userId, sending, activeConv]);
+
+  // Autocompletado de shortcodes (`:sm` → 😄) en el composer del dock.
+  const applyShortcode = useCallback(({ emoji, start, end }) => {
+    const nextChar = input.slice(end, end + 1);
+    const insert = nextChar === ' ' ? emoji : `${emoji} `;
+    const next = input.slice(0, start) + insert + input.slice(end);
+    const caret = start + insert.length;
+    setInput(next);
+    setInputCaret(caret);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.setSelectionRange(caret, caret);
+    });
+  }, [input]);
+  const shortcodes = useShortcodeSuggest({ value: input, caret: inputCaret, onApply: applyShortcode });
 
   if (hidden) return null;
 
@@ -599,11 +621,13 @@ export default function FloatingChat() {
     <div className={`fc-dock${open ? ' fc-dock--open' : ''}`}>
       {/* ── Ventana flotante ── */}
       {open && (
-        <div className="fc-panel" role="dialog" aria-label={t('chat.title') || 'Chat'}>
-          <div
-            className="fc-panel-header"
-            style={{ '--fc-user-accent': open && (activeConv?.isGroup ? undefined : activeConv?.otherUser?.accent_color) || undefined }}
-          >
+        <div
+          className="fc-panel"
+          role="dialog"
+          aria-label={t('chat.title') || 'Chat'}
+          style={{ '--fc-user-accent': (!activeConv?.isGroup && activeConv?.otherUser?.accent_color) || undefined }}
+        >
+          <div className="fc-panel-header">
             {view === 'thread' ? (
               <>
                 <button
@@ -743,21 +767,37 @@ export default function FloatingChat() {
               </div>
 
               <div className="fc-compose">
-                <textarea
-                  ref={inputRef}
-                  className="fc-input"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      send();
-                    }
-                  }}
-                  placeholder={t('chat.input_placeholder') || 'Write a message...'}
-                  rows={1}
-                  maxLength={2000}
-                />
+                {/* Envoltura sin padding: ancla el selector de shortcodes al
+                    borde izquierdo del input. */}
+                <div className="fc-input-wrap">
+                  <EmojiShortcodeSuggest
+                    open={shortcodes.open}
+                    options={shortcodes.options}
+                    activeIndex={shortcodes.activeIndex}
+                    onHover={shortcodes.setActiveIndex}
+                    onPick={shortcodes.pick}
+                  />
+                  <textarea
+                    ref={inputRef}
+                    className="fc-input"
+                    value={input}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      setInputCaret(e.target.selectionStart ?? e.target.value.length);
+                    }}
+                    onSelect={(e) => setInputCaret(e.target.selectionStart ?? 0)}
+                    onKeyDown={(e) => {
+                      if (shortcodes.handleKeyDown(e)) return;
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        send();
+                      }
+                    }}
+                    placeholder={t('chat.input_placeholder') || 'Write a message...'}
+                    rows={1}
+                    maxLength={2000}
+                  />
+                </div>
                 <EmojiPickerButton
                   className="fc-panel-icon-btn"
                   title={t('common.emoji') || 'Emoji'}

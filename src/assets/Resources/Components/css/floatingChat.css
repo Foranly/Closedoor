@@ -620,12 +620,22 @@ html.fc-cards-glass:not(.fc-chat-default) .fc-dock-launcher:hover {
 
 /* ── Composer ── */
 .fc-compose {
+    position: relative;
     display: flex;
     align-items: flex-end;
     gap: 8px;
     padding: 9px 10px;
     border-top: 1px solid var(--color-border, #2a2a2a);
     flex-shrink: 0;
+}
+
+/* Envoltura del textarea: misma caja que el input (sin padding ni borde) para
+   que el selector de shortcodes quede alineado con su borde izquierdo. */
+.fc-input-wrap {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-width: 0;
 }
 
 .fc-input {
