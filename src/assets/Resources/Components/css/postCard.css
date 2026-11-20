@@ -51,6 +51,11 @@
     transition: background 0.2s ease;
     margin-bottom: 12px;
     position: relative;
+    /* Colores de la caja interna de la canción: por defecto sólidos, como el
+       resto de la tarjeta. Se redefinen cuando la card es translúcida. */
+    --post-song-bg: var(--color-surface-hover, rgba(255, 255, 255, 0.04));
+    --post-song-border: var(--color-border, #2a2a2a);
+    --post-song-art-bg: var(--color-surface, #1a1a1a);
 }
 
 .post-card:hover {
@@ -70,6 +75,13 @@
     border: var(--accent-surface-border, none);
     isolation: isolate;
     transition: background 0.2s ease, backdrop-filter 0.2s ease, border 0.2s ease;
+    /* La card deja pasar el fondo del perfil, así que la caja de la canción
+       tampoco puede ser opaca: un tinte del propio color de texto (que ya es
+       el validado por contraste) mantiene el bloque legible sobre glass y
+       sobre superficie de acento sólida. */
+    --post-song-bg: color-mix(in srgb, var(--color-text, #ffffff) 8%, transparent);
+    --post-song-border: color-mix(in srgb, var(--color-text, #ffffff) 16%, transparent);
+    --post-song-art-bg: color-mix(in srgb, var(--color-text, #ffffff) 14%, transparent);
 }
 
 /* ── Rows virtualizados (VirtualPostList en el perfil) ──
@@ -444,6 +456,20 @@
     color: var(--bg-color, #000000);
 }
 
+/* En el perfil el like activo toma el color de acento del usuario en lugar del
+   blanco fijo del feed; el texto usa el color de contraste calculado a partir
+   del acento (`--accent-contrast-color`, ver profile.jsx), así que se sigue
+   leyendo aunque el acento sea claro. */
+.profile-page .post-card-action.post-card-action--liked {
+    background: var(--accent-color, var(--color-text, #ffffff));
+    color: var(--accent-contrast-color, var(--bg-color, #000000));
+}
+
+.profile-page .post-card-action.post-card-action--liked:hover {
+    background: color-mix(in srgb, var(--accent-color, var(--color-text, #ffffff)) 82%, #000000);
+    color: var(--accent-contrast-color, var(--bg-color, #000000));
+}
+
 /* Comentarios restringidos (nobody / followers_only) */
 .post-card-action--restricted {
     opacity: 0.7;
@@ -607,6 +633,17 @@
 
 .post-card-image-grid--1 {
     grid-template-columns: 1fr;
+}
+
+/* Imagen única: la celda tiene el ratio REAL y un max-height en línea (80vh).
+   Sin un ancho explícito el navegador deriva el ancho del alto tope, la celda
+   queda más estrecha que la columna y asoma el fondo gris de la rejilla a la
+   derecha. Forzando el ancho, la imagen llena la card y el alto tope solo
+   recorta (object-fit: cover) cuando la imagen es muy vertical. */
+.post-card-image-grid--1 .post-card-image-grid-item {
+    width: 100%;
+    min-width: 0;
+    justify-self: stretch;
 }
 
 .post-card-image-grid--2 {
@@ -1908,9 +1945,9 @@
     gap: 10px;
     margin-bottom: 10px;
     padding: 8px;
-    border: 1px solid var(--color-border, #2a2a2a);
+    border: 1px solid var(--post-song-border, var(--color-border, #2a2a2a));
     border-radius: var(--radius, 10px);
-    background: var(--color-surface-hover, rgba(255, 255, 255, 0.04));
+    background: var(--post-song-bg, var(--color-surface-hover, rgba(255, 255, 255, 0.04)));
     max-width: 380px;
     transition: border-color 0.15s ease;
 }
@@ -1924,7 +1961,7 @@
     border: none;
     border-radius: var(--radius-sm, 6px);
     overflow: hidden;
-    background: var(--color-surface, #1a1a1a);
+    background: var(--post-song-art-bg, var(--color-surface, #1a1a1a));
     color: var(--color-text, #ffffff);
     cursor: pointer;
 }

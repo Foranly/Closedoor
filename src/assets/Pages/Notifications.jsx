@@ -478,6 +478,8 @@ function NotificationItem({
           className="notification-avatar"
           src={actor.avatar_url}
           alt={username}
+          frame={actor.avatar_frame_url}
+          framePosition={actor.avatar_frame_position}
         />
 
         <div className="notification-content">

@@ -63,6 +63,11 @@ export default function AppSurfaceTheme() {
     const surfColor = profile?.accent_surface_color;
     const profileGlass = profile?.accent_surface_glass === true;
 
+    // Modo translúcido del perfil: se marca en <html> para que los elementos
+    // que viven FUERA del árbol del perfil (el dock de chats flotantes se
+    // monta en <body>) puedan usar el mismo vidrio que las cards del perfil.
+    root.classList.toggle('fc-profile-glass', !chatDefault && showAccent && profileGlass);
+
     // Receta del perfil en modo glass (== .profile-page .post-card)
     const GLASS = {
       rgba: 'rgba(255, 255, 255, 0.04)',

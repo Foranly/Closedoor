@@ -48,7 +48,9 @@ export async function getNotifications(userId, limit = 50) {
       actor:actor_id (
         id,
         username,
-        avatar_url
+        avatar_url,
+        avatar_frame_url,
+        avatar_frame_position
       ),
       post:reference_id (
         id,
