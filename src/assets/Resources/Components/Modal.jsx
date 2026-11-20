@@ -9,6 +9,7 @@ import EmojiText from './EmojiText';
 import EmojiPickerButton from './EmojiPickerButton';
 import { DEFAULT_AVATAR, getImageStyle, getBackgroundStyle, sanitizeUrl } from '../../services/helpers';
 import { USERNAME_MIN, USERNAME_MAX, USERNAME_RE, DISPLAYNAME_MAX, PRONOUNS_MAX } from '../../services/userService';
+import AvatarFrameEditor from './AvatarFrameEditor';
 import ImagePositionEditor from './ImagePositionEditor';
 import { detectPlatform, getPlatformIcon, getPlatformName } from '../../services/socialPlatforms';
 import { extractColors } from '../../services/colorExtractor';
@@ -72,6 +73,8 @@ export default function Modal({
   userRoles = ['user'],
   initialBannerCredits = '',
   initialAvatarCredits = '',
+  initialAvatarFrame = '',
+  initialAvatarFramePosition = '',
   initialProfileTextColor = '',
 }) {
   const { t } = useI18n();
@@ -90,6 +93,11 @@ export default function Modal({
   const pronounsRef = useRef(null);
   const [bannerCredits, setBannerCredits] = useState(initialBannerCredits || '');
   const [avatarCredits, setAvatarCredits] = useState(initialAvatarCredits || '');
+  // Marco del avatar (migración 100): PNG 1:1 con transparencia subido al CDN.
+  const [avatarFrame, setAvatarFrame] = useState(initialAvatarFrame || '');
+  // Ajuste de arrastre/zoom del marco (JSON {x,y,zoom}), como avatar_position.
+  const [avatarFramePosition, setAvatarFramePosition] = useState(initialAvatarFramePosition || '');
+  const [uploadingFrame, setUploadingFrame] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bannerPosition, setBannerPosition] = useState(initialBannerPosition);
   const [avatarPosition, setAvatarPosition] = useState(initialAvatarPosition);
@@ -266,6 +274,8 @@ export default function Modal({
     setShowSuggested(false);
     setBannerCredits(initialBannerCredits || '');
     setAvatarCredits(initialAvatarCredits || '');
+    setAvatarFrame(initialAvatarFrame || '');
+    setAvatarFramePosition(initialAvatarFramePosition || '');
     setSelectedAccentSurface(initialAccentSurface || '');
     setSelectedProfileTextColor(initialProfileTextColor || '');
     setProfileBg(initialProfileBg || '');
@@ -292,9 +302,10 @@ export default function Modal({
           avatarPosition !== initialAvatarPosition ||
           bannerPosition !== initialBannerPosition ||
           bio !== (initialBio || '') ||
-      pronouns !== (initialPronouns || '') ||
-      bannerCredits !== (initialBannerCredits || '') ||
-      avatarCredits !== (initialAvatarCredits || '') ||
+      pronouns !== (initialPronouns || '') ||          bannerCredits !== (initialBannerCredits || '') ||
+          avatarCredits !== (initialAvatarCredits || '') ||
+          avatarFrame !== (initialAvatarFrame || '') ||
+          avatarFramePosition !== (initialAvatarFramePosition || '') ||
       JSON.stringify(socialLinks) !== JSON.stringify(initialSocialLinks || []) ||
       selectedAccent !== (initialAccentColor || '') ||
       selectedAccentSecondary !== (initialAccentColorSecondary || '') ||
@@ -310,9 +321,9 @@ export default function Modal({
       false;
     setHasChanges(changed);
   }, [
-    username, displayname, banner, avatar, bio, pronouns, bannerCredits, avatarCredits, socialLinks,    selectedAccent, selectedAccentSecondary, interests,
+    username, displayname, banner, avatar, bio, pronouns, bannerCredits,    avatarCredits, avatarFrame, socialLinks,    selectedAccent, selectedAccentSecondary, interests,
     initialUsername, initialDisplayname, initialBanner, initialAvatar, initialBio, initialPronouns,
-    initialBannerCredits, initialAvatarCredits,
+    initialBannerCredits, initialAvatarCredits, initialAvatarFrame, initialAvatarFramePosition,
     initialSocialLinks, initialAccentColor, initialAccentColorSecondary, initialAccentSurface, initialAccentSurfaceGlass, initialProfileBg, initialProfileBgPosition, initialProfileBgBlur,    initialProfileBgDim, initialBannerDim, initialInterests, initialAvatarPosition, initialBannerPosition,
   ]);
 
@@ -409,6 +420,8 @@ export default function Modal({
         username: u,
         displayname: d || null,
         avatar_url: avatar.trim() || null,
+        avatar_frame_url: avatarFrame.trim() || null,
+        avatar_frame_position: avatarFrame.trim() ? (avatarFramePosition || null) : null,
         avatar_position: avatarPosition || null,
         banner_url: banner.trim() || null,
         banner_position: bannerPosition || null,
@@ -632,6 +645,34 @@ export default function Modal({
     }
   };
 
+  // ── Marco del avatar: se sube al CDN como una imagen más del perfil y se
+  //    guarda con el resto del perfil (no necesita «Aplicar» del submodal).
+  const handleFrameUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    if (!['image/png', 'image/webp'].includes(file.type)) {
+      toast.error(t('modal.avatar_frame_type') || 'El marco debe ser un PNG con transparencia');
+      e.target.value = '';
+      return;
+    }
+    const previousFrame = avatarFrame;
+    setUploadingFrame(true);
+    try {
+      const { localUrl, realUrlPromise } = uploadWithLocalPreview(file, user.id, 'avatar');
+      setAvatarFrame(localUrl);
+      const realUrl = await realUrlPromise;
+      setAvatarFrame(realUrl);
+      toast.success(t('upload.uploaded') || 'Image uploaded', { autoClose: 2000 });
+    } catch (err) {
+      console.error('CDN frame upload error:', err);
+      setAvatarFrame(previousFrame);
+      toast.error(err.message || 'Upload failed', { autoClose: 3000 });
+    } finally {
+      setUploadingFrame(false);
+      e.target.value = '';
+    }
+  };
+
   const handleUrlModalSave = () => {
     const url = urlInput.trim();
     if (showUrlModal === 'avatar') {
@@ -725,6 +766,21 @@ export default function Modal({
     if (e.key === 'Enter') { e.preventDefault(); handleProfileBgModalSave(); }
     else if (e.key === 'Escape') { e.preventDefault(); closeBgSubmodal(); }
   };
+
+  // Editor de posición de la imagen del submodal (avatar 1:1 o banner).
+  const urlPositionEditor = urlInput.trim() ? (
+    <ImagePositionEditor
+      key={showUrlModal}
+      imageUrl={urlInput.trim()}
+      initialPosition={showUrlModal === 'avatar' ? avatarPosition : bannerPosition}
+      aspectRatio={showUrlModal === 'avatar' ? 1 : 40 / 11}
+      circular={showUrlModal === 'avatar'}
+      onPositionChange={(pos) => {
+        if (showUrlModal === 'avatar') setAvatarPosition(pos);
+        else if (showUrlModal === 'banner') setBannerPosition(pos);
+      }}
+    />
+  ) : null;
 
   const BIO_MAX_LENGTH = 80;
   const defaultAvatar = DEFAULT_AVATAR;
@@ -1206,6 +1262,8 @@ export default function Modal({
                   className="explore-card-avatar"
                   src={avatar || defaultAvatar}
                   alt=""
+                  frame={avatarFrame}
+                  framePosition={avatarFramePosition}
                   style={getImageStyle(avatarPosition)}
                 />
 
@@ -1590,103 +1648,219 @@ export default function Modal({
       <ModalShell
         isOpen={showUrlModal !== null}
         onClose={closeUrlSubmodal}
-        className="fc-modal--confirm"
+        className={showUrlModal === 'avatar' ? 'fc-modal--avatar-editor' : 'fc-modal--confirm'}
       >
-        <h4 className="fc-modal-sub-title">
-          {showUrlModal === 'avatar' ? t('modal.avatar_url') : t('modal.banner_url')}
-        </h4>
-        <div
-          className={`fc-modal-drag-zone ${isDragOver ? 'fc-modal-drag-zone--active' : ''}`}
-          onDragOver={handleDragOver}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <div className="fc-modal-upload-row">
-            <label className="fc-modal-upload-btn">
-              {uploadingToCdn ? <FaSpinner className="fc-spin" /> : <FaUpload />}
-              <span>{uploadingToCdn ? t('common.loading') : (t('modal.upload_image') || 'Subir imagen')}</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                onChange={handleFileUpload}
-                disabled={uploadingToCdn}
-                style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
-              />
-            </label>
-            <span className="fc-modal-upload-or">{t('modal.or_paste_url') || 'O pega una URL'}</span>
-          </div>
-          <input
-            className="fc-modal-input"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            onKeyDown={handleUrlModalKeyDown}
-            placeholder={showUrlModal === 'avatar' ? 'https://.../avatar.jpg' : 'https://.../banner.jpg'}
-            autoFocus
-          />
-          {isDragOver && (
-            <div className="fc-modal-drag-overlay">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              <span>{t('modal.drop_image') || 'Drop image here'}</span>
-            </div>
-          )}
-        </div>
-        {/* ── Credits input ── */}
-        <input
-          className="fc-modal-input"
-          value={showUrlModal === 'avatar' ? avatarCredits : bannerCredits}
-          onChange={(e) => {
-            if (showUrlModal === 'avatar') setAvatarCredits(e.target.value);
-            else setBannerCredits(e.target.value);
-          }}
-          placeholder={t('modal.credits_placeholder')}
-          style={{ marginTop: 8 }}
-        />        {/* ── Banner dim slider (only for banner) ── */}
-        {showUrlModal === 'banner' && (
-          <div style={{ marginTop: 12 }}>
-            <div className="fc-modal-range-row">
-              <span className="fc-modal-range-label">{t('modal.banner_dim') || 'Banner darkness'}</span>
-              <div className="fc-modal-range-control">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={bannerDim}
-                  onChange={(e) => setBannerDim(Number(e.target.value))}
-                  className="fc-modal-range"
-                />
-                <span className="fc-modal-range-value">{bannerDim}%</span>
+        {showUrlModal === 'avatar' ? (
+          <>
+            {/* ── Header igual al del diálogo de editar perfil ── */}
+            <div className="fc-modal-header">
+              <h3 className="fc-modal-title">{t('modal.avatar_url')}</h3>
+              <div className="fc-modal-header-actions">
+                <button type="button" className="fc-modal-save" onClick={handleUrlModalSave} disabled={uploadingToCdn}>
+                  {uploadingToCdn ? t('common.loading') : t('modal.apply')}
+                </button>
+                <button type="button" className="fc-modal-close" onClick={closeUrlSubmodal} title={t('modal.cancel')}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
               </div>
             </div>
-          </div>
-        )}
-        {/* ── Image position editor ── */}
-        {urlInput.trim() && (
-          <div style={{ marginTop: 10 }}>              <ImagePositionEditor
-              key={showUrlModal}
-              imageUrl={urlInput.trim()}
-              initialPosition={showUrlModal === 'avatar' ? avatarPosition : bannerPosition}
-              aspectRatio={showUrlModal === 'avatar' ? 1 : 40 / 11}
-              circular={showUrlModal === 'avatar'}
-              onPositionChange={(pos) => {
-                if (showUrlModal === 'avatar') setAvatarPosition(pos);
-                else if (showUrlModal === 'banner') setBannerPosition(pos);
-              }}
+
+            <div className="fc-modal-grid fc-modal-grid--avatar">
+              {/* ── Avatar (izquierda) ── */}
+              <div className="fc-modal-grid-left">
+                <div className="fc-modal-card">
+                  <div
+                    className={`fc-modal-drag-zone ${isDragOver ? 'fc-modal-drag-zone--active' : ''}`}
+                    onDragOver={handleDragOver}
+                    onDragEnter={handleDragEnter}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
+                    <div className="fc-modal-upload-row">
+                      <label className="fc-modal-upload-btn">
+                        {uploadingToCdn ? <FaSpinner className="fc-spin" /> : <FaUpload />}
+                        <span>{uploadingToCdn ? t('common.loading') : (t('modal.upload_image') || 'Subir imagen')}</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          onChange={handleFileUpload}
+                          disabled={uploadingToCdn}
+                          style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+                        />
+                      </label>
+                      <span className="fc-modal-upload-or">{t('modal.or_paste_url') || 'O pega una URL'}</span>
+                    </div>
+                    <input
+                      className="fc-modal-input"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      onKeyDown={handleUrlModalKeyDown}
+                      placeholder="https://.../avatar.png"
+                      autoFocus
+                    />
+                    {isDragOver && (
+                      <div className="fc-modal-drag-overlay">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="17 8 12 3 7 8" />
+                          <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <span>{t('modal.drop_image') || 'Drop image here'}</span>
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    className="fc-modal-input"
+                    value={avatarCredits}
+                    onChange={(e) => setAvatarCredits(e.target.value)}
+                    placeholder={t('modal.credits_placeholder')}
+                    style={{ marginTop: 8 }}
+                  />
+                </div>
+                {urlPositionEditor && (
+                  <div className="fc-modal-card">{urlPositionEditor}</div>
+                )}
+              </div>
+
+              {/* ── Ajustes del marco (derecha) ── */}
+              <div className="fc-modal-grid-right">
+                <div className="fc-modal-card">
+                  <div className="fc-modal-frame-block">
+                    <div className="fc-modal-frame-head">
+                      <span className="fc-modal-frame-label">{t('modal.avatar_frame') || 'Marco del avatar'}</span>
+                      {avatarFrame && (
+                        <button
+                          type="button"
+                          className="fc-modal-frame-remove"
+                          onClick={() => { setAvatarFrame(''); setAvatarFramePosition(''); }}
+                        >
+                          {t('common.remove') || 'Quitar'}
+                        </button>
+                      )}
+                    </div>
+                    {avatarFrame ? (
+                      <AvatarFrameEditor
+                        avatarUrl={urlInput.trim() || avatar}
+                        frameUrl={avatarFrame}
+                        initialPosition={avatarFramePosition}
+                        onPositionChange={setAvatarFramePosition}
+                      />
+                    ) : (
+                      <div className="fc-modal-frame-preview fc-modal-frame-preview--empty">
+                        <span>{t('modal.avatar_frame_none') || 'Sin marco'}</span>
+                      </div>
+                    )}
+                    <div className="fc-modal-frame-row">
+                      <label className="fc-modal-upload-btn">
+                        {uploadingFrame ? <FaSpinner className="fc-spin" /> : <FaUpload />}
+                        <span>
+                          {uploadingFrame
+                            ? t('common.loading')
+                            : (avatarFrame
+                              ? (t('modal.avatar_frame_change') || 'Cambiar marco')
+                              : (t('modal.avatar_frame_upload') || 'Subir marco'))}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/png,image/webp"
+                          onChange={handleFrameUpload}
+                          disabled={uploadingFrame}
+                          style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+                        />
+                      </label>
+                    </div>
+                    <p className="fc-modal-frame-hint">
+                      {t('modal.avatar_frame_hint') || 'PNG cuadrado (1:1) con transparencia. Recomendado 1000 × 1000 px.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <h4 className="fc-modal-sub-title">{t('modal.banner_url')}</h4>
+            <div
+              className={`fc-modal-drag-zone ${isDragOver ? 'fc-modal-drag-zone--active' : ''}`}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="fc-modal-upload-row">
+                <label className="fc-modal-upload-btn">
+                  {uploadingToCdn ? <FaSpinner className="fc-spin" /> : <FaUpload />}
+                  <span>{uploadingToCdn ? t('common.loading') : (t('modal.upload_image') || 'Subir imagen')}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={handleFileUpload}
+                    disabled={uploadingToCdn}
+                    style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+                  />
+                </label>
+                <span className="fc-modal-upload-or">{t('modal.or_paste_url') || 'O pega una URL'}</span>
+              </div>
+              <input
+                className="fc-modal-input"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={handleUrlModalKeyDown}
+                placeholder="https://.../banner.png"
+                autoFocus
+              />
+              {isDragOver && (
+                <div className="fc-modal-drag-overlay">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span>{t('modal.drop_image') || 'Drop image here'}</span>
+                </div>
+              )}
+            </div>
+            <input
+              className="fc-modal-input"
+              value={bannerCredits}
+              onChange={(e) => setBannerCredits(e.target.value)}
+              placeholder={t('modal.credits_placeholder')}
+              style={{ marginTop: 8 }}
             />
-          </div>
+            <div style={{ marginTop: 12 }}>
+              <div className="fc-modal-range-row">
+                <span className="fc-modal-range-label">{t('modal.banner_dim') || 'Banner darkness'}</span>
+                <div className="fc-modal-range-control">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={bannerDim}
+                    onChange={(e) => setBannerDim(Number(e.target.value))}
+                    className="fc-modal-range"
+                  />
+                  <span className="fc-modal-range-value">{bannerDim}%</span>
+                </div>
+              </div>
+            </div>
+            {urlPositionEditor && (
+              <div style={{ marginTop: 10 }}>{urlPositionEditor}</div>
+            )}
+            <div className="fc-modal-sub-actions">
+              <button type="button" className="fc-modal-sub-save" onClick={handleUrlModalSave} disabled={uploadingToCdn}>
+                {uploadingToCdn ? (t('common.loading') || 'Cropping...') : t('modal.apply')}
+              </button>
+              <button type="button" className="fc-modal-sub-cancel" onClick={closeUrlSubmodal}>
+                {t('modal.cancel')}
+              </button>
+            </div>
+          </>
         )}
-        <div className="fc-modal-sub-actions">
-          <button type="button" className="fc-modal-sub-save" onClick={handleUrlModalSave} disabled={uploadingToCdn}>
-            {uploadingToCdn ? (t('common.loading') || 'Cropping...') : t('modal.apply')}
-          </button>            <button type="button" className="fc-modal-sub-cancel" onClick={closeUrlSubmodal}>
-              {t('modal.cancel')}
-            </button>
-          </div>
+
       </ModalShell>
 
       {/* ── URL submodal confirm discard ── */}

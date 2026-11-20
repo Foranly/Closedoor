@@ -193,7 +193,7 @@ const COMMUNITY_SELECT = [
   'id', 'slug', 'name', 'description', 'rules', 'interests',
   'avatar_url', 'banner_url', 'accent_color', 'accent_color_secondary',
   'is_private', 'is_mature', 'owner_id', 'member_count', 'post_count', 'created_at', 'updated_at',
-  'profiles!communities_owner_id_fkey (id, username, displayname, avatar_url, roles)',
+  'profiles!communities_owner_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, roles)',
 ].join(',');
 
 const MEMBER_SELECT = [
@@ -895,7 +895,7 @@ export async function getCommunityPosts(communityId, { sort = 'recent', timeRang
     'is_pinned', 'pinned_at', 'is_encrypted', 'is_sensitive',
     'likes_count', 'dislikes_count', 'comments_count', 'reposts_count', 'views_count',
     'created_at', 'updated_at', 'mentions', 'obfuscated_display', 'comments_allowed', 'poll_data', 'song',
-    'profiles!posts_user_id_fkey (id, username, displayname, avatar_url, roles, is_private, avatar_position)',
+    'profiles!posts_user_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position)',
   ].join(',');
 
   let query = dbPublic
@@ -1063,7 +1063,7 @@ export async function getActiveMembersRanking(communityId, { limit = 10, refresh
   const userIds = rows.map((r) => r.user_id);
   const { data: profiles } = await dbPublic
     .from('profiles')
-    .select('id, username, displayname, avatar_url, roles, accent_color, user_status')
+    .select('id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, roles, accent_color, user_status')
     .in('id', userIds);
 
   const profileMap = {};

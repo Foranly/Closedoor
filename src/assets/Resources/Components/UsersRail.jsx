@@ -332,6 +332,8 @@ function UsersRail({ conversationId, memberVersion = 0, open = true }) {
                         <Avatar
                           src={member.avatar_url}
                           alt={label}
+                          frame={member.avatar_frame_url}
+                          framePosition={member.avatar_frame_position}
                           status={statuses[member.id]}
                           className="users-rail-avatar"
                         />

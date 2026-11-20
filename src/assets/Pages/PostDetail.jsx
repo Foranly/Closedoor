@@ -936,6 +936,8 @@ export default function PostDetail() {
               className="comment-card-avatar"
               src={reply.profiles?.avatar_url}
               alt={reply.profiles?.username || 'user'}
+              frame={reply.profiles?.avatar_frame_url}
+              framePosition={reply.profiles?.avatar_frame_position}
               style={getImageStyle(reply.profiles?.avatar_position)}
             />
           </ProfileHoverCard>
@@ -1246,6 +1248,8 @@ export default function PostDetail() {
               className="comment-card-avatar"
               src={comment.profiles?.avatar_url}
               alt={comment.profiles?.username || 'user'}
+              frame={comment.profiles?.avatar_frame_url}
+              framePosition={comment.profiles?.avatar_frame_position}
               style={getImageStyle(comment.profiles?.avatar_position)}
             />
           </ProfileHoverCard>
@@ -1591,6 +1595,8 @@ export default function PostDetail() {
               className="comment-form-avatar"
               src={profile?.avatar_url}
               alt="Your avatar"
+              frame={profile?.avatar_frame_url}
+              framePosition={profile?.avatar_frame_position}
               style={getImageStyle(profile?.avatar_position)}
             />
             <div className="comment-form-input-wrapper">

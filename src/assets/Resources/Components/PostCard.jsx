@@ -861,6 +861,8 @@ const PostCard = React.memo(function PostCard({
               className="post-card-avatar"
               src={profile?.avatar_url}
               alt={profile?.username || 'user'}
+              frame={profile?.avatar_frame_url}
+              framePosition={profile?.avatar_frame_position}
               style={getImageStyle(profile?.avatar_position)}
             />
           </ProfileHoverCard>
