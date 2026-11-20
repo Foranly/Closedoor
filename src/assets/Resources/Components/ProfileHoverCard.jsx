@@ -9,7 +9,7 @@ import ExploreCard from './ExploreCard';
 import './css/profileHoverCard.css';
 
 const PROFILE_FIELDS =
-  'id, username, displayname, avatar_url, banner_url, banner_position, avatar_position, bio, pronouns, roles, is_private, interests, accent_color, accent_color_secondary, show_accent_explore';
+  'id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, banner_url, banner_position, avatar_position, bio, pronouns, roles, is_private, interests, accent_color, accent_color_secondary, show_accent_explore';
 
 const SHOW_DELAY = 220;
 const HIDE_DELAY = 160;

@@ -65,6 +65,8 @@ export default function ExploreCard({ profile, counts, isOwnProfile, showAccent,
           className="explore-card-avatar"
           src={profile.avatar_url}
           alt={profile.username}
+          frame={profile.avatar_frame_url}
+          framePosition={profile.avatar_frame_position}
           style={getImageStyle(profile.avatar_position)}
         />
 

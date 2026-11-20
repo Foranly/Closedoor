@@ -4,10 +4,15 @@
 
 dialog.fc-modal.followers-modal {
     max-width: 420px;
-    max-height: 480px;
+    /* Cabecera + buscador + filtro ocupan ~160px, así que con 480px solo
+       cabían 5 filas. Este tope da sitio a ~7 y sigue scrolleando si hay más. */
+    max-height: min(620px, 80vh);
     display: flex;
     flex-direction: column;
     padding: 0;
+    /* El scroll vive en la lista, no en el diálogo: así la cabecera, el
+       buscador y el filtro quedan fijos mientras se recorre la lista. */
+    overflow: hidden;
 }
 
 .followers-modal-header {
@@ -154,6 +159,9 @@ dialog.fc-modal.followers-modal {
     overflow-y: auto;
     padding: 8px 0;
     flex: 1;
+    /* Sin esto el flex item no baja de su alto de contenido y el diálogo
+       entero acaba scrolleando (arrastrando buscador y filtro). */
+    min-height: 0;
 }
 
 .followers-modal-list::-webkit-scrollbar {

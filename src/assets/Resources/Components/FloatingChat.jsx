@@ -641,6 +641,8 @@ export default function FloatingChat() {
                 <Avatar
                   src={peerAvatar(activeConv)}
                   alt={peerName(activeConv)}
+                  frame={activeConv?.isGroup ? undefined : activeConv?.otherUser?.avatar_frame_url}
+                  framePosition={activeConv?.isGroup ? undefined : activeConv?.otherUser?.avatar_frame_position}
                   className="fc-panel-peer-avatar"
                   userId={activeConv?.isGroup ? undefined : activeConv?.otherUser?.id}
                 />
@@ -698,6 +700,8 @@ export default function FloatingChat() {
                     <Avatar
                       src={peerAvatar(conv)}
                       alt={peerName(conv)}
+                      frame={conv.isGroup ? undefined : conv.otherUser?.avatar_frame_url}
+                      framePosition={conv.isGroup ? undefined : conv.otherUser?.avatar_frame_position}
                       className="fc-item-avatar"
                       userId={conv.isGroup ? undefined : conv.otherUser?.id}
                     />
@@ -834,6 +838,8 @@ export default function FloatingChat() {
             <Avatar
               src={peerAvatar(conv)}
               alt={peerName(conv)}
+              frame={conv.isGroup ? undefined : conv.otherUser?.avatar_frame_url}
+              framePosition={conv.isGroup ? undefined : conv.otherUser?.avatar_frame_position}
               className="fc-dock-recent-avatar"
               userId={conv.isGroup ? undefined : conv.otherUser?.id}
             />

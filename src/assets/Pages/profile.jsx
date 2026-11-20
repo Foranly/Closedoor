@@ -1316,7 +1316,7 @@ function Profile() {
     const visibleRoles = roles.filter(r => r === 'user' || !badgeTypes.includes(r) || badgesVisibility[r] !== false);
 
     // ── Save profile (own profile only) ──
-    const handleSaveProfile = async ({ username, displayname, avatar_url, banner_url, banner_credits, avatar_credits, bio, pronouns, social_links, accent_color, accent_color_secondary, accent_surface_color, accent_surface_glass, interests, banner_position, avatar_position, profile_background_url, profile_background_position, profile_background_blur, profile_background_dim, banner_dim, profile_text_color }) => {
+    const handleSaveProfile = async ({ username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, banner_url, banner_credits, avatar_credits, bio, pronouns, social_links, accent_color, accent_color_secondary, accent_surface_color, accent_surface_glass, interests, banner_position, avatar_position, profile_background_url, profile_background_position, profile_background_blur, profile_background_dim, banner_dim, profile_text_color }) => {
         if (!user?.id) return;
 
         const normalizedUsername = (username || "").trim().toLowerCase();
@@ -1345,6 +1345,8 @@ function Profile() {
             const updates = {
                 displayname: displayname || null,
                 avatar_url: avatar_url || null,
+                avatar_frame_url: avatar_frame_url || null,
+                avatar_frame_position: avatar_frame_url ? (avatar_frame_position || null) : null,
                 avatar_position: avatar_position || null,
                 banner_url: banner_url || null,
                 banner_position: banner_position || null,
@@ -1551,6 +1553,8 @@ function Profile() {
             '--accent-color': activeProfile.accent_color,
             '--accent-color-2': activeProfile?.accent_color_secondary || activeProfile.accent_color,
             '--accent-text-color': activeProfile?.profile_text_color || 'var(--color-text, #ffffff)',
+            // Texto legible encima de un fondo de acento (like activo, etc.).
+            '--accent-contrast-color': getContrastText(activeProfile.accent_color),
           } : {}),
           '--accent-surface-color': surfColor || null,
           // ── Text colors — controlled by profile_text_color when set ──
@@ -1667,6 +1671,8 @@ function Profile() {
                             src={avatarUrl}
                             alt="User Avatar"
                             className="profile-avatar"
+                            frame={activeProfile?.avatar_frame_url}
+                            framePosition={activeProfile?.avatar_frame_position}
                             style={getImageStyle(activeProfile?.avatar_position)}                             status={isOwnProfile ? myStatus : (isFollower === true && isFollowedBy === true ? (contextStatus ?? profileStatus) : null)}
                         />
                     </div>
@@ -1984,7 +1990,9 @@ function Profile() {
                     initialAvatarPosition={ownProfile?.avatar_position || '50% 50%'}
 
                     initialBannerCredits={ownProfile?.banner_credits || ''}
-                    initialAvatarCredits={ownProfile?.avatar_credits || ''}                      
+                    initialAvatarCredits={ownProfile?.avatar_credits || ''}
+                    initialAvatarFrame={getCdnUrl(ownProfile?.avatar_frame_url || '')}
+                    initialAvatarFramePosition={ownProfile?.avatar_frame_position || ''}
                     initialProfileBg={getCdnUrl(ownProfile?.profile_background_url || '')}
                     initialProfileBgPosition={ownProfile?.profile_background_position || '50% 50%'}
                     initialProfileBgBlur={ownProfile?.profile_background_blur ?? 0}

@@ -2,6 +2,7 @@ import { supabase, dbPublic } from './supabaseclient';
 import { getItem, setItem, removeItem } from './secureStorage';
 import { encryptForUsers, decryptForUser } from './alphabetEncryption';
 import { sanitizeContent, detectMediaFromContent } from './helpers';
+import { preloadProfileFrames } from './imageCache';
 
 // ── Conversation ──
 
@@ -266,9 +267,10 @@ export async function getConversationMembersWithProfiles(conversationId) {
 
   const { data: profiles } = await dbPublic
     .from('profiles')
-    .select('id, username, displayname, avatar_url, avatar_position, accent_color, roles, user_status, user_status_updated_at')
+    .select('id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, avatar_position, accent_color, roles, user_status, user_status_updated_at')
     .in('id', members.map((m) => m.user_id));
 
+  preloadProfileFrames(profiles);
   const byId = {};
   for (const p of profiles || []) byId[p.id] = p;
 
@@ -401,7 +403,7 @@ export async function getConversations(userId) {
   if (uniqueUserIds.length > 0) {
     const { data: profiles } = await dbPublic
       .from('profiles')
-      .select('id, username, displayname, avatar_url, banner_url, bio, pronouns, roles, is_private, interests, accent_color, accent_color_secondary, banner_position, avatar_position, user_status, user_status_updated_at')
+      .select('id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, banner_url, bio, pronouns, roles, is_private, interests, accent_color, accent_color_secondary, banner_position, avatar_position, user_status, user_status_updated_at')
       .in('id', uniqueUserIds);
     for (const p of profiles || []) {
       profilesMap[p.id] = p;
@@ -700,7 +702,7 @@ export async function sendMessage(conversationId, senderId, content, participant
   // Fetch sender profile separately
   const { data: senderProfile } = await dbPublic
     .from('profiles')
-    .select('id, username, displayname, avatar_url, avatar_position, accent_color, user_status, user_status_updated_at')
+    .select('id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, avatar_position, accent_color, user_status, user_status_updated_at')
     .eq('id', senderId)
     .maybeSingle();
 
@@ -746,7 +748,7 @@ export async function getMessages(conversationId, limit = 50, before = null) {
   const senderIds = [...new Set(msgs.map(m => m.sender_id))];
   const { data: profiles } = await dbPublic
     .from('profiles')
-    .select('id, username, displayname, avatar_url, avatar_position, accent_color, user_status, user_status_updated_at')
+    .select('id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, avatar_position, accent_color, user_status, user_status_updated_at')
     .in('id', senderIds);
 
   const profileMap = {};
@@ -847,12 +849,14 @@ const messageChannels = new Map();
 // después»). Con la caché el mensaje se pinta completo desde el primer render.
 // `getMessages`/`getConversations` la siembran con perfiles frescos.
 const senderProfileCache = new Map();
-const SENDER_PROFILE_COLUMNS = 'id, username, displayname, avatar_url, avatar_position, accent_color, user_status, user_status_updated_at';
+const SENDER_PROFILE_COLUMNS = 'id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, avatar_position, accent_color, user_status, user_status_updated_at';
 
 function cacheSenderProfiles(profiles) {
   for (const p of profiles || []) {
     if (p?.id) senderProfileCache.set(p.id, p);
   }
+  // Anticipar la descarga del marco: al pintar la lista de chats ya está listo.
+  preloadProfileFrames(profiles);
 }
 
 /** Trae el mensaje ya con el perfil del emisor (mismo shape que antes). */

@@ -3896,6 +3896,8 @@ export default function Chat() {
                   <Avatar
                     src={peer?.avatar_url}
                     alt={peer?.username || '?'}
+                    frame={peer?.avatar_frame_url}
+                    framePosition={peer?.avatar_frame_position}
                     className="chat-list-item-avatar"
                     status={otherUserStatuses?.[peer?.id] ?? computeEffectiveStatus(peer)}
                   />
@@ -3954,6 +3956,8 @@ export default function Chat() {
               <Avatar
                 src={getConvAvatar(conv)}
                 alt={conv.isGroup ? (conv.title || 'group') : (conv.otherUser?.username || '?')}
+                frame={conv.isGroup ? undefined : conv.otherUser?.avatar_frame_url}
+                framePosition={conv.isGroup ? undefined : conv.otherUser?.avatar_frame_position}
                 className="chat-list-item-avatar"
                 status={conv.isGroup ? null : (otherUserStatuses?.[conv.otherUser?.id] ?? computeEffectiveStatus(conv.otherUser))}
               />
@@ -4039,6 +4043,8 @@ export default function Chat() {
           <Avatar
             src={isActiveGroup ? (activeConv?.avatar_url || null) : (otherUser?.avatar_url || null)}
             alt={isActiveGroup ? (activeConv?.title || 'group') : (otherUser?.username || '?')}
+            frame={isActiveGroup ? undefined : otherUser?.avatar_frame_url}
+            framePosition={isActiveGroup ? undefined : otherUser?.avatar_frame_position}
             className="chat-messages-header-avatar"
             style={{ cursor: 'pointer' }}
             onClick={isActiveGroup ? openGroupInfo : goToProfile}
@@ -4296,6 +4302,8 @@ export default function Chat() {
                       <Avatar
                         src={senderProfile?.avatar_url}
                         alt={senderProfile?.username || '?'}
+                        frame={senderProfile?.avatar_frame_url}
+                        framePosition={senderProfile?.avatar_frame_position}
                         className="chat-message-avatar"
                       />
                     )}
@@ -4364,6 +4372,8 @@ export default function Chat() {
                     <Avatar
                       src={senderProfile?.avatar_url}
                       alt={senderProfile?.username || '?'}
+                      frame={senderProfile?.avatar_frame_url}
+                      framePosition={senderProfile?.avatar_frame_position}
                       className="chat-message-avatar"
                       onClick={(e) => { e.stopPropagation(); handleMessageAvatarClick(senderProfile); }}
                     />
@@ -4553,6 +4563,8 @@ export default function Chat() {
                     <Avatar
                       src={profile?.avatar_url || user?.user_metadata?.avatar_url || user?.avatar_url}
                       alt={profile?.username || user?.username || '?'}
+                      frame={profile?.avatar_frame_url}
+                      framePosition={profile?.avatar_frame_position}
                       className="chat-message-avatar chat-message-avatar--own"
                       onClick={(e) => { e.stopPropagation(); handleMessageAvatarClick(); }}
                     />

@@ -1,6 +1,7 @@
 import { supabase, dbPublic } from './supabaseclient';
 import { getItem, setItem, removeItem } from './secureStorage';
 import { getCdnUrl } from './cdnService';
+import { preloadProfileFrames } from './imageCache';
 import { sanitizeContent } from './helpers';
 
 /**
@@ -13,12 +14,14 @@ import { sanitizeContent } from './helpers';
  */
 function normalizeProfileUrls(profile) {
   if (!profile) return profile;
-  const fields = ['avatar_url', 'banner_url', 'profile_background_url'];
+  const fields = ['avatar_url', 'avatar_frame_url', 'banner_url', 'profile_background_url'];
   for (const field of fields) {
     if (profile[field]) {
       profile[field] = getCdnUrl(profile[field]);
     }
   }
+  // Anticipar la descarga del marco: llega con los datos, no al montar el avatar.
+  preloadProfileFrames(profile);
   return profile;
 }
 
@@ -36,6 +39,10 @@ export const PROFILE_PUBLIC_COLUMNS = [
   'id',
   'username',
   'avatar_url',
+  // Marco del avatar (migración 100): PNG 1:1 que se pinta encima del avatar.
+  'avatar_frame_url',
+  // Posición/zoom del marco (migración 101): JSON "{x,y,zoom}".
+  'avatar_frame_position',
   'bio',
   'created_at',
   'updated_at',
