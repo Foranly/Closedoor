@@ -40,6 +40,19 @@ export function preloadProfileFrames(data) {
 }
 
 /**
+ * Precarga las portadas de las colecciones de bookmarks. Igual que los marcos
+ * de avatar: se llama en cuanto llegan las colecciones, así al abrir el grid
+ * las covers se pintan en el primer frame (sin pop-in) y sin volver a pedirlas
+ * durante la sesión.
+ */
+export function preloadBookmarkCovers(collections) {
+  if (!Array.isArray(collections)) return;
+  for (const c of collections) {
+    if (c?.cover_url) preloadImage(getCdnUrl(c.cover_url));
+  }
+}
+
+/**
  * Precarga y decodifica una imagen. Resuelve siempre (true), aunque falle, para
  * no dejar promesas colgadas ni romper a quien la llame.
  */

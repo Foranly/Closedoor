@@ -1461,10 +1461,15 @@ export async function getDislikedPostIds(postIds, userId) {
 
 // ── SAVED POSTS ──
 
-export async function savePost(postId, userId) {
+export async function savePost(postId, userId, collectionId = null) {
+  // Upsert: si ya estaba guardado y el usuario elige (o cambia de) colección,
+  // el save se mueve en vez de fallar por el UNIQUE(user_id, post_id).
   const { error } = await supabase
     .from('saved_posts')
-    .insert({ user_id: userId, post_id: postId });
+    .upsert(
+      { user_id: userId, post_id: postId, collection_id: collectionId || null },
+      { onConflict: 'user_id,post_id' }
+    );
 
   if (error && error.code !== '23505') {
     console.error('Error saving post:', error);
@@ -1512,12 +1517,12 @@ export async function getSavedPostIds(postIds, userId) {
   return (data || []).map((s) => s.post_id);
 }
 
-export async function getSavedPosts(userId, { limit = 50, offset = 0 } = {}) {
+export async function getSavedPosts(userId, { limit = 50, offset = 0, collectionId = null } = {}) {
   if (!userId) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from('saved_posts')
     .select(`
-      id, created_at,
+      id, created_at, collection_id,
       posts!saved_posts_post_id_fkey (
         id, user_id, content, image_url, image_urls, image_meta, video_url, video_meta, mentions, song,
         is_encrypted, encrypted_content, encrypted_iv, allowed_users, obfuscated_display,
@@ -1525,7 +1530,12 @@ export async function getSavedPosts(userId, { limit = 50, offset = 0 } = {}) {
         profiles!posts_user_id_fkey (id, username, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position)
       )
     `)
-    .eq('user_id', userId)
+    .eq('user_id', userId);
+
+  // Sin colección = "Todos los guardados" (incluye los guardados antiguos).
+  if (collectionId) query = query.eq('collection_id', collectionId);
+
+  const { data, error } = await query
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -1536,8 +1546,148 @@ export async function getSavedPosts(userId, { limit = 50, offset = 0 } = {}) {
 
   return (data || []).filter((s) => s.posts).map((s) => ({
     ...s.posts,
-    _savedInfo: { savedId: s.id, savedAt: s.created_at },
+    _savedInfo: { savedId: s.id, savedAt: s.created_at, collectionId: s.collection_id || null },
   }));
+}
+
+// ── BOOKMARK COLLECTIONS (migración 104) ──
+// Privadas: la RLS solo deja leer/escribir las del propio usuario.
+
+// Caché local de las colecciones (nombre, portada y ajuste): así el grid de
+// bookmarks se pinta al instante al volver a la pestaña o al perfil, sin
+// esperar al fetch. Se invalida escribiendo la lista fresca.
+const BOOKMARKS_CACHE_PREFIX = 'fc_bookmark_collections_';
+
+export function getCachedBookmarkCollections(userId) {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem(BOOKMARKS_CACHE_PREFIX + userId);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedBookmarkCollections(userId, collections) {
+  if (!userId || !Array.isArray(collections)) return;
+  try {
+    localStorage.setItem(BOOKMARKS_CACHE_PREFIX + userId, JSON.stringify(collections));
+  } catch {
+    // localStorage lleno o bloqueado: el caché es solo una mejora.
+  }
+}
+
+export async function getBookmarkCollections(userId) {
+  if (!userId) return [];
+  const [{ data: collections, error }, { data: saved, error: savedError }] = await Promise.all([
+    supabase
+      .from('bookmark_collections')
+      .select('id, name, description, cover_url, cover_position, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('saved_posts')
+      .select('collection_id')
+      .eq('user_id', userId),
+  ]);
+
+  if (error) {
+    console.error('Error fetching bookmark collections:', error);
+    throw error;
+  }
+  if (savedError) {
+    // Sin los conteos la lista de colecciones sigue siendo útil.
+    console.warn('Error counting bookmarks:', savedError);
+  }
+
+  const counts = new Map();
+  for (const row of saved || []) {
+    if (row.collection_id) counts.set(row.collection_id, (counts.get(row.collection_id) || 0) + 1);
+  }
+
+  const list = (collections || []).map((c) => ({ ...c, count: counts.get(c.id) || 0 }));
+  setCachedBookmarkCollections(userId, list);
+  return list;
+}
+
+export async function createBookmarkCollection(userId, name) {
+  if (!userId) throw new Error('Missing user');
+  const clean = String(name || '').trim();
+  if (!clean) throw new Error('EMPTY_NAME');
+
+  const { data, error } = await supabase
+    .from('bookmark_collections')
+    .insert({ user_id: userId, name: clean.slice(0, 40) })
+    .select('id, name, created_at')
+    .single();
+
+  if (error) {
+    // 23505 = el índice único (user_id, lower(name)): ya existe esa colección.
+    if (error.code === '23505') throw new Error('DUPLICATE_NAME');
+    console.error('Error creating bookmark collection:', error);
+    throw error;
+  }
+  return { ...data, count: 0 };
+}
+
+export async function updateBookmarkCollection(collectionId, userId, updates) {
+  if (!collectionId || !userId) throw new Error('Missing parameters');
+
+  const patch = {};
+  if (typeof updates.name === 'string') patch.name = updates.name.trim().slice(0, 40);
+  if (updates.description !== undefined) {
+    patch.description = updates.description ? String(updates.description).trim().slice(0, 30) : null;
+  }
+  if (updates.cover_url !== undefined) patch.cover_url = updates.cover_url || null;
+  if (updates.cover_position !== undefined) patch.cover_position = updates.cover_position || null;
+
+  if (patch.name === '') throw new Error('EMPTY_NAME');
+
+  const { data, error } = await supabase
+    .from('bookmark_collections')
+    .update(patch)
+    .eq('id', collectionId)
+    .eq('user_id', userId)
+    .select('id, name, description, cover_url, cover_position, created_at')
+    .single();
+
+  if (error) {
+    if (error.code === '23505') throw new Error('DUPLICATE_NAME');
+    console.error('Error updating bookmark collection:', error);
+    throw error;
+  }
+
+  // Mantener el caché local en sincronía (nombre, descripción y portada).
+  const cachedCollections = getCachedBookmarkCollections(userId);
+  if (cachedCollections) {
+    setCachedBookmarkCollections(
+      userId,
+      cachedCollections.map((c) => (c.id === data.id ? { ...c, ...data } : c))
+    );
+  }
+
+  return data;
+}
+
+export async function deleteBookmarkCollection(collectionId, userId) {
+  if (!collectionId || !userId) return;
+  const { error } = await supabase
+    .from('bookmark_collections')
+    .delete()
+    .eq('id', collectionId)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error deleting bookmark collection:', error);
+    throw error;
+  }
+
+  const cachedCollections = getCachedBookmarkCollections(userId);
+  if (cachedCollections) {
+    setCachedBookmarkCollections(userId, cachedCollections.filter((c) => c.id !== collectionId));
+  }
 }
 
 // ── @MENTIONS ──
