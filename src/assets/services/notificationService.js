@@ -70,6 +70,38 @@ export async function getNotifications(userId, limit = 50) {
 }
 
 /**
+ * Id del comentario al que apunta una notificación de comentario.
+ *
+ * Normalmente viene en `comment_id` (migración 106). Las notificaciones
+ * antiguas anteriores a esa migración no lo tienen, así que se resuelve por el
+ * comentario más reciente del actor en ese post: es el que disparó el aviso.
+ * Devuelve null si no aplica o no se encuentra.
+ */
+export async function resolveNotificationCommentId(notification) {
+  if (!notification) return null;
+  if (notification.comment_id) return notification.comment_id;
+  if (!['comment', 'comment_like', 'comment_reply', 'comment_mention'].includes(notification.type)) return null;
+  const postId = notification.reference_id;
+  const actorId = notification.actor_id || notification.actor?.id;
+  if (!postId || !actorId) return null;
+
+  const { data, error } = await supabase
+    .from('comments')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('user_id', actorId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('Could not resolve notification comment id:', error.message || error);
+    return null;
+  }
+  return data?.id || null;
+}
+
+/**
  * Get unread notification count
  */
 export async function getUnreadCount(userId) {

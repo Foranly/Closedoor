@@ -318,6 +318,8 @@ export default function ChatAccountCard() {
             alt={username || '?'}
             className="chat-account-card-avatar"
             status={myStatus}
+            frame={profile?.avatar_frame_url}
+            framePosition={profile?.avatar_frame_position}
           />
 
           <span className="chat-account-card-info">

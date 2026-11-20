@@ -157,9 +157,18 @@ dialog.fc-modal::-webkit-scrollbar-thumb:hover {
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    overflow: hidden;
+    /* El recorte del círculo lo hace la capa interior: así el marco del avatar
+       puede sobresalir del aro sin quedar cortado. */
+    overflow: visible;
     border: 3px solid color-mix(in srgb, var(--accent-color, #ffffff) 40%, transparent);
     z-index: 2;
+}
+
+.fc-preview-card-avatar-clip {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    overflow: hidden;
 }
 
 .fc-preview-card-avatar img {
@@ -167,6 +176,21 @@ dialog.fc-modal::-webkit-scrollbar-thumb:hover {
     height: 100%;
     object-fit: cover;
     display: block;
+    /* Las previews sin capa de recorte (nickname, avatar de grupo) siguen
+       viéndose circulares al abrirse el overflow del contenedor. */
+    border-radius: inherit;
+}
+
+/* Marco (PNG 1:1) encima del avatar, sin capturar el clic de la cámara. */
+.fc-preview-card-avatar .fc-preview-card-frame {
+    position: absolute;
+    inset: 0;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    z-index: 3;
+    /* El marco conserva su forma completa (no se recorta a círculo). */
+    border-radius: 0;
 }
 
 .fc-preview-card--large .fc-preview-card-avatar {
@@ -247,6 +271,7 @@ dialog.fc-modal::-webkit-scrollbar-thumb:hover {
     opacity: 0;
     transition: opacity 0.2s ease;
     padding: 0;
+    z-index: 4;
 }
 
 .fc-preview-card-avatar:hover .fc-preview-avatar-edit,

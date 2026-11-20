@@ -271,6 +271,8 @@ export async function getFollowers(userId) {
         id,
         username,
         avatar_url,
+        avatar_frame_url,
+        avatar_frame_position,
         roles
       )
     `)
@@ -302,6 +304,8 @@ export async function getFollowing(userId) {
         id,
         username,
         avatar_url,
+        avatar_frame_url,
+        avatar_frame_position,
         roles
       )
     `)

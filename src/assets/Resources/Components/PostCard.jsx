@@ -1496,6 +1496,8 @@ const PostCard = React.memo(function PostCard({
                           src={u.avatar_url}
                           alt={u.username}
                           className="post-card-share-modal-avatar"
+                          frame={u.avatar_frame_url}
+                          framePosition={u.avatar_frame_position}
                         />
                         <span className="post-card-share-modal-username">{u.username}</span>
                         {isSending ? (
@@ -1594,6 +1596,8 @@ const PostCard = React.memo(function PostCard({
                                   src={profile.avatar_url}
                                   alt={profile.username || 'user'}
                                   className="post-card-poll-voter-avatar"
+                                  frame={profile.avatar_frame_url}
+                                  framePosition={profile.avatar_frame_position}
                                 />
                                 <span className="post-card-poll-voter-username">{profile.username || 'Unknown'}</span>
                               </Link>

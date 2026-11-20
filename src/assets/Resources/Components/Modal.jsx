@@ -856,12 +856,27 @@ export default function Modal({
                 </button>
 
                 <div className="fc-preview-card-avatar">
-                  <img
-                    src={avatar || defaultAvatar}
-                    alt="Preview"
-                    style={getImageStyle(avatarPosition)}
-                    onError={(e) => { e.target.src = defaultAvatar; }}
-                  />
+                  <div className="fc-preview-card-avatar-clip">
+                    <img
+                      src={avatar || defaultAvatar}
+                      alt="Preview"
+                      style={getImageStyle(avatarPosition)}
+                      onError={(e) => { e.target.src = defaultAvatar; }}
+                    />
+                  </div>
+                  {/* Marco del avatar: se pinta fuera del recorte del círculo para
+                      que los detalles que sobresalen no se corten, igual que en
+                      el Avatar real. */}
+                  {avatarFrame ? (
+                    <img
+                      className="fc-preview-card-frame"
+                      src={avatarFrame}
+                      alt=""
+                      aria-hidden="true"
+                      draggable={false}
+                      style={getImageStyle(avatarFramePosition)}
+                    />
+                  ) : null}
                   {/* Edit avatar icon — centered on avatar */}
                   <button
                     type="button"

@@ -1091,7 +1091,13 @@ export default function CommunityPage() {
                 {requests.map((r) => (
                   <div key={r.user_id} className="community-request-item">
                     <Link to={`/profile/${r.profiles?.username}`} className="community-request-user">
-                      <Avatar className="community-request-avatar" src={r.profiles?.avatar_url} alt={r.profiles?.username} />
+                      <Avatar
+                        className="community-request-avatar"
+                        src={r.profiles?.avatar_url}
+                        alt={r.profiles?.username}
+                        frame={r.profiles?.avatar_frame_url}
+                        framePosition={r.profiles?.avatar_frame_position}
+                      />
                       <span className="community-request-name">@{r.profiles?.username || r.user_id.slice(0, 8)}</span>
                     </Link>
                     <div className="community-request-actions">
@@ -1404,6 +1410,8 @@ export default function CommunityPage() {
                   className="followers-modal-avatar"
                   src={m.profiles?.avatar_url}
                   alt={m.profiles?.username}
+                  frame={m.profiles?.avatar_frame_url}
+                  framePosition={m.profiles?.avatar_frame_position}
                 />
                 <div className="followers-modal-info">
                   <div className="followers-modal-name-row">
@@ -1518,6 +1526,8 @@ export default function CommunityPage() {
                           src={u.avatar_url}
                           alt={u.username}
                           className="post-card-share-modal-avatar"
+                          frame={u.avatar_frame_url}
+                          framePosition={u.avatar_frame_position}
                         />
                         <span className="post-card-share-modal-username">{u.username}</span>
                         {isSending ? (
