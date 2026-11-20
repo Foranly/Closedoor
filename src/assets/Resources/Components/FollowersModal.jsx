@@ -27,6 +27,8 @@ function FollowersModalItem({ user, onClose }) {
         className="followers-modal-avatar"
         src={user.avatar_url}
         alt={user.username}
+        frame={user.avatar_frame_url}
+        framePosition={user.avatar_frame_position}
       />
 
       <div className="followers-modal-info">

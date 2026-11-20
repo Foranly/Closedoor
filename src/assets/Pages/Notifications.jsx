@@ -1,10 +1,11 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { NotificationContext } from '../../context/NotificationContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../services/i18n/useI18n';
 import { acceptFollowRequest, rejectFollowRequest } from '../services/followService';
+import { resolveNotificationCommentId } from '../services/notificationService';
 import { FaUserPlus, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaBullhorn, FaBell, FaLock, FaPoll, FaCheck, FaTimes, FaChevronDown } from 'react-icons/fa';
 import Avatar from '../Resources/Components/Avatar';
 import EmojiText from '../Resources/Components/EmojiText';
@@ -45,38 +46,42 @@ function getIcon(type) {
   }
 }
 
-function getNotificationMessage(t, type, username) {
+/**
+ * Texto de la acción (sin el nombre): el nombre se pinta aparte porque es un
+ * enlace al perfil del actor, mientras que el resto de la fila va al contenido.
+ */
+function getNotificationActionText(t, type) {
   switch (type) {
     case 'follow':
-      return <><strong>{username}</strong> {t('notifications.followed')}</>;
+      return t('notifications.followed');
     case 'follow_request':
-      return <><strong>{username}</strong> {t('notifications.follow_request')}</>;
+      return t('notifications.follow_request');
     case 'follow_request_accepted':
-      return <><strong>{username}</strong> {t('notifications.follow_request_accepted')}</>;
+      return t('notifications.follow_request_accepted');
     case 'follow_request_rejected':
-      return <><strong>{username}</strong> {t('notifications.follow_request_rejected')}</>;
+      return t('notifications.follow_request_rejected');
     case 'like':
-      return <><strong>{username}</strong> {t('notifications.liked')}</>;
+      return t('notifications.liked');
     case 'dislike':
-      return <><strong>{username}</strong> {t('notifications.disliked')}</>;
+      return t('notifications.disliked');
     case 'comment':
-      return <><strong>{username}</strong> {t('notifications.commented')}</>;
+      return t('notifications.commented');
     case 'repost':
-      return <><strong>{username}</strong> {t('notifications.reposted')}</>;
+      return t('notifications.reposted');
     case 'comment_like':
-      return <><strong>{username}</strong> {t('notifications.comment_liked')}</>;
+      return t('notifications.comment_liked');
     case 'mention':
-      return <><strong>{username}</strong> {t('notifications.mentioned')}</>;
+      return t('notifications.mentioned');
     case 'comment_mention':
-      return <><strong>{username}</strong> {t('notifications.comment_mentioned')}</>;
+      return t('notifications.comment_mentioned');
     case 'comment_reply':
-      return <><strong>{username}</strong> {t('notifications.comment_replied')}</>;
+      return t('notifications.comment_replied');
     case 'encrypted_add':
-      return <><strong>{username}</strong> {t('notifications.encrypted_add')}</>;
+      return t('notifications.encrypted_add');
     case 'poll_vote':
-      return <><strong>{username}</strong> {t('notifications.poll_vote')}</>;
+      return t('notifications.poll_vote');
     default:
-      return <><strong>{username}</strong> {t('notifications.default')}</>;
+      return t('notifications.default');
   }
 }
 
@@ -425,9 +430,41 @@ function NotificationItem({
   onRejectRequest,
 }) {
   const { t, locale } = useI18n();
+  const navigate = useNavigate();
   const actor = notification.actor || {};
   const username = actor.username || '';
   const linkTo = getNotificationLink(notification);
+  const profilePath = username ? `/profile/${encodeURIComponent(username)}` : null;
+
+  const handleMarkRead = () => {
+    if (!notification.is_read) onMarkAsRead(notification.id);
+  };
+
+  // Abrir el contenido de la notificación. Si es un comentario, se intenta
+  // llevar al comentario exacto (?comment=id) para que PostDetail haga scroll y
+  // lo remarque; si la notificación es antigua y no trae comment_id se resuelve
+  // contra la base de datos antes de navegar.
+  const openNotification = async () => {
+    handleMarkRead();
+    let to = linkTo;
+    if ([
+      'comment', 'comment_like', 'comment_reply', 'comment_mention',
+    ].includes(notification.type) && !notification.comment_id && notification.reference_id) {
+      const commentId = await resolveNotificationCommentId(notification);
+      if (commentId) to = `/post/${notification.reference_id}?comment=${commentId}`;
+    }
+    navigate(to);
+  };
+
+  // El avatar y el nombre abren el perfil del actor; el resto de la fila sigue
+  // llevando al contenido de la notificación.
+  const openProfile = (e) => {
+    if (!profilePath) return;
+    e.preventDefault();
+    e.stopPropagation();
+    handleMarkRead();
+    navigate(profilePath);
+  };
   const postRef = notification.post;
 
   // Truncar contenido del post para preview
@@ -465,26 +502,48 @@ function NotificationItem({
 
       <div className="notification-type-icon">{getIcon(notification.type)}</div>
 
-      <Link
-        to={linkTo}
+      <div
         className="notification-link"
-        onClick={(e) => {
-          if (!notification.is_read) {
-            onMarkAsRead(notification.id);
+        role="link"
+        tabIndex={0}
+        onClick={openNotification}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openNotification();
           }
         }}
       >
-        <Avatar
-          className="notification-avatar"
-          src={actor.avatar_url}
-          alt={username}
-          frame={actor.avatar_frame_url}
-          framePosition={actor.avatar_frame_position}
-        />
+        <button
+          type="button"
+          className="notification-avatar-btn"
+          onClick={openProfile}
+          disabled={!profilePath}
+          aria-label={username || undefined}
+        >
+          <Avatar
+            className="notification-avatar"
+            src={actor.avatar_url}
+            alt={username}
+            frame={actor.avatar_frame_url}
+            framePosition={actor.avatar_frame_position}
+          />
+        </button>
 
         <div className="notification-content">
           <p className="notification-message">
-            {getNotificationMessage(t, notification.type, username)}
+            {username ? (
+              <button
+                type="button"
+                className="notification-actor-name"
+                onClick={openProfile}
+                title={`@${username}`}
+              >
+                <strong>{username}</strong>
+              </button>
+            ) : null}
+            {' '}
+            {getNotificationActionText(t, notification.type)}
           </p>
           {/* Preview del contenido del post */}
           {isPostNotification && postPreview && (
@@ -500,7 +559,7 @@ function NotificationItem({
         {!notification.is_read && (
           <span className="notification-dot" aria-label={t('notifications.unread')} />
         )}
-      </Link>
+      </div>
 
       {/* ── Accept/Reject buttons for follow requests ── */}
       {notification.type === 'follow_request' && (

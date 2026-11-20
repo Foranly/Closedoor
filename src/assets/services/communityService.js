@@ -198,7 +198,7 @@ const COMMUNITY_SELECT = [
 
 const MEMBER_SELECT = [
   'id', 'community_id', 'user_id', 'role', 'status', 'joined_at',
-  'profiles!community_members_user_id_fkey (id, username, displayname, avatar_url, banner_url, bio, roles, is_private, accent_color, user_status, user_status_updated_at)',
+  'profiles!community_members_user_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, banner_url, bio, roles, is_private, accent_color, user_status, user_status_updated_at)',
 ].join(',');
 
 function normalizeCommunityUrls(c) {

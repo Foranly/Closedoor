@@ -294,6 +294,37 @@
   min-width: 0;
 }
 
+/* Avatar clicable → perfil del actor (el marco sobresale del aro). */
+.notification-avatar-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.notification-avatar-btn:disabled {
+  cursor: default;
+}
+
+/* Nombre del actor clicable → perfil, con el mismo peso que antes (strong). */
+.notification-actor-name {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.notification-actor-name:hover strong {
+  text-decoration: underline;
+}
+
 .notification-avatar {
   width: 44px;
   height: 44px;

@@ -1294,7 +1294,7 @@ export async function getPollVotes(postId) {
 export async function getPollVotersWithProfiles(postId) {
   const { data, error } = await supabase
     .from('poll_votes')
-    .select('option_id, user_id, profiles!poll_votes_user_id_fkey (id, username, displayname, avatar_url)')
+    .select('option_id, user_id, profiles!poll_votes_user_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position)')
     .eq('post_id', postId);
 
   if (error) {

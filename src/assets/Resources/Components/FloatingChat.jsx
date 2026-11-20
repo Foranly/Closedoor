@@ -104,6 +104,10 @@ export default function FloatingChat() {
   const notif = useContext(NotificationContext);
 
   const [open, setOpen] = useState(false);
+  // El panel se queda montado durante la animación de salida; luego se
+  // desmonta y `open` pasa a false (el lanzador vuelve a su estado normal).
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef(null);
   // Recientes: solo se muestran en home y tras el primer clic en el lanzador.
   const [showRecents, setShowRecents] = useState(false);
   const [view, setView] = useState('list'); // 'list' | 'thread'
@@ -243,8 +247,34 @@ export default function FloatingChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  // Cierra el panel con la animación de salida. Si ya había un cierre en
+  // marcha no se reinicia, y abrir otra cosa lo cancela.
+  const requestClose = useCallback(() => {
+    if (closeTimerRef.current) return;
+    setClosing(true);
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      setClosing(false);
+      setOpen(false);
+    }, 150);
+  }, []);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setClosing(false);
+  }, []);
+
+  // Limpiar el temporizador si el componente se desmonta a mitad de cierre.
+  useEffect(() => () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  }, []);
+
   const openThread = useCallback((conv) => {
     if (!conv?.id) return;
+    cancelClose();
     setShowRecents(false);
     setOpen(true);
     setView('thread');
@@ -259,7 +289,7 @@ export default function FloatingChat() {
   // panel; fuera de home el lanzador abre el panel directamente.
   const toggleOpen = useCallback(() => {
     if (open) {
-      setOpen(false);
+      requestClose();
       return;
     }
     const canShowRecents = isHomeRoute && recent.length > 0;
@@ -267,12 +297,32 @@ export default function FloatingChat() {
       setShowRecents(true);
       return;
     }
+    cancelClose();
     setShowRecents(false);
     setView('list');
     setActiveId(null);
     setOpen(true);
     notif.refreshChatUnread?.();
-  }, [open, notif, isHomeRoute, recent.length, showRecents]);
+  }, [open, notif, isHomeRoute, recent.length, showRecents, requestClose, cancelClose]);
+
+  // ── Al navegar a otra ruta, el panel se cierra ──
+  // Así no queda un chat flotante abierto encima de la página a la que acabas
+  // de ir (perfil, post, ajustes…), que tapaba el contenido nuevo.
+  const lastPathRef = useRef(pathname);
+  useEffect(() => {
+    if (lastPathRef.current === pathname) return undefined;
+    lastPathRef.current = pathname;
+    // Microtask: estado fuera del cuerpo síncrono del efecto.
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      requestClose();
+      setShowRecents(false);
+      setView('list');
+      setActiveId(null);
+    });
+    return () => { cancelled = true; };
+  }, [pathname, requestClose]);
 
   // Al salir de home se recogen los recientes (microtask: sin setState síncrono
   // dentro del efecto).
@@ -525,6 +575,8 @@ export default function FloatingChat() {
   // «Abrir en Chat» aterriza en la conversación que está abierta (?c=<id>).
   const goFullChat = () => {
     const convId = activeId;
+    // Aquí no se anima: el panel desaparece con la propia navegación.
+    cancelClose();
     setOpen(false);
     navigate(convId ? `/Chat?c=${encodeURIComponent(convId)}` : '/Chat');
   };
@@ -620,9 +672,9 @@ export default function FloatingChat() {
   return createPortal(
     <div className={`fc-dock${open ? ' fc-dock--open' : ''}`}>
       {/* ── Ventana flotante ── */}
-      {open && (
+      {(open || closing) && (
         <div
-          className="fc-panel"
+          className={`fc-panel${closing ? ' fc-panel--closing' : ''}`}
           role="dialog"
           aria-label={t('chat.title') || 'Chat'}
           style={{ '--fc-user-accent': (!activeConv?.isGroup && activeConv?.otherUser?.accent_color) || undefined }}
@@ -667,13 +719,12 @@ export default function FloatingChat() {
                 title={t('chat.dock_open_full') || 'Open in Chat'}
               >
                 <FaExpand />
-              </button>
-              <button
-                type="button"
-                className="fc-panel-icon-btn"
-                onClick={() => setOpen(false)}
-                title={t('chat.dock_close') || 'Close'}
-              >
+              </button>                <button
+                  type="button"
+                  className="fc-panel-icon-btn"
+                  onClick={requestClose}
+                  title={t('chat.dock_close') || 'Close'}
+                >
                 <FaTimes />
               </button>
             </div>
@@ -747,23 +798,44 @@ export default function FloatingChat() {
                     // En grupos, el nombre se pinta solo en la primera burbuja de
                     // cada racha del mismo usuario (igual que el chat completo).
                     const prevMsg = messages[index - 1];
-                    const showSender = !!activeConv?.isGroup && !own && !!senderProfile
-                      && (!prevMsg || prevMsg.sender_id !== msg.sender_id);
+                    const firstOfRun = !prevMsg || prevMsg.sender_id !== msg.sender_id;
+                    const showSender = !!activeConv?.isGroup && !own && !!senderProfile && firstOfRun;
+                    // Avatar del remitente junto a la burbuja (solo la primera de
+                    // cada racha), con su marco, como en el chat completo.
+                    const showAvatar = !own && !!senderProfile && firstOfRun;
                     return (
                       <div
                         key={msg.id}
                         className={`fc-msg${own ? ' fc-msg--own' : ''}${msg._optimistic ? ' fc-msg--pending' : ''}`}
                       >
-                        <div className={`fc-msg-bubble${isBare ? ' fc-msg-bubble--bare' : ''}`}>
-                          {showSender && (
-                            <span className="fc-msg-sender">
-                              <EmojiText text={senderProfile.displayname || senderProfile.username} />
-                            </span>
+                        {/* Burbuja + hora en línea: la hora va al lado, a la
+                            derecha de las ajenas y a la izquierda de las
+                            propias, igual que en el chat completo. */}
+                        <div className="fc-msg-row">
+                          {!own && (
+                            showAvatar ? (
+                              <Avatar
+                                src={senderProfile?.avatar_url}
+                                alt={senderProfile?.username || '?'}
+                                frame={senderProfile?.avatar_frame_url}
+                                framePosition={senderProfile?.avatar_frame_position}
+                                className="fc-msg-avatar"
+                              />
+                            ) : (
+                              <span className="fc-msg-avatar-spacer" aria-hidden="true" />
+                            )
                           )}
-                          {renderMessageBody(msg)}
+                          <div className={`fc-msg-bubble${isBare ? ' fc-msg-bubble--bare' : ''}`}>
+                            {showSender && (
+                              <span className="fc-msg-sender">
+                                <EmojiText text={senderProfile.displayname || senderProfile.username} />
+                              </span>
+                            )}
+                            {renderMessageBody(msg)}
+                          </div>
+                          <span className="fc-msg-time">{getTimeAgo(t, locale, msg.created_at)}</span>
                         </div>
                         {renderReactions(msg)}
-                        <span className="fc-msg-time">{getTimeAgo(t, locale, msg.created_at)}</span>
                       </div>
                     );
                   })

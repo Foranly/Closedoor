@@ -3626,7 +3626,13 @@ export default function Chat() {
                     startConversation(u);
                   }}
                 >
-                  <Avatar src={u.avatar_url} alt={u.username} className="chat-followers-modal-card-avatar" />
+                  <Avatar
+                    src={u.avatar_url}
+                    alt={u.username}
+                    className="chat-followers-modal-card-avatar"
+                    frame={u.avatar_frame_url}
+                    framePosition={u.avatar_frame_position}
+                  />
                   <span className="chat-followers-modal-card-name"><EmojiText text={getDisplayName(u)} /></span>
                   {Array.isArray(u.roles) && u.roles.includes('verified') && (
                     <img src="/verified_badge2.png" alt="Verified" className="chat-followers-modal-card-verified" draggable={false} loading="lazy" />
@@ -3746,7 +3752,13 @@ export default function Chat() {
           <div className="chat-followers-modal-list">
             {groupInfo.members.map((m) => (
               <div key={m.user_id} className="chat-followers-modal-card chat-group-info-member">
-                <Avatar src={m.profile?.avatar_url} alt={m.profile?.username} className="chat-followers-modal-card-avatar" />
+                <Avatar
+                  src={m.profile?.avatar_url}
+                  alt={m.profile?.username}
+                  className="chat-followers-modal-card-avatar"
+                  frame={m.profile?.avatar_frame_url}
+                  framePosition={m.profile?.avatar_frame_position}
+                />
                 <span className="chat-followers-modal-card-name"><EmojiText text={getDisplayName(m.profile)} /></span>
                 {m.role !== 'member' && (
                   <span className="chat-group-info-role">

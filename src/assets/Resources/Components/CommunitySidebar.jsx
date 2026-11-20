@@ -138,7 +138,13 @@ export default function CommunitySidebar() {
                 className="community-ranking-item"
               >
                 <span className={`community-ranking-pos ${idx < 3 ? `community-ranking-pos--${idx + 1}` : ''}`}>{idx + 1}</span>
-                <Avatar className="community-ranking-avatar" src={r.profile?.avatar_url} alt={r.profile?.username} />
+                <Avatar
+                  className="community-ranking-avatar"
+                  src={r.profile?.avatar_url}
+                  alt={r.profile?.username}
+                  frame={r.profile?.avatar_frame_url}
+                  framePosition={r.profile?.avatar_frame_position}
+                />
                 <span className="community-ranking-name">@{r.profile?.username || '…'}</span>
                 <span className="community-ranking-score">{r.score}</span>
               </Link>
@@ -190,7 +196,13 @@ export default function CommunitySidebar() {
           <div className="community-members-preview">
             {members.slice(0, 12).map((m) => (
               <Link key={m.user_id} to={`/profile/${m.profiles?.username}`} title={`@${m.profiles?.username || ''}`}>
-                <Avatar className="community-members-preview-avatar" src={m.profiles?.avatar_url} alt={m.profiles?.username} />
+                <Avatar
+                  className="community-members-preview-avatar"
+                  src={m.profiles?.avatar_url}
+                  alt={m.profiles?.username}
+                  frame={m.profiles?.avatar_frame_url}
+                  framePosition={m.profiles?.avatar_frame_position}
+                />
               </Link>
             ))}
             {members.length > 12 && (

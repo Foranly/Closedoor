@@ -236,6 +236,18 @@ html.fc-profile-glass:not(.fc-chat-default) .fc-dock-launcher:hover {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* Salida: el panel sigue montado ~150 ms (ver requestClose en FloatingChat)
+   mientras se hunde y se desvanece, en espejo de la entrada. */
+.fc-panel--closing {
+    animation: fc-panel-out 0.15s ease forwards;
+    pointer-events: none;
+}
+
+@keyframes fc-panel-out {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(10px); }
+}
+
 .fc-panel-header {
     display: flex;
     align-items: center;
@@ -457,6 +469,36 @@ html.fc-profile-glass:not(.fc-chat-default) .fc-dock-launcher:hover {
     align-items: flex-end;
 }
 
+/* Fila burbuja + hora. `row-reverse` en los propios pone la hora a la
+   izquierda de la burbuja, como en el chat completo. */
+.fc-msg-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.fc-msg--own .fc-msg-row {
+    flex-direction: row-reverse;
+}
+
+/* Avatar del remitente junto a la burbuja (con el marco del avatar encima). */
+.fc-msg-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+    margin-bottom: 2px;
+}
+
+/* Hueco equivalente cuando la racha ya ha mostrado su avatar. */
+.fc-msg-avatar-spacer {
+    width: 26px;
+    flex-shrink: 0;
+}
+
 .fc-msg--pending {
     opacity: 0.6;
 }
@@ -628,9 +670,29 @@ html.fc-profile-glass:not(.fc-chat-default) .fc-dock-launcher:hover {
     object-fit: cover;
 }
 
+/* Hora oculta por defecto y visible al pasar por la burbuja, igual que en el
+   chat completo (.chat-message-time). */
 .fc-msg-time {
     font-size: 0.6rem;
     color: var(--color-text-muted, #6b7280);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    white-space: nowrap;
+    pointer-events: none;
+    flex-shrink: 0;
+    padding-bottom: 3px;
+    margin-bottom: 2px;
+}
+
+.fc-msg:hover .fc-msg-time {
+    opacity: 0.8;
+}
+
+/* En pantallas táctiles no hay hover: la hora se queda visible. */
+@media (hover: none) {
+    .fc-msg-time {
+        opacity: 0.8;
+    }
 }
 
 /* ── Composer ── */
