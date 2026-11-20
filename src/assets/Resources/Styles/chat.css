@@ -3245,6 +3245,10 @@ dialog.fc-modal.chat-followers-modal--picker .fc-modal-inner {
 
 }
 
+.chat-group-info-modal .fc-modal-header {
+    padding: 20px 16px 0;
+}
+
 .chat-group-info-actions {
     padding: 10px 16px 14px;
     border-top: 1px solid var(--color-border, #2a2a2a);
