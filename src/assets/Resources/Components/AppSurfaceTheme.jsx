@@ -100,11 +100,26 @@ export default function AppSurfaceTheme() {
     //  - "colores por defecto" → conserva el vidrio del perfil pero ignora el
     //    color de superficie/acento.
     //  - si no, comportamiento normal (superficie del perfil o glass).
+    // "Sidebar translúcido" (migración 103): el sidebar usa el vidrio del perfil
+    // aunque el modo translúcido de las cards esté apagado. "Estilos por
+    // defecto" del chat sigue mandando (neutraliza el vidrio del sidebar).
+    // Solo en la ruta de perfil: el resto del tema del app no cambia (el
+    // sidebar vuelve a su superficie normal al salir de /profile).
+    const sidebarGlassPref = path.startsWith('/profile')
+      && !chatDefault
+      && !sidebarDefaultStyle
+      && profile?.sidebar_glass === true;
+    // Marca en <html>: header.css la usa para que el vidrio gane a
+    // `.sidebar--solid` (fondo global apagado), que si no pinta negro plano
+    // y deja el toggle sin efecto.
+    root.classList.toggle('fc-sidebar-glass', sidebarGlassPref);
     const sidebarVars = chatDefault || sidebarDefaultStyle
       ? null
-      : sidebarDefaultColors
-        ? (showAccent && profileGlass ? GLASS : null)
-        : (accentSurface ? profileVars : null);
+      : sidebarGlassPref
+        ? GLASS
+        : sidebarDefaultColors
+          ? (showAccent && profileGlass ? GLASS : null)
+          : (accentSurface ? profileVars : null);
 
     // El sidebar con estilos por defecto tampoco hereda las vars publicadas en
     // <html> por "Tarjetas transparentes" (ver html.fc-sidebar-default).
@@ -161,6 +176,8 @@ export default function AppSurfaceTheme() {
       root.classList.remove('fc-sidebar-text');
       root.classList.remove('fc-chat-default');
       root.classList.remove('fc-sidebar-default');
+      root.classList.remove('fc-profile-glass');
+      root.classList.remove('fc-sidebar-glass');
     };
   }, [profile, showAccent, showCardsGlass, chatDefaultStyle, sidebarDefaultStyle, sidebarDefaultColors, location.pathname]);
 

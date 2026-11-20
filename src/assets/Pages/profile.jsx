@@ -1316,7 +1316,7 @@ function Profile() {
     const visibleRoles = roles.filter(r => r === 'user' || !badgeTypes.includes(r) || badgesVisibility[r] !== false);
 
     // ── Save profile (own profile only) ──
-    const handleSaveProfile = async ({ username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, banner_url, banner_credits, avatar_credits, bio, pronouns, social_links, accent_color, accent_color_secondary, accent_surface_color, accent_surface_glass, interests, banner_position, avatar_position, profile_background_url, profile_background_position, profile_background_blur, profile_background_dim, banner_dim, profile_text_color }) => {
+    const handleSaveProfile = async ({ username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, banner_url, banner_credits, avatar_credits, bio, pronouns, social_links, accent_color, accent_color_secondary, accent_surface_color, accent_surface_glass, sidebar_glass, hide_accent_bg, interests, banner_position, avatar_position, profile_background_url, profile_background_position, profile_background_blur, profile_background_dim, banner_dim, profile_text_color }) => {
         if (!user?.id) return;
 
         const normalizedUsername = (username || "").trim().toLowerCase();
@@ -1359,6 +1359,8 @@ function Profile() {
                 accent_color_secondary: accent_color_secondary || null,
                 accent_surface_color: accent_surface_color || null,
                 accent_surface_glass: accent_surface_glass ?? false,
+                sidebar_glass: sidebar_glass ?? false,
+                hide_accent_bg: hide_accent_bg ?? false,
                 interests: interests || [],
 
                 profile_background_url: profile_background_url || null,
@@ -1585,7 +1587,12 @@ function Profile() {
           // ── Banner dim vars (still needed for banner overlay gradient) ──
           '--banner-dim-top': String((activeProfile?.banner_dim ?? 50) / 100 * 0.6),
           '--banner-dim-bottom': String(Math.min((activeProfile?.banner_dim ?? 50) / 100 * 1.3, 1.0)),
-          '--profile-accent-opacity': hasBg ? '8%' : '18%',
+          // "Quitar el color de acento del fondo": el gradiente de
+          // .profile-page::after sigue existiendo pero a opacidad 0, así no hay
+          // que tocar la regla ni el resto de variables del acento.
+          '--profile-accent-opacity': activeProfile?.hide_accent_bg
+            ? '0%'
+            : hasBg ? '8%' : '18%',
           // ── Profile text color (user-configurable) ──
           ...(activeProfile?.profile_text_color ? {
             '--profile-text-color': activeProfile.profile_text_color,
@@ -1985,6 +1992,8 @@ function Profile() {
                     initialAccentColorSecondary={modalAccentColorSecondary}
                     initialAccentSurface={modalAccentSurface}
                     initialAccentSurfaceGlass={modalAccentSurfaceGlass}
+                    initialSidebarGlass={ownProfile?.sidebar_glass === true}
+                    initialHideAccentBg={ownProfile?.hide_accent_bg === true}
                     initialInterests={modalInterests}
                     initialBannerPosition={ownProfile?.banner_position || '50% 50%'}
                     initialAvatarPosition={ownProfile?.avatar_position || '50% 50%'}

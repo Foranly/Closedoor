@@ -460,6 +460,8 @@
   "modal.accent_surface": "Color de superficie",
   "modal.accent_surface_default": "Por defecto",
   "modal.accent_surface_glass": "Modo translúcido",
+  "modal.sidebar_glass": "Sidebar translúcido",
+  "modal.hide_accent_bg": "Quitar acento del fondo",
   "modal.add_banner_hint": "Agrega un banner para extraer colores de acento",
   "modal.apply": "Aplicar",
   "modal.avatar_url": "URL del avatar",

@@ -8,6 +8,7 @@ import EmojiText from './EmojiText';
 import { useMusicPlayer } from '../../../hooks/useMusicPlayer';
 import { updateUserProfile } from '../../services/userService';
 import { toast } from 'react-toastify';
+import { extractColors, getContrastFromHex } from '../../services/colorExtractor';
 import './css/songCard.css';
 
 function formatTime(s) {
@@ -53,6 +54,11 @@ export default function SongCard({ song, isOwnProfile, surfaceStyle, owner }) {
 
   // ── Estado del song (synced desde el perfil) ──
   const [selected, setSelected] = useState(songObj || null);
+  // Color dominante de la portada: pinta el botón de play con el acento de la
+  // canción. Misma extracción que los banners (extractColors: caché por URL +
+  // proxys para CORS). Guarda la URL junto al color para que al cambiar de
+  // canción se ignore el color viejo sin necesidad de resetearlo en el efecto.
+  const [artAccentState, setArtAccentState] = useState({ url: '', color: null });
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -93,6 +99,26 @@ export default function SongCard({ song, isOwnProfile, surfaceStyle, owner }) {
     prevSigRef.current = songSig;
     setSelected(songObj || null);
   }, [songObj, songSig]);
+
+  // ── Acento del botón de play = color dominante de la portada ──
+  // Misma fórmula que el resto de la app (extractColors → colors[0]) y el
+  // contraste con getContrastFromHex, igual que el texto sobre un fondo.
+  const artworkUrl = songArtworkUrl(selected);
+  useEffect(() => {
+    if (!artworkUrl) return;
+    let cancelled = false;
+    extractColors(artworkUrl).then((colors) => {
+      if (cancelled) return;
+      // Fallback de extractColors (#ffffff, #555555…): no es el color de la
+      // portada, así que se prefiere el acento del perfil.
+      const dominant = Array.isArray(colors) && colors.length ? colors[0] : null;
+      const failed = !dominant || (dominant === '#ffffff' && colors[1] === '#555555');
+      setArtAccentState({ url: artworkUrl, color: failed ? null : dominant });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [artworkUrl]);
+
+  const artAccent = artAccentState.url === artworkUrl ? artAccentState.color : null;
 
   // Perfil ajeno sin canción → no mostrar la card (después de los hooks)
   if (!isOwnProfile && !selected) return null;
@@ -294,7 +320,10 @@ export default function SongCard({ song, isOwnProfile, surfaceStyle, owner }) {
                 <span className="song-card-cover-time">
                   {formatTime(currentTime)} / {formatTime(duration)}
                 </span>
-                <span className="song-card-cover-btn">
+                <span
+                  className="song-card-cover-btn"
+                  style={artAccent ? { background: artAccent, color: getContrastFromHex(artAccent) } : undefined}
+                >
                   {loadingHere ? <FaSpinner className="fc-spin" /> : (playing ? <FaPause /> : <FaPlay />)}
                 </span>
               </button>

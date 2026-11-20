@@ -460,6 +460,8 @@
   "modal.accent_surface": "Цвет поверхности",
   "modal.accent_surface_default": "По умолчанию",
   "modal.accent_surface_glass": "Стеклянный режим",
+  "modal.sidebar_glass": "Прозрачная боковая панель",
+  "modal.hide_accent_bg": "Убрать акцент с фона",
   "modal.add_banner_hint": "Добавьте баннер для извлечения цветов акцента",
   "modal.apply": "Применить",
   "modal.avatar_url": "URL аватара",

@@ -62,6 +62,11 @@ export const PROFILE_PUBLIC_COLUMNS = [
   'accent_color_secondary',
   'accent_surface_color',
   'accent_surface_glass',
+  // Preferencias visuales (migración 103): sidebar translúcido y sin acento
+  // en el fondo. Sin estas columnas en el SELECT llegaban como undefined y
+  // las opciones del modal no se aplicaban.
+  'sidebar_glass',
+  'hide_accent_bg',
   'show_accent_profile',
   'accent_visibility',
   'show_accent_explore',
