@@ -61,6 +61,8 @@ export default function Modal({
 
   initialAccentSurface = '',
   initialAccentSurfaceGlass = false,
+  initialSidebarGlass = false,
+  initialHideAccentBg = false,
   initialProfileBg = '',
   initialAvatarPosition = '',
   initialBannerPosition = '',
@@ -137,6 +139,9 @@ export default function Modal({
   const [selectedAccentSecondary, setSelectedAccentSecondary] = useState(initialAccentColorSecondary);
   const [selectedAccentSurface, setSelectedAccentSurface] = useState(initialAccentSurface);
   const [useGlassSurface, setUseGlassSurface] = useState(initialAccentSurfaceGlass);
+  // Preferencias visuales del perfil (migración 103).
+  const [useSidebarGlass, setUseSidebarGlass] = useState(initialSidebarGlass === true);
+  const [hideAccentBg, setHideAccentBg] = useState(initialHideAccentBg === true);
   const [profileBg, setProfileBg] = useState(initialProfileBg);
   const [profileBgPosition, setProfileBgPosition] = useState(initialProfileBgPosition || '50% 50%');
   const [profileBgBlur, setProfileBgBlur] = useState(initialProfileBgBlur);
@@ -261,6 +266,8 @@ export default function Modal({
     setSelectedAccentSecondary(initialAccentColorSecondary || '');
     setSelectedAccentSurface(initialAccentSurface || '');
     setUseGlassSurface(initialAccentSurfaceGlass);
+    setUseSidebarGlass(initialSidebarGlass === true);
+    setHideAccentBg(initialHideAccentBg === true);
     setSelectedProfileTextColor(initialProfileTextColor || '');
     setInterests(Array.isArray(initialInterests) ? initialInterests : []);
     setInterestInput('');
@@ -311,6 +318,8 @@ export default function Modal({
       selectedAccentSecondary !== (initialAccentColorSecondary || '') ||
       selectedAccentSurface !== (initialAccentSurface || '') ||
       useGlassSurface !== !!initialAccentSurfaceGlass ||
+      useSidebarGlass !== (initialSidebarGlass === true) ||
+      hideAccentBg !== (initialHideAccentBg === true) ||
       profileBg !== (initialProfileBg || '') ||
 
       profileBgBlur !== initialProfileBgBlur ||
@@ -325,6 +334,7 @@ export default function Modal({
     initialUsername, initialDisplayname, initialBanner, initialAvatar, initialBio, initialPronouns,
     initialBannerCredits, initialAvatarCredits, initialAvatarFrame, initialAvatarFramePosition,
     initialSocialLinks, initialAccentColor, initialAccentColorSecondary, initialAccentSurface, initialAccentSurfaceGlass, initialProfileBg, initialProfileBgPosition, initialProfileBgBlur,    initialProfileBgDim, initialBannerDim, initialInterests, initialAvatarPosition, initialBannerPosition,
+    useSidebarGlass, hideAccentBg, initialSidebarGlass, initialHideAccentBg,
   ]);
 
   // Extract colors when banner URL changes (with cache + debounce)
@@ -434,6 +444,8 @@ export default function Modal({
         accent_color_secondary: selectedAccentSecondary || null,
         accent_surface_color: selectedAccentSurface || null,
         accent_surface_glass: useGlassSurface,
+        sidebar_glass: useSidebarGlass,
+        hide_accent_bg: hideAccentBg,
         profile_text_color: selectedProfileTextColor || null,
         interests: interests,
         profile_background_url: profileBg.trim() || null,
@@ -1623,6 +1635,34 @@ export default function Modal({
                   onClick={() => setUseGlassSurface((prev) => !prev)}
                   role="switch"
                   aria-checked={useGlassSurface}
+                >
+                  <div className="fc-modal-glass-switch-knob" />
+                </button>
+              </div>
+
+              {/* ── Sidebar translúcido (independiente del modo translúcido) ── */}
+              <div className="fc-modal-glass-toggle">
+                <span className="fc-modal-glass-toggle-label">{t('modal.sidebar_glass')}</span>
+                <button
+                  type="button"
+                  className={`fc-modal-glass-switch ${useSidebarGlass ? 'fc-modal-glass-switch--on' : ''}`}
+                  onClick={() => setUseSidebarGlass((prev) => !prev)}
+                  role="switch"
+                  aria-checked={useSidebarGlass}
+                >
+                  <div className="fc-modal-glass-switch-knob" />
+                </button>
+              </div>
+
+              {/* ── Quitar el color de acento del fondo del perfil ── */}
+              <div className="fc-modal-glass-toggle">
+                <span className="fc-modal-glass-toggle-label">{t('modal.hide_accent_bg')}</span>
+                <button
+                  type="button"
+                  className={`fc-modal-glass-switch ${hideAccentBg ? 'fc-modal-glass-switch--on' : ''}`}
+                  onClick={() => setHideAccentBg((prev) => !prev)}
+                  role="switch"
+                  aria-checked={hideAccentBg}
                 >
                   <div className="fc-modal-glass-switch-knob" />
                 </button>

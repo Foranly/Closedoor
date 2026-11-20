@@ -69,6 +69,22 @@ html.fc-sidebar-default .sidebar--chat {
     background: var(--color-surface, #1a1a1a);
 }
 
+/* Perfil → "Sidebar translúcido": misma receta que las cards en modo
+   translúcido. Va después de `.sidebar--solid` y con más especificidad porque
+   esa regla (fondo global apagado) pinta `--color-bg` sólido y anula el blur,
+   que es justo lo que hacía que el toggle no se viera. */
+html.fc-sidebar-glass .sidebar:not(.sidebar--users) {
+    background: var(--accent-surface-rgba, rgba(255, 255, 255, 0.04));
+    backdrop-filter: var(--accent-surface-blur, blur(20px));
+    -webkit-backdrop-filter: var(--accent-surface-blur, blur(20px));
+    border: var(--accent-surface-border, none);
+}
+
+html.fc-sidebar-glass .sidebar:not(.sidebar--users) .sidebar-link:hover,
+html.fc-sidebar-glass .sidebar:not(.sidebar--users) .sidebar-link.active {
+    background: var(--accent-surface-rgba-hover, rgba(255, 255, 255, 0.07));
+}
+
 /* ---- Estado colapsado ---- */
 .sidebar--collapsed {
     width: 76px;
