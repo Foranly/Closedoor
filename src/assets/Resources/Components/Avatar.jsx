@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import SafeImage from './SafeImage';
 import { DEFAULT_AVATAR, getImageStyle } from '../../services/helpers';
 import { getCdnUrl } from '../../services/cdnService';
 import { isImageCached, preloadImage } from '../../services/imageCache';
@@ -48,12 +49,13 @@ export default function Avatar({ src, alt = 'avatar', className, style, onClick,
   return (
     <div className={`avatar-wrapper ${className || ''}`.trim()} style={{ position: 'relative', display: 'inline-flex', overflow: 'visible' }}>
       <div style={{ width: '100%', height: '100%', borderRadius: 'inherit', overflow: 'hidden' }}>
-        <img
+        {/* SafeImage: los avatares en GIF/WebP animado también respetan
+            Ajustes → Sistema → Rendimiento (congelados, hover o siempre). */}
+        <SafeImage
           className="avatar-img"
           src={normalizedSrc}
           alt={alt}
-          loading="lazy"
-          decoding="async"
+          sniffAnimated
           style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover', ...style }}
           onClick={onClick}
           onError={handleError}

@@ -23,6 +23,18 @@ const ALLOW_MENTION_KEY = 'fc_allow_mention';
 const ALLOW_ENCRYPTED_ADD_KEY = 'fc_allow_encrypted_add';
 const HOUR24_KEY = 'fc_hour24';
 const SHOW_BADGES_KEY = 'fc_show_badges';
+const GIF_BEHAVIOR_KEY = 'fc_gif_behavior';
+
+// 'always'  → los GIF se animan siempre (por defecto)
+// 'hover'   → se quedan en el primer frame hasta que pasas el cursor (óptimo)
+// 'never'   → nunca se animan (rendimiento)
+export const GIF_BEHAVIORS = ['always', 'hover', 'never'];
+function getSavedGifBehavior() {
+  try {
+    const val = getItem(GIF_BEHAVIOR_KEY);
+    return GIF_BEHAVIORS.includes(val) ? val : 'always';
+  } catch { return 'always'; }
+}
 
 const locales = { es };
 
@@ -228,6 +240,7 @@ function getSavedShowBadges() {
   } catch { return true; }
 }
 
+
 export const I18nContext = createContext({
   locale: 'es',
   t: (key, params) => key,
@@ -272,6 +285,8 @@ export const I18nContext = createContext({
   setShowBadges: () => {},
   theme: 'dark',
   setTheme: () => {},
+  gifBehavior: 'always',
+  setGifBehavior: () => {},
 });
 
 export function I18nProvider({ children }) {
@@ -296,6 +311,7 @@ export function I18nProvider({ children }) {
   const [allowEncryptedAdd, setAllowEncryptedAddState] = useState(getSavedAllowEncryptedAdd);
   const [hour24, setHour24State] = useState(getSavedHour24);
   const [showBadges, setShowBadgesState] = useState(getSavedShowBadges);
+  const [gifBehavior, setGifBehaviorState] = useState(getSavedGifBehavior);
   const [theme, setThemeState] = useState(getSavedTheme);
 
   // Cargar el archivo de locale asíncrono
@@ -448,6 +464,14 @@ export function I18nProvider({ children }) {
     } catch {}
   }, []);
 
+  const setGifBehavior = useCallback((value) => {
+    const next = GIF_BEHAVIORS.includes(value) ? value : 'always';
+    setGifBehaviorState(next);
+    try {
+      setItem(GIF_BEHAVIOR_KEY, next);
+    } catch {}
+  }, []);
+
   const setShowBadges = useCallback((value) => {
     setShowBadgesState(value);
     try {
@@ -496,6 +520,7 @@ export function I18nProvider({ children }) {
       setAllowEncryptedAdd(getSavedAllowEncryptedAdd());
       setHour24(getSavedHour24());
       setShowBadges(getSavedShowBadges());
+      setGifBehavior(getSavedGifBehavior());
       setTheme(getSavedTheme());
     });
     return () => { cancelled = true; };
@@ -536,7 +561,7 @@ export function I18nProvider({ children }) {
   }, [translations]);
 
   return (
-    <I18nContext.Provider      value={{ locale, t, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showInterests, setShowInterests, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass: glassActive, setShowCardsGlass, chatDefaultStyle: chatDefaultActive, setChatDefaultStyle, sidebarDefaultStyle: sidebarDefaultActive, setSidebarDefaultStyle, sidebarDefaultColors: sidebarColorsActive, setSidebarDefaultColors, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, theme, setTheme }}>
+    <I18nContext.Provider      value={{ locale, t, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showInterests, setShowInterests, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass: glassActive, setShowCardsGlass, chatDefaultStyle: chatDefaultActive, setChatDefaultStyle, sidebarDefaultStyle: sidebarDefaultActive, setSidebarDefaultStyle, sidebarDefaultColors: sidebarColorsActive, setSidebarDefaultColors, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, gifBehavior, setGifBehavior, theme, setTheme }}>
       {children}
     </I18nContext.Provider>
   );

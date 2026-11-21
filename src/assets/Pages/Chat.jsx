@@ -3711,7 +3711,7 @@ export default function Chat() {
         <div className="chat-group-info-top">
           <div className="fc-preview-card-avatar chat-group-info-avatar">
             {groupAvatar ? (
-              <img src={groupAvatar} alt="" onError={(e) => { e.target.style.visibility = 'hidden'; }} />
+              <SafeImage src={groupAvatar} alt="" sniffAnimated onError={(e) => { e.target.style.visibility = 'hidden'; }} />
             ) : (
               <span className="chat-group-info-avatar-letter">
                 {getConvTitle(activeConv).charAt(0).toUpperCase()}

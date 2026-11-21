@@ -190,7 +190,8 @@ export async function getOrCreateConversation(currentUserId, otherUserId) {
   const convId = crypto.randomUUID();
   const { error: convError } = await supabase
     .from('conversations')
-    .insert({ id: convId });
+    // created_by es lo que la RLS (107) usa para dejar añadir a la otra parte.
+    .insert({ id: convId, created_by: currentUserId });
 
   if (convError) throw convError;
 

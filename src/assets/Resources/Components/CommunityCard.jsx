@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FaLock } from 'react-icons/fa';
 import { useI18n } from '../../services/i18n/useI18n';
 import EmojiText from './EmojiText';
+import SafeImage from './SafeImage';
 import '../Styles/explore.css';
 import './css/communityCard.css';
 
@@ -49,7 +50,7 @@ export default function CommunityCard({ community: c }) {
 
       <div className="explore-card-body">
         {c.avatar_url ? (
-          <img className="explore-card-avatar" src={c.avatar_url} alt={c.name} />
+          <SafeImage className="explore-card-avatar" src={c.avatar_url} alt={c.name} />
         ) : (
           <div
             className="explore-card-avatar comunidades-card-avatar-letter"

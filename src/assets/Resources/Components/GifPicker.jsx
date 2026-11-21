@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import SafeImage from './SafeImage';
 import './css/gifPicker.css';
 
 // ── KLIPY API ──
@@ -234,10 +235,12 @@ export default function GifPicker({ onSelect, onClose }) {
                   title={gif.title || 'GIF'}
                 >
                   {thumbUrl && (
-                    <img
+                    // SafeImage aplica la preferencia de Ajustes → Rendimiento:
+                    // en 'rendimiento' los previews quedan congelados, en
+                    // 'óptimo' se animan al pasar el cursor.
+                    <SafeImage
                       src={thumbUrl}
                       alt={gif.title || 'GIF'}
-                      loading="lazy"
                     />
                   )}
                 </button>

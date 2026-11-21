@@ -93,6 +93,8 @@ export const PROFILE_PUBLIC_COLUMNS = [
   'locale',
   'show_badges',
   'badges_visibility',
+  // Comportamiento de los GIF (migración 109): siempre | hover | nunca.
+  'gif_behavior',
   'user_status',
   'user_status_updated_at',
   'show_global_bg',

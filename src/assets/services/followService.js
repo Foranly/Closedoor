@@ -94,35 +94,21 @@ export async function requestFollow(followerId, followingId) {
 
 /**
  * Accept a follow request (from private profile owner)
- * Uses delete + re-insert instead of update to avoid RLS issues on UPDATE
+ * La RLS (107) solo permite aceptar con un UPDATE del dueño del perfil: así
+ * no se puede fabricar un follow 'accepted' desde la cuenta del solicitante.
  */
 export async function acceptFollowRequest(requesterId, targetId) {
-  // First delete the pending request (DELETE policy works — used by unfollowUser)
-  const { error: delError } = await supabase
-    .from('follows')
-    .delete()
-    .eq('follower_id', requesterId)
-    .eq('following_id', targetId)
-    .eq('status', 'pending');
-
-  if (delError) {
-    console.error('Error deleting pending request:', delError);
-    throw delError;
-  }
-
-  // Then insert a new accepted follow (INSERT policy works — used by followUser)
   const { data, error: insError } = await supabase
     .from('follows')
-    .insert({
-      follower_id: requesterId,
-      following_id: targetId,
-      status: 'accepted',
-    })
+    .update({ status: 'accepted' })
+    .eq('follower_id', requesterId)
+    .eq('following_id', targetId)
+    .eq('status', 'pending')
     .select()
     .single();
 
   if (insError) {
-    console.error('Error inserting accepted follow:', insError);
+    console.error('Error accepting follow request:', insError);
     throw insError;
   }
 

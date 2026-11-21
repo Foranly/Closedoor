@@ -815,45 +815,61 @@ export async function deleteInvite(inviteId) {
 export async function redeemInvite(token, userId) {
   if (!token || !userId) throw new Error('auth_required');
 
-  // Consultar el invite vía RPC SECURITY DEFINER (valida el token sin
-  // exponer la tabla; la política RLS no permite SELECT directo por token)
-  const { data: invite, error } = await supabase.rpc('get_community_invite_by_token', {
-    invite_token: token,
-  });
+  // Canje atómico en la DB (107): valida token/usos y crea la membresía activa
+  // con un flag de escritura confiable que el trigger de community_members
+  // respeta. Evita que el cliente elija rol/estado al unirse.
+  const { data, error } = await supabase.rpc('redeem_community_invite', { p_token: token });
 
-  if (error || !invite) throw new Error('invite_invalid');
-  if (invite.expires_at && new Date(invite.expires_at) < new Date()) throw new Error('invite_expired');
-  if (invite.max_uses && invite.uses >= invite.max_uses) throw new Error('invite_used');
+  if (!error) {
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new Error('invite_invalid');
+    clearCommunityMembersCache(row.community_id);
+    return { community_id: row.community_id, role: row.role, status: row.status };
+  }
 
-  // Unir como miembro activo (el token ya autoriza).
-  // delete + insert: la política UPDATE de community_members solo permite a
-  // moderadores, así que upsert fallaría por RLS si la fila ya existe.
-  await supabase
-    .from('community_members')
-    .delete()
-    .eq('community_id', invite.community_id)
-    .eq('user_id', userId);
-  const { data: membership } = await supabase
-    .from('community_members')
-    .insert({
-      community_id: invite.community_id,
-      user_id: userId,
-      role: 'member',
-      status: 'active',
-      joined_at: new Date().toISOString(),
-    })
-    .select('role, status')
-    .single();
+  const msg = String(error.message || '');
+  if (msg.includes('invite_expired')) throw new Error('invite_expired');
+  if (msg.includes('invite_used')) throw new Error('invite_used');
 
-  // Incrementar uso
-  await supabase
-    .from('community_invites')
-    .update({ uses: invite.uses + 1 })
-    .eq('id', invite.id);
+  // Migración 107 aún sin aplicar (función inexistente): flujo anterior.
+  if (error.code === 'PGRST202' || msg.includes('Could not find the function')) {
+    const { data: invite, error: getError } = await supabase.rpc('get_community_invite_by_token', {
+      invite_token: token,
+    });
 
-  // El alta directa no pasa por joinCommunity → invalidar el cache de miembros
-  clearCommunityMembersCache(invite.community_id);
-  return { community_id: invite.community_id, role: membership?.role || 'member', status: membership?.status || 'active' };
+    if (getError || !invite) throw new Error('invite_invalid');
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) throw new Error('invite_expired');
+    if (invite.max_uses && invite.uses >= invite.max_uses) throw new Error('invite_used');
+
+    await supabase
+      .from('community_members')
+      .delete()
+      .eq('community_id', invite.community_id)
+      .eq('user_id', userId);
+    const { data: membership } = await supabase
+      .from('community_members')
+      .insert({
+        community_id: invite.community_id,
+        user_id: userId,
+        role: 'member',
+        status: 'active',
+        joined_at: new Date().toISOString(),
+      })
+      .select('role, status')
+      .single();
+
+    await supabase
+      .from('community_invites')
+      .update({ uses: invite.uses + 1 })
+      .eq('id', invite.id);
+
+    clearCommunityMembersCache(invite.community_id);
+    return { community_id: invite.community_id, role: membership?.role || 'member', status: membership?.status || 'active' };
+  }
+
+  if (msg.includes('not_authenticated')) throw new Error('auth_required');
+  console.error('[Communities] Error redeeming invite:', error);
+  throw new Error('invite_invalid');
 }
 
 // ── Actualizar comunidad (solo owner) ──

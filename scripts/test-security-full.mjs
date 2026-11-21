@@ -13,6 +13,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 // Sanitización REAL del app (helpers.js) — el test verifica el comportamiento
@@ -70,9 +71,26 @@ const SEC_TEST_EMAIL = process.env.SEC_TEST_EMAIL
 const SEC_TEST_PASSWORD = process.env.SEC_TEST_PASSWORD
   || envContent.match(/SEC_TEST_PASSWORD=(.+)/)?.[1]?.trim()
   || '';
+// Alternativa cuando el proyecto tiene CAPTCHA activado: un refresh_token
+// sacado de una sesión real del navegador. No pasa por Turnstile.
+const SEC_TEST_REFRESH_TOKEN = process.env.SEC_TEST_REFRESH_TOKEN
+  || envContent.match(/SEC_TEST_REFRESH_TOKEN=(.+)/)?.[1]?.trim()
+  || '';
 
 let secSession = null;
-if (SEC_TEST_EMAIL && SEC_TEST_PASSWORD) {
+if (SEC_TEST_REFRESH_TOKEN) {
+  const client = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+  const { error } = await client.auth.refreshSession({ refresh_token: SEC_TEST_REFRESH_TOKEN });
+  if (error) {
+    console.warn(`\n⚠️  SEC_TEST_REFRESH_TOKEN inválido/caducado (${error.message}).`);
+    console.warn('   Los checks autenticados se omiten.\n');
+  } else {
+    secSession = client;
+    console.log('\n👤 Sesión de prueba vía refresh token (checks autenticados activos)\n');
+  }
+} else if (SEC_TEST_EMAIL && SEC_TEST_PASSWORD) {
   const client = createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false }
   });
@@ -82,11 +100,25 @@ if (SEC_TEST_EMAIL && SEC_TEST_PASSWORD) {
   });
   if (error) {
     console.warn(`\n⚠️  No se pudo iniciar sesión como cuenta de prueba (${error.message}).`);
-    console.warn('   El check de la migración 085 se omite.\n');
+    if (/captcha/i.test(error.message)) {
+      console.warn('   El proyecto exige CAPTCHA en el login: añade SEC_TEST_REFRESH_TOKEN');
+      console.warn('   (Authentication → Users en una sesión real) o desactiva CAPTCHA temporalmente.');
+    }
+    console.warn('   Los checks autenticados (085 y 107) se omiten.\n');
   } else {
     secSession = client;
     console.log(`\n👤 Sesión de prueba: ${SEC_TEST_EMAIL} (checks autenticados activos)\n`);
   }
+}
+
+// Usuario de la sesión de prueba (cacheado: getUser pega a /auth/v1/user).
+let secUserCache;
+async function getSecUser() {
+  if (!secSession) return null;
+  if (secUserCache !== undefined) return secUserCache;
+  const { data } = await secSession.auth.getUser();
+  secUserCache = data?.user || null;
+  return secUserCache;
 }
 
 /**
@@ -268,7 +300,14 @@ async function testDB() {
     {
       n: 10, label: 'DELETE comment ajeno: bloqueado',
       fn: () => supabase.from('comments').delete().eq('id', '00000000-0000-0000-0000-000000000000'),
-      check: (d, err) => ({ pass: !d || err, msg: err ? '✅ RLS' : '⚠️  SE BORRO' })
+      check: (d, err) => {
+        // PostgREST devuelve 200 [] si WHERE no matchea nada (RLS filtra la
+        // fila): hay que contar las filas afectadas, no la mera ausencia de error.
+        const affected = Array.isArray(d) ? d.length : (d ? 1 : 0);
+        return (err || affected === 0)
+          ? { pass: true, msg: '✅ RLS (0 filas afectadas)' }
+          : { pass: false, msg: '⚠️  SE BORRO' };
+      }
     },
     // ── Migración 055: RLS en tablas de interacción social ──
     {
@@ -376,6 +415,227 @@ async function testDB() {
         if (err.code === '42501') return { pass: true, msg: '✅ RLS bloqueó el post privado (42501)' };
         // 23503 = FK de conversation_id: la fila pasó la RLS y solo falló la FK.
         if (err.code === '23503') return { pass: false, msg: '⚠️  La RLS dejó pasar el post privado (solo falló la FK) — aplica la migración 085' };
+        return { pass: false, msg: `⚠️  Error inesperado: ${err.code || ''} ${err.message || ''}` };
+      }
+    },
+
+    {
+      n: '1w', label: 'RPCs de la 107: no ejecutables por anon (sin oráculo booleano)',
+      fn: () => supabase.rpc('conversation_is_empty', { conv_id: '00000000-0000-0000-0000-000000000000' }),
+      check: (_d, err) => {
+        if (!err) return { pass: false, msg: '⚠️  anon pudo ejecutar conversation_is_empty' };
+        if (err.code === '42501') return { pass: true, msg: '✅ permission denied (sin oráculo para anon)' };
+        if (err.code === 'PGRST202') return { pass: true, msg: '✅ función inexistente (107 sin aplicar)' };
+        return { pass: false, msg: `⚠️  ${err.code || ''} ${err.message || ''}` };
+      }
+    },
+
+    // ── Migración 107: los vectores que solo se ven CON sesión ──
+    // Todos crean datos temporales y los borran al terminar (incluso si la
+    // política está abierta), así que se pueden correr contra producción.
+    {
+      n: '1r', label: 'Perfil privado: no se puede auto-aceptar un follow (migración 107)',
+      fn: async () => {
+        const user = await getSecUser();
+        if (!user) return { data: { skipped: 'sin sesión de prueba (SEC_TEST_REFRESH_TOKEN o SEC_TEST_EMAIL/PASSWORD)' }, error: null };
+
+        const { data: privateProfiles } = await supabase
+          .from('profiles_public')
+          .select('id')
+          .eq('is_private', true)
+          .limit(50);
+        const candidates = (privateProfiles || [])
+          .map((p) => p.id)
+          .filter((id) => id && id !== user.id);
+        if (!candidates.length) return { data: { skipped: 'no hay perfiles privados que probar' }, error: null };
+
+        // Evitar 23505 (ya le sigo) para que el error signifique lo que debe.
+        const { data: mine } = await secSession
+          .from('follows')
+          .select('following_id')
+          .in('following_id', candidates);
+        const already = new Set((mine || []).map((f) => f.following_id));
+        const target = candidates.find((id) => !already.has(id));
+        if (!target) return { data: { skipped: 'la cuenta ya sigue a todos los perfiles privados' }, error: null };
+
+        const { error } = await secSession.from('follows').insert({
+          follower_id: user.id,
+          following_id: target,
+          status: 'accepted',
+        });
+
+        // Si la política no existe (107 sin aplicar) se creó la fila: limpiar.
+        if (!error) {
+          await secSession.from('follows').delete()
+            .eq('follower_id', user.id)
+            .eq('following_id', target);
+        }
+
+        return { data: { target }, error };
+      },
+      check: (data, err) => {
+        if (data?.skipped) return { skip: true, msg: `sin probar (${data.skipped})` };
+        if (!err) return { pass: false, msg: '⚠️  Se insertó un follow accepted contra un perfil privado (contenido privado expuesto)' };
+        if (err.code === 'P0001') return { pass: true, msg: `✅ Trigger bloqueó el auto-accept (${err.message})` };
+        if (err.code === '42501') return { pass: true, msg: '✅ RLS bloqueó el auto-accept' };
+        return { pass: false, msg: `⚠️  Error inesperado: ${err.code || ''} ${err.message || ''}` };
+      }
+    },
+    {
+      n: '1s', label: 'Chat: no se puede añadir a un tercero a una conversación ajena (migración 107)',
+      fn: async () => {
+        const user = await getSecUser();
+        if (!user) return { data: { skipped: 'sin sesión de prueba' }, error: null };
+
+        const { data: others } = await supabase
+          .from('profiles_public')
+          .select('id')
+          .neq('id', user.id)
+          .limit(3);
+        const ids = (others || []).map((o) => o.id).filter(Boolean);
+        if (ids.length < 2) return { data: { skipped: 'no hay suficientes perfiles para la prueba' }, error: null };
+
+        const [forgedOwner, third] = ids;
+        const convId = randomUUID();
+
+        // Conversación atribuida a otra persona (el INSERT de conversations no
+        // dice quién la crea: created_by es lo que usa la política de 107).
+        const { error: convErr } = await secSession
+          .from('conversations')
+          .insert({ id: convId, created_by: forgedOwner });
+        if (convErr) return { data: { skipped: `no se pudo preparar la conversación (${convErr.code || convErr.message})` }, error: null };
+
+        try {
+          // Entrar en una conversación vacía sigue permitido (compatibilidad).
+          const { error: joinErr } = await secSession
+            .from('chat_participants')
+            .insert({ conversation_id: convId, user_id: user.id });
+          if (joinErr) return { data: { staged: false }, error: joinErr };
+
+          // El vector: meter a un tercero en un hilo que no creé.
+          const { error } = await secSession
+            .from('chat_participants')
+            .insert({ conversation_id: convId, user_id: third });
+          return { data: { staged: true }, error };
+        } finally {
+          // Somos participantes: la política DELETE permite borrar el hilo y
+          // las filas de participantes caen por CASCADE.
+          await secSession.from('conversations').delete().eq('id', convId);
+        }
+      },
+      check: (data, err) => {
+        if (data?.skipped) return { skip: true, msg: `sin probar (${data.skipped})` };
+        if (data?.staged === false) return { pass: false, msg: `⚠️  No se pudo preparar el escenario: ${err?.code || ''} ${err?.message || ''}` };
+        if (!err) return { pass: false, msg: '⚠️  Se pudo añadir a un tercero a una conversación ajena' };
+        if (err.code === '42501' || err.code === 'P0001') return { pass: true, msg: '✅ RLS bloqueó añadir participantes ajenos' };
+        return { pass: false, msg: `⚠️  Error inesperado: ${err.code || ''} ${err.message || ''}` };
+      }
+    },
+    {
+      n: '1t', label: 'Chat: INSERT en messages de una conversación ajena, bloqueado por RLS (migración 107)',
+      fn: async () => {
+        const user = await getSecUser();
+        if (!user) return { data: { skipped: 'sin sesión de prueba' }, error: null };
+
+        // Conversación inexistente a propósito: si la política exige ser
+        // participante, el error es 42501 (RLS) antes que la FK 23503.
+        const { error } = await secSession.from('messages').insert({
+          conversation_id: randomUUID(),
+          sender_id: user.id,
+          ciphertext: 'sec-test',
+          iv: 'sec-test',
+          encrypted_for: [user.id],
+        });
+        return { data: {}, error };
+      },
+      check: (data, err) => {
+        if (data?.skipped) return { skip: true, msg: `sin probar (${data.skipped})` };
+        if (!err) return { pass: false, msg: '⚠️  Se insertó un mensaje en una conversación inexistente/ajena' };
+        if (err.code === '42501' || err.code === 'P0001') return { pass: true, msg: '✅ RLS exige ser participante' };
+        if (err.code === '23503') return { pass: false, msg: '⚠️  La RLS dejó pasar el INSERT (solo falló la FK) — aplica la migración 107' };
+        return { pass: false, msg: `⚠️  Error inesperado: ${err.code || ''} ${err.message || ''}` };
+      }
+    },
+    {
+      n: '1u', label: 'Comunidades: unirse no permite auto-ascenderse a owner (migración 107)',
+      fn: async () => {
+        const user = await getSecUser();
+        if (!user) return { data: { skipped: 'sin sesión de prueba' }, error: null };
+
+        const { data: mine } = await secSession
+          .from('community_members')
+          .select('community_id')
+          .eq('user_id', user.id);
+        const joined = new Set((mine || []).map((m) => m.community_id));
+
+        const { data: communities } = await supabase
+          .from('communities')
+          .select('id, owner_id')
+          .eq('is_private', false)
+          .limit(30);
+        const target = (communities || []).find(
+          (c) => c.owner_id !== user.id && !joined.has(c.id)
+        );
+        if (!target) return { data: { skipped: 'no hay comunidades públicas donde unirse' }, error: null };
+
+        const { error } = await secSession.from('community_members').insert({
+          community_id: target.id,
+          user_id: user.id,
+          role: 'owner',
+          status: 'active',
+        });
+
+        const { data: row } = await secSession
+          .from('community_members')
+          .select('role, status')
+          .eq('community_id', target.id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        // Limpieza: salir de la comunidad (la política DELETE lo permite).
+        await secSession.from('community_members').delete()
+          .eq('community_id', target.id)
+          .eq('user_id', user.id);
+
+        return { data: { role: row?.role, status: row?.status }, error };
+      },
+      check: (data, err) => {
+        if (data?.skipped) return { skip: true, msg: `sin probar (${data.skipped})` };
+        if (err) return { pass: false, msg: `⚠️  Error inesperado: ${err.code || ''} ${err.message || ''}` };
+        if (data?.role === 'owner' || data?.role === 'admin') {
+          return { pass: false, msg: `⚠️  Se auto-asignó role='${data.role}' al unirse` };
+        }
+        return { pass: true, msg: `✅ Rol forzado a '${data?.role}' (status '${data?.status}')` };
+      }
+    },
+    {
+      n: '1v', label: 'Perfiles: no se puede auto-asignar roles (migración 107)',
+      fn: async () => {
+        const user = await getSecUser();
+        if (!user) return { data: { skipped: 'sin sesión de prueba' }, error: null };
+
+        const { data: before } = await secSession
+          .from('profiles')
+          .select('roles')
+          .eq('id', user.id)
+          .single();
+
+        const { error } = await secSession
+          .from('profiles')
+          .update({ roles: ['admin'] })
+          .eq('id', user.id);
+
+        // Si la política no existe, dejar el perfil como estaba.
+        if (!error) {
+          await secSession.from('profiles').update({ roles: before?.roles ?? [] }).eq('id', user.id);
+        }
+        return { data: { hadRoles: before?.roles }, error };
+      },
+      check: (data, err) => {
+        if (data?.skipped) return { skip: true, msg: `sin probar (${data.skipped})` };
+        if (!err) return { pass: false, msg: '⚠️  Se auto-asignó roles=[admin] (insignias/comunidades sin límite)' };
+        if (err.code === 'P0001') return { pass: true, msg: `✅ Trigger bloqueó el cambio (${err.message})` };
+        if (err.code === '42501') return { pass: true, msg: '✅ RLS bloqueó el cambio de roles' };
         return { pass: false, msg: `⚠️  Error inesperado: ${err.code || ''} ${err.message || ''}` };
       }
     },

@@ -1,5 +1,6 @@
 import { useI18n } from '../../services/i18n/useI18n';
 import EmojiText from './EmojiText';
+import SafeImage from './SafeImage';
 
 /**
  * ChatCommunityCard — invitación a una comunidad compartida en un mensaje.
@@ -48,7 +49,7 @@ export default function ChatCommunityCard({ community, inviteToken = null, isOwn
       <div className="chat-community-card-body">
         <div className="chat-community-card-header">
           {community.avatar_url ? (
-            <img className="chat-community-card-avatar" src={community.avatar_url} alt={community.name} />
+            <SafeImage className="chat-community-card-avatar" src={community.avatar_url} alt={community.name} />
           ) : (
             <div className="chat-community-card-avatar chat-community-card-avatar--letter">
               {community.name?.charAt(0).toUpperCase()}
