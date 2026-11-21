@@ -5,6 +5,7 @@ import '../Styles/explore.css';
 import Badge from './Badge';
 import ConfirmModal from './ConfirmModal';
 import Avatar from './Avatar';
+import SafeImage from './SafeImage';
 import EmojiText from './EmojiText';
 import EmojiPickerButton from './EmojiPickerButton';
 import { DEFAULT_AVATAR, getImageStyle, getBackgroundStyle, sanitizeUrl } from '../../services/helpers';
@@ -18,6 +19,7 @@ import { FaCamera, FaUpload, FaSpinner, FaEdit, FaCheck, FaTimes } from 'react-i
 import { toast } from 'react-toastify';
 
 import { uploadImage, uploadWithLocalPreview } from '../../services/cdnService';
+import { listMediaHistory, recordProfileMediaHistory, MEDIA_HISTORY_KINDS } from '../../services/profileMediaHistory';
 import { useAuth } from '../../../hooks/useAuth';
 
 // Module-level color cache persists across modal mounts/unmounts
@@ -184,6 +186,10 @@ export default function Modal({
 
   // Submodal state: null | { type: 'avatar' | 'banner', value: string }
   const [showUrlModal, setShowUrlModal] = useState(null);
+  // Historial de imágenes del perfil (avatar / banner / marco): se comparte
+  // entre dispositivos vía Supabase y se cachea en local para pintarlo al
+  // instante al abrir el modal.
+  const [mediaHistory, setMediaHistory] = useState({ avatar: [], banner: [], frame: [] });
   const [urlInput, setUrlInput] = useState('');
   const [uploadingToCdn, setUploadingToCdn] = useState(false);
   const [uploadingBgToCdn, setUploadingBgToCdn] = useState(false);
@@ -454,6 +460,12 @@ export default function Modal({
         profile_background_dim: profileBgDim,
         banner_dim: bannerDim,
       });
+      // Historial: una vez guardado, la imagen queda disponible para reutilizarla.
+      void recordProfileMediaHistory(user?.id, {
+        avatar: avatar.trim(),
+        banner: banner.trim(),
+        frame: avatarFrame.trim(),
+      });
     } finally {
       setSaving(false);
     }
@@ -571,6 +583,18 @@ export default function Modal({
       handleCancelEditSocial();
     }
   };
+
+  // Cargar el historial de imágenes al abrir el modal (caché primero).
+  useEffect(() => {
+    if (!isOpen || !user?.id) return undefined;
+    let alive = true;
+    Promise.all(MEDIA_HISTORY_KINDS.map((kind) => listMediaHistory(user.id, kind)))
+      .then(([avatar, banner, frame]) => {
+        if (alive) setMediaHistory({ avatar, banner, frame });
+      })
+      .catch(() => null);
+    return () => { alive = false; };
+  }, [isOpen, user?.id]);
 
   // ── Submodal URL editing ──
   const urlInitialRef = useRef('');
@@ -777,6 +801,31 @@ export default function Modal({
   const handleProfileBgUrlKeyDown = (e) => {
     if (e.key === 'Enter') { e.preventDefault(); handleProfileBgModalSave(); }
     else if (e.key === 'Escape') { e.preventDefault(); closeBgSubmodal(); }
+  };
+
+  // Tira de historial reutilizable en los diálogos de avatar, banner y marco.
+  // Excluye la imagen ya seleccionada para no duplicarla en pantalla.
+  const renderMediaHistory = (kind, onPick, current = '') => {
+    const items = (mediaHistory[kind] || []).filter((url) => url && url !== current);
+    if (!items.length) return null;
+    return (
+      <div className="fc-media-history">
+        <span className="fc-media-history-title">{t('modal.media_history')}</span>
+        <div className="fc-media-history-list">
+          {items.map((url) => (
+            <button
+              key={url}
+              type="button"
+              className={`fc-media-history-item fc-media-history-item--${kind}`}
+              onClick={() => onPick(url)}
+              title={url}
+            >
+              <SafeImage src={url} alt="" />
+            </button>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   // Editor de posición de la imagen del submodal (avatar 1:1 o banner).
@@ -1774,6 +1823,7 @@ export default function Modal({
                     placeholder={t('modal.credits_placeholder')}
                     style={{ marginTop: 8 }}
                   />
+                  {renderMediaHistory('avatar', (url) => setUrlInput(url), urlInput.trim())}
                 </div>
                 {urlPositionEditor && (
                   <div className="fc-modal-card">{urlPositionEditor}</div>
@@ -1827,6 +1877,10 @@ export default function Modal({
                         />
                       </label>
                     </div>
+                    {renderMediaHistory('frame', (url) => {
+                      setAvatarFrame(url);
+                      setAvatarFramePosition('');
+                    }, avatarFrame)}
                     <p className="fc-modal-frame-hint">
                       {t('modal.avatar_frame_hint') || 'PNG cuadrado (1:1) con transparencia. Recomendado 1000 × 1000 px.'}
                     </p>
@@ -1885,6 +1939,7 @@ export default function Modal({
               placeholder={t('modal.credits_placeholder')}
               style={{ marginTop: 8 }}
             />
+            {renderMediaHistory('banner', (url) => setUrlInput(url), urlInput.trim())}
             <div style={{ marginTop: 12 }}>
               <div className="fc-modal-range-row">
                 <span className="fc-modal-range-label">{t('modal.banner_dim') || 'Banner darkness'}</span>

@@ -470,6 +470,7 @@
   "modal.avatar_frame_upload": "Загрузить рамку",
   "modal.avatar_frame_change": "Заменить рамку",
   "modal.avatar_frame_hint": "Квадратный PNG (1:1) с прозрачностью. Рекомендуется 1000 × 1000 px.",
+  "modal.media_history": "История",
   "modal.avatar_frame_type": "Рамка должна быть PNG или WebP с прозрачностью",
   "modal.banner_dim": "Затемнение баннера",
   "modal.banner_dim_desc": "Темный слой для контраста текста",
