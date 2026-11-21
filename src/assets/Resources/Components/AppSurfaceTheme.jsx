@@ -33,6 +33,16 @@ const SURFACE_VARS = [
   '--accent-surface-border',
 ];
 
+// Superficie base del sidebar (la de header.css): fondo del tema al 60% + blur.
+// Se aplica inline cuando NO hay vidrio de perfil, para que el sidebar no
+// herede las --accent-surface-* que se publican en <html> para las cards y se
+// quede con el vidrio después de apagar el modo translúcido.
+const SIDEBAR_THEME = {
+  rgba: 'color-mix(in srgb, var(--color-bg, #000000) 60%, transparent)',
+  hover: 'rgba(255, 255, 255, 0.06)',
+  blur: 'blur(16px)',
+};
+
 export default function AppSurfaceTheme() {
   const { profile } = useAuth();
   const {
@@ -104,6 +114,10 @@ export default function AppSurfaceTheme() {
     // que viven FUERA del árbol del perfil (el dock de chats flotantes se
     // monta en <body>) puedan usar el mismo vidrio que las cards del perfil.
     root.classList.toggle('fc-profile-glass', !chatDefault && showAccent && profileGlass);
+    // El vidrio del perfil solo debe pintar lo que hay fuera del árbol del
+    // perfil (p. ej. el dock) CUANDO se está viendo un perfil; en el resto de
+    // rutas se queda con el tema del app.
+    root.classList.toggle('fc-profile-route', path.startsWith('/profile'));
 
     // Receta del perfil en modo glass (== .profile-page .post-card)
     const GLASS = {
@@ -175,7 +189,17 @@ export default function AppSurfaceTheme() {
     // Sin vars → el fallback CSS (color de superficie del tema) aplica.
     if (rootVars) applyVars(root, rootVars); else clearVars(root);
     if (el) {
-      if (sidebarVars) applyVars(el, sidebarVars); else clearVars(el);
+      if (sidebarVars) {
+        applyVars(el, sidebarVars);
+      } else if (sidebarDefaultStyle || chatDefault) {
+        // Esas dos opciones pintan el sidebar por CSS; no debe heredar nada.
+        clearVars(el);
+      } else {
+        // Fondo normal del tema: se fija inline para que no herede el vidrio
+        // que "Tarjetas transparentes" o la superficie del perfil publican en
+        // <html> (si no, apagar el modo translúcido no lo devolvía a la normalidad).
+        applyVars(el, SIDEBAR_THEME);
+      }
     }
 
     // Color de texto de las cards: el mismo que el dueño eligió para su perfil
@@ -214,6 +238,7 @@ export default function AppSurfaceTheme() {
       root.classList.remove('fc-chat-default');
       root.classList.remove('fc-sidebar-default');
       root.classList.remove('fc-profile-glass');
+      root.classList.remove('fc-profile-route');
       root.classList.remove('fc-sidebar-glass');
     };
   }, [profile, viewedProfile, showAccent, showCardsGlass, chatDefaultStyle, sidebarDefaultStyle, sidebarDefaultColors, path]);

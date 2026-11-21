@@ -98,15 +98,17 @@ html.fc-cards-glass:not(.fc-chat-default) .fc-dock-launcher:hover {
 /* Modo translúcido del perfil (accent_surface_glass): el dock vive en <body>,
    fuera de .profile-page, pero AppSurfaceTheme publica las vars del vidrio en
    <html> y marca html.fc-profile-glass. Así el lanzador (y el botón de crear
-   post) siguen el mismo vidrio que las cards del perfil. */
-html.fc-profile-glass:not(.fc-chat-default) :is(.fc-dock-create, .fc-dock-launcher) {
+   post) siguen el mismo vidrio que las cards del perfil. Solo dentro de la
+   ruta de perfil (html.fc-profile-route): fuera, el dock usa el tema del app
+   aunque el modo translúcido esté activo en el perfil. */
+html.fc-profile-route.fc-profile-glass:not(.fc-chat-default) :is(.fc-dock-create, .fc-dock-launcher) {
     background-color: var(--accent-surface-rgba, rgba(255, 255, 255, 0.04));
     backdrop-filter: var(--accent-surface-blur, blur(20px));
     -webkit-backdrop-filter: var(--accent-surface-blur, blur(20px));
     border: var(--accent-surface-border, none);
 }
 
-html.fc-profile-glass:not(.fc-chat-default) .fc-dock-launcher:hover {
+html.fc-profile-route.fc-profile-glass:not(.fc-chat-default) .fc-dock-launcher:hover {
     background-color: var(--accent-surface-rgba-hover, rgba(255, 255, 255, 0.07));
 }
 
