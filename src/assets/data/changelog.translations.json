@@ -370,5 +370,71 @@
         "サイドバーのヘッダーは、チャット内を移動するときに特定のスタイルを採用します。"
       ]
     }
+  },
+  "2026-11-21:1k1zfas": {
+    "es": {
+      "title": "Colecciones de marcadores, historial de imágenes y temas de perfil",
+      "items": [
+        "La pestaña \"Guardados\" ahora es Bookmarks: crea colecciones con un nombre, descripción y portada, y elige la colección a la que va cada publicación. Las colecciones son privadas y sólo tú puedes verlas.",
+        "Tu avatar, banner y marco ahora mantienen un historial: vuelve a abrir el cuadro de diálogo de edición y elige cualquier imagen que hayas usado antes. El historial sigue su cuenta en todos los dispositivos.",
+        "Nuevas opciones de perfil: elimina el color de acento del fondo del perfil y dale a la barra lateral el mismo tratamiento translúcido que las tarjetas: los visitantes ven lo mismo que tú.",
+        "Los GIF animados ahora se pueden configurar para que se reproduzcan siempre, solo al pasar el mouse o nunca, en Configuración → Sistema → Rendimiento. La configuración también se aplica a los avatares animados.",
+        "Las notificaciones se pueden abrir desde el avatar o el nombre de quien las activó, y las notificaciones de comentarios saltan y resaltan el comentario exacto.",
+        "Al hacer clic fuera de un cuadro de diálogo, se cierra nuevamente, excepto en el compositor de publicaciones; Los cuadros de diálogo con cambios no guardados ahora preguntan antes de tirarlos.",
+        "Las postales toman el color de acento de su autor: en el anillo de avatar y en el botón Me gusta activo. La información sobre herramientas ahora se abre hacia abajo cuando no hay espacio arriba.",
+        "Los chats flotantes mantienen su conversación cuando cambias de página o recargas, muestran rebajas en las burbujas, se animan al cerrar y muestran la hora al pasar el mouse. El cuadro de diálogo de apodo ahora muestra el marco de tu avatar.",
+        "Se corrigió el tema del perfil translúcido: al desactivarlo se restaura la barra lateral y el botón flotante solo usa el estilo del perfil dentro de un perfil.",
+        "El reproductor de video ahora usa el color de acento del autor de la publicación en todas partes (barra de progreso, botones activos y volumen), incluida la ventana minimizada.",
+        "Seguridad y velocidad: las reglas de la base de datos se endurecieron para que los datos confidenciales no puedan leerse desde el cliente y las acciones comunes realicen menos consultas, por lo que el feed, los chats y las comunidades se cargan más rápido."
+      ]
+    },
+    "pt": {
+      "title": "Coleções de favoritos, histórico de imagens e temas de perfil",
+      "items": [
+        "A aba \"Salvos\" agora é Bookmarks: crie coleções com nome, descrição e capa, e escolha a coleção para a qual cada postagem vai. As coleções são privadas e somente você pode vê-las.",
+        "Seu avatar, banner e moldura agora mantêm um histórico: reabra a caixa de diálogo de edição e escolha qualquer imagem que você usou antes. O histórico acompanha sua conta em todos os dispositivos.",
+        "Novas opções de perfil: remova a cor de destaque do plano de fundo do perfil e dê à barra lateral o mesmo tratamento translúcido dos cartões – os visitantes veem a mesma coisa que você.",
+        "GIFs animados agora podem ser configurados para serem reproduzidos sempre, apenas ao passar o mouse ou nunca, em Configurações → Sistema → Desempenho. A configuração também se aplica a avatares animados.",
+        "As notificações podem ser abertas a partir do avatar ou do nome de quem as acionou, e as notificações de comentários saltam e destacam o comentário exato.",
+        "Clicar fora de uma caixa de diálogo a fecha novamente, exceto no compositor de postagem; caixas de diálogo com alterações não salvas agora perguntam antes de jogá-las fora.",
+        "Os cartões postais têm a cor de destaque de seu autor: no anel do avatar e no botão curtir ativo. As dicas de ferramentas agora abrem para baixo quando não há espaço acima.",
+        "Os chats flutuantes mantêm a conversa quando você muda de página ou recarrega, mostram marcações nos balões, animam ao fechar e mostram a hora ao passar o mouse. A caixa de diálogo de apelido agora mostra a moldura do seu avatar.",
+        "O tema do perfil translúcido foi corrigido: desligá-lo restaura a barra lateral e o botão flutuante usa apenas o estilo do perfil dentro de um perfil.",
+        "O player de vídeo agora usa a cor de destaque do autor da postagem em todos os lugares – barra de progresso, botões ativos e volume – incluindo a janela minimizada.",
+        "Segurança e velocidade: as regras do banco de dados foram reforçadas para que dados confidenciais não possam ser lidos do cliente, e as ações comuns fazem menos consultas, para que o feed, os chats e as comunidades carreguem mais rapidamente."
+      ]
+    },
+    "ru": {
+      "title": "Коллекции закладок, история изображений и темы профиля",
+      "items": [
+        "Вкладка «Сохраненные» теперь называется «Закладки»: создавайте коллекции с именем, описанием и обложкой и выбирайте коллекцию, в которую попадает каждое сообщение. Коллекции являются частными и только вы можете их видеть.",
+        "Ваш аватар, баннер и рамка теперь сохраняют историю: снова откройте диалоговое окно редактирования и выберите любое изображение, которое вы использовали ранее. История следует за вашей учетной записью на всех устройствах.",
+        "Новые параметры профиля: удалите акцентный цвет с фона профиля и сделайте боковую панель такой же полупрозрачной, как и карточки — посетители видят то же, что и вы.",
+        "Анимированные GIF-файлы теперь можно настроить на воспроизведение всегда, только при наведении или никогда, в разделе «Настройки» → «Система» → «Производительность». Эта настройка также применима к анимированным аватарам.",
+        "Уведомления можно открывать по аватару или имени того, кто их инициировал, а уведомления о комментариях переходят к конкретному комментарию и выделяют его.",
+        "Щелчок за пределами диалогового окна снова закрывает его, за исключением композитора сообщения; диалоги с несохраненными изменениями теперь запрашивают, прежде чем их выбросить.",
+        "Открытки имеют акцентный цвет своего автора: в кольце аватара и активной кнопке «Нравится». Подсказки теперь открываются вниз, если сверху нет места.",
+        "Плавающие чаты сохраняют разговор, когда вы меняете страницы или перезагружаете их, показывают уценку в пузырьках, анимируют при закрытии и показывают время при наведении курсора. В диалоговом окне псевдонима теперь отображается рамка вашего аватара.",
+        "Исправлена ​​полупрозрачная тема профиля: ее отключение восстанавливает боковую панель, а плавающая кнопка использует стиль профиля только внутри профиля.",
+        "Видеоплеер теперь везде использует акцентный цвет автора поста — индикатор выполнения, активные кнопки и громкость — включая свернутое окно.",
+        "Безопасность и скорость: правила базы данных были ужесточены, поэтому конфиденциальные данные невозможно прочитать с клиента, а общие действия выполняют меньше запросов, поэтому лента, чаты и сообщества загружаются быстрее."
+      ]
+    },
+    "ja": {
+      "title": "ブックマークコレクション、画像履歴、プロフィールテーマ",
+      "items": [
+        "「保存済み」タブはブックマークになりました。名前、説明、カバーを含むコレクションを作成し、すべての投稿が保存されるコレクションを選択します。コレクションは非公開であり、あなただけが見ることができます。",
+        "アバター、バナー、フレームに履歴が保存されるようになりました。編集ダイアログを再度開き、以前に使用した画像を選択してください。履歴はデバイス間でアカウントを追跡します。",
+        "新しいプロフィール オプション: プロフィールの背景からアクセント カラーを削除し、サイドバーにカードと同じ半透明の処理を施します。訪問者にはあなたと同じものが見えます。",
+        "[設定] → [システム] → [パフォーマンス] で、アニメーション GIF を常に再生するか、ホバー時のみ再生するか、まったく再生しないように設定できるようになりました。この設定はアニメーション化されたアバターにも適用されます。",
+        "通知はアバターまたは通知をトリガーした人の名前から開くことができ、コメント通知は正確なコメントにジャンプして強調表示されます。",
+        "ポストコンポーザーを除き、ダイアログの外側をクリックするとダイアログが再び閉じます。変更が保存されていないダイアログでは、変更を破棄する前に確認するようになりました。",
+        "ポストカードには、アバターリングとアクティブな「いいね！」ボタンに、作者のアクセントカラーが採用されています。上にスペースがない場合、ツールチップが下に開くようになりました。",
+        "フローティング チャットは、ページを変更したりリロードしたりしても会話を維持し、バブル内にマークダウンを表示し、閉じるときにアニメーション化し、ホバー時に時間を表示します。ニックネーム ダイアログにアバター フレームが表示されます。",
+        "半透明のプロファイル テーマが修正されました。オフにするとサイドバーが復元され、フローティング ボタンはプロファイル内のプロファイル スタイルのみを使用します。",
+        "ビデオプレーヤーでは、最小化されたウィンドウを含む、進行状況バー、アクティブなボタン、音量など、あらゆる場所で投稿作成者のアクセントカラーが使用されるようになりました。",
+        "セキュリティと速度: データベース ルールが強化されたため、クライアントから機密データを読み取ることができなくなり、一般的なアクションで実行されるクエリが少なくなったため、フィード、チャット、コミュニティの読み込みが速くなりました。"
+      ]
+    }
   }
 }

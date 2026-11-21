@@ -49,6 +49,7 @@ export function FloatingVideoProvider({ children }) {
                 src={state.src}
                 title={state.title ?? undefined}
                 ratio={state.ratio ?? 0}
+                accent={state.accent ?? ''}
               />
             </FloatingVideoContext.Provider>
           </div>,
