@@ -31,12 +31,28 @@ import SafeImage from './SafeImage';
 import ChatSongCard from './ChatSongCard';
 import ChatCommunityCard from './ChatCommunityCard';
 import ChatSharedPostCard from './ChatSharedPostCard';
+import PostMarkdown from './PostMarkdown';
 import EmojiText from './EmojiText';
 import EmojiPickerButton from './EmojiPickerButton';
 import EmojiShortcodeSuggest from './EmojiShortcodeSuggest';
 import './css/floatingChat.css';
 
 const HIDDEN_ROUTES = ['/chat', '/login', '/register', '/auth/callback'];
+
+// chat.css (cards de canciones, invitaciones a comunidades, posts compartidos,
+// media del chat…) solo entra en el bundle con el chunk lazy de /Chat. El dock
+// necesita esos estilos igual, así que se piden al abrir el panel y quedan
+// cacheados por el propio módulo (una sola petición por carga de página).
+let chatStylesPromise = null;
+function ensureChatStyles() {
+  if (!chatStylesPromise) {
+    chatStylesPromise = import('../Styles/chat.css').catch(() => {
+      // Si falla (offline), se reintenta en la próxima apertura.
+      chatStylesPromise = null;
+    });
+  }
+  return chatStylesPromise;
+}
 
 function convCacheKey(userId) {
   return `chatConvsCache_${userId}`;
@@ -138,6 +154,32 @@ export default function FloatingChat() {
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
 
   const userId = user?.id;
+
+  // ── Caché de mensajes por conversación (misma receta que Chat.jsx) ──
+  // En memoria para reabrir el hilo al instante y en sessionStorage para
+  // sobrevivir a navegaciones SPA y recargas de pestaña. Se guarda el mensaje
+  // ya descifrado (secureStorage cifra el payload en reposo).
+  const messagesCacheRef = useRef({});
+  // Conversación a la que pertenece `messages` (evita guardar mensajes de un
+  // hilo bajo la clave de otro al cambiar de chat).
+  const messagesOwnerRef = useRef(null);
+  const cacheSaveTimerRef = useRef(null);
+  const floatCacheKey = userId ? `fcFloatMessagesCache_${userId}` : null;
+
+  // Restaura la caché de la sesión al montar (o al cambiar de usuario).
+  useEffect(() => {
+    messagesCacheRef.current = {};
+    if (!floatCacheKey) return;
+    try {
+      const saved = getSessionItem(floatCacheKey);
+      if (saved && typeof saved === 'object') messagesCacheRef.current = saved;
+    } catch { /* sin caché disponible */ }
+  }, [floatCacheKey]);
+
+  // El panel abierto es lo único que debe marcar como leído: con el realtime
+  // vivo en segundo plano (caché caliente) no se toca el contador ajeno.
+  const openRef = useRef(false);
+  useEffect(() => { openRef.current = open; }, [open]);
   const refreshVersion = notif.conversationRefreshVersion || 0;
   const unreadTotal = notif.unreadChatCount || 0;
 
@@ -225,6 +267,43 @@ export default function FloatingChat() {
     return () => { cancelled = true; };
   }, [userId, open, refreshVersion, loadConvs]);
 
+  // Guarda el hilo en la caché en memoria y (con debounce) en sessionStorage:
+  // cada mensaje de realtime no debe serializar el caché entero.
+  const persistMessagesCache = useCallback((convId, msgs) => {
+    if (!convId || !Array.isArray(msgs)) return;
+    messagesCacheRef.current[convId] = msgs;
+    if (cacheSaveTimerRef.current) clearTimeout(cacheSaveTimerRef.current);
+    cacheSaveTimerRef.current = setTimeout(() => {
+      cacheSaveTimerRef.current = null;
+      if (!floatCacheKey) return;
+      try { setSessionItem(floatCacheKey, messagesCacheRef.current); } catch { /* cuota */ }
+    }, 500);
+  }, [floatCacheKey]);
+
+  // Mantiene la caché al día con lo que se pinta (fetch, realtime, envío).
+  useEffect(() => {
+    const convId = messagesOwnerRef.current;
+    if (!convId) return;
+    persistMessagesCache(convId, messages);
+  }, [messages, persistMessagesCache]);
+
+  // Flush inmediato al salir de la página o desmontar el dock.
+  useEffect(() => {
+    const flush = () => {
+      if (cacheSaveTimerRef.current) {
+        clearTimeout(cacheSaveTimerRef.current);
+        cacheSaveTimerRef.current = null;
+      }
+      if (!floatCacheKey) return;
+      try { setSessionItem(floatCacheKey, messagesCacheRef.current); } catch { /* cuota */ }
+    };
+    window.addEventListener('pagehide', flush);
+    return () => {
+      flush();
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [floatCacheKey]);
+
   const loadThread = useCallback(async (convId) => {
     if (!convId || !userId) return;
     setLoadingThread(true);
@@ -236,6 +315,7 @@ export default function FloatingChat() {
         decryptedContent: await decryptMessage(m, userId),
       })));
       if (activeIdRef.current !== convId) return;
+      messagesOwnerRef.current = convId;
       setMessages(decrypted);
       markAsRead(convId, userId).catch(() => {});
       notif.refreshChatUnread?.();
@@ -250,15 +330,18 @@ export default function FloatingChat() {
 
   // Cierra el panel con la animación de salida. Si ya había un cierre en
   // marcha no se reinicia, y abrir otra cosa lo cancela.
+  // Si el panel ya está cerrado no se hace nada: `closing` lo volvería a
+  // montar solo para animar la salida (parpadeo al navegar).
   const requestClose = useCallback(() => {
     if (closeTimerRef.current) return;
+    if (!open) return;
     setClosing(true);
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
       setClosing(false);
       setOpen(false);
     }, 150);
-  }, []);
+  }, [open]);
 
   const cancelClose = useCallback(() => {
     if (closeTimerRef.current) {
@@ -280,7 +363,11 @@ export default function FloatingChat() {
     setOpen(true);
     setView('thread');
     setActiveId(conv.id);
-    setMessages([]);
+    // Pintado instantáneo desde caché: sin esqueleto ni espera al fetch.
+    const cached = messagesCacheRef.current[conv.id];
+    const hasCached = Array.isArray(cached) && cached.length > 0;
+    messagesOwnerRef.current = conv.id;
+    setMessages(hasCached ? cached : []);
     setInput('');
     loadThread(conv.id);
   }, [loadThread]);
@@ -370,9 +457,18 @@ export default function FloatingChat() {
     };
   }, [userId]);
 
-  // ── Realtime de la conversación abierta ──
+  // Al abrir el panel se aseguran los estilos del chat completo (cards de
+  // canciones, invitaciones, posts, media…), que de otro modo solo aparecían
+  // después de visitar /Chat.
   useEffect(() => {
-    if (!open || view !== 'thread' || !activeId || !userId) return;
+    if (open) ensureChatStyles();
+  }, [open]);
+
+  // ── Realtime de la conversación abierta ──
+  // Sigue vivo con el panel cerrado (mismo hilo): así la caché está al día
+  // cuando se vuelve a abrir, sin esperar al fetch.
+  useEffect(() => {
+    if (view !== 'thread' || !activeId || !userId) return;
     const channel = subscribeToMessages(
       activeId,
       async (msg, eventType) => {
@@ -386,14 +482,14 @@ export default function FloatingChat() {
           if (prev.some((m) => m.id === msg.id)) return prev;
           return [...prev, { ...msg, decryptedContent: content }];
         });
-        if (msg.sender_id !== userId) markAsRead(activeId, userId).catch(() => {});
+        if (msg.sender_id !== userId && openRef.current) markAsRead(activeId, userId).catch(() => {});
       },
       (deletedId) => setMessages((prev) => prev.filter((m) => m.id !== deletedId))
     );
     return () => {
       try { channel?.unsubscribe(); } catch { /* ya cerrado */ }
     };
-  }, [open, view, activeId, userId]);
+  }, [view, activeId, userId]);
 
   // ── Colores de burbuja del hilo abierto ──
   // Se leen de chat_bubble_settings (misma tabla que Chat.jsx). Primero la
@@ -647,7 +743,18 @@ export default function FloatingChat() {
         {msg.shared_song && <ChatSongCard song={msg.shared_song} />}
 
         {imageUrl && <SafeImage className="fc-msg-img" src={imageUrl} alt="" />}
-        {text ? <span className={emojiSizeClass(text)}><EmojiText text={text} /></span> : null}
+        {/* Mismo markdown (GFM) que la burbuja del chat completo: negrita,
+            cursiva, código, listas, citas, enlaces, menciones y hashtags. */}
+        {text ? (
+          <PostMarkdown
+            text={text}
+            className={`fc-msg-text fc-msg-text--md ${emojiSizeClass(text)}`.trim()}
+            linkClass="fc-msg-link"
+            mentionClass="fc-msg-mention"
+            hashtagClass="fc-msg-hashtag"
+            emojiImages
+          />
+        ) : null}
       </>
     );
   };

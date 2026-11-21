@@ -3984,7 +3984,7 @@ dialog.fc-modal.chat-followers-modal--picker .fc-modal-inner {
     cursor: pointer;
     width: 32px;
     height: 32px;
-    border-radius: 50%;
+    border-radius: var(--border, 10px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -4231,7 +4231,7 @@ dialog.fc-modal.chat-followers-modal--picker .fc-modal-inner {
 /* Nickname modal buttons use fc-modal-save from modal.css for save,
    and fc-modal-save--danger for remove — matching other modal buttons */
 .fc-modal-save--danger {
-    background: var(--overlay-bg, rgba(255,255,255,0.08));
+    background: var(--color-danger-action);
     color: var(--color-danger, #ef4444);
     border: none;
     padding: 8px 16px;
