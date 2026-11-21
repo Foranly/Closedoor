@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { useI18n } from '../../services/i18n/useI18n';
+import { getCachedProfileByUsername, getUserProfileByUsername } from '../../services/userService';
 
 /**
  * AppSurfaceTheme
@@ -45,13 +46,49 @@ export default function AppSurfaceTheme() {
   // las vars del glass se re-aplican al nodo nuevo (el efecto es barato).
   const location = useLocation();
 
+  // Perfil que se está VIENDO: en /profile/:username puede no ser el propio.
+  // El sidebar translúcido es una preferencia del dueño del perfil, así que al
+  // visitar a otro usuario manda la suya (igual que las post-cards del perfil).
+  const path = location.pathname.toLowerCase();
+  const routeUsername = useMemo(() => {
+    const m = path.match(/^\/profile\/([^/?#]+)/);
+    if (!m) return '';
+    try { return decodeURIComponent(m[1]).toLowerCase(); } catch { return m[1].toLowerCase(); }
+  }, [path]);
+  const isOwnProfileRoute = Boolean(routeUsername)
+    && routeUsername === String(profile?.username || '').toLowerCase();
+
+  // Cache-first para no parpadear; el fetch real llega después.
+  const [fetchedViewProfile, setFetchedViewProfile] = useState({ username: '', data: null });
+  const cachedViewProfile = useMemo(
+    () => (routeUsername && !isOwnProfileRoute ? getCachedProfileByUsername(routeUsername) : null),
+    [routeUsername, isOwnProfileRoute]
+  );
+  const viewedProfile = routeUsername
+    ? (isOwnProfileRoute
+      ? profile
+      : (fetchedViewProfile.username === routeUsername
+        ? fetchedViewProfile.data
+        : cachedViewProfile))
+    : profile;
+
+  useEffect(() => {
+    if (!routeUsername || isOwnProfileRoute) return undefined;
+    let alive = true;
+    getUserProfileByUsername(routeUsername)
+      .then((data) => {
+        if (alive && data) setFetchedViewProfile({ username: routeUsername, data });
+      })
+      .catch(() => null);
+    return () => { alive = false; };
+  }, [routeUsername, isOwnProfileRoute]);
+
   useEffect(() => {
     const el = document.querySelector('.sidebar');
     const root = document.documentElement;
     // Ajuste "Chat con estilos por defecto": /chat ignora vidrio, superficie y
     // color de texto del perfil (mantiene el tema claro/oscuro). Se marca en
     // <html> para que global.css desactive también las reglas de cards.
-    const path = location.pathname.toLowerCase();
     // Depende del toggle "Tarjetas transparentes": sin vidrio no hay nada que
     // desactivar en el chat, así que la opción queda inactiva.
     const chatDefault = chatDefaultStyle && showCardsGlass && path === '/chat';
@@ -108,7 +145,7 @@ export default function AppSurfaceTheme() {
     const sidebarGlassPref = path.startsWith('/profile')
       && !chatDefault
       && !sidebarDefaultStyle
-      && profile?.sidebar_glass === true;
+      && viewedProfile?.sidebar_glass === true;
     // Marca en <html>: header.css la usa para que el vidrio gane a
     // `.sidebar--solid` (fondo global apagado), que si no pinta negro plano
     // y deja el toggle sin efecto.
@@ -179,7 +216,7 @@ export default function AppSurfaceTheme() {
       root.classList.remove('fc-profile-glass');
       root.classList.remove('fc-sidebar-glass');
     };
-  }, [profile, showAccent, showCardsGlass, chatDefaultStyle, sidebarDefaultStyle, sidebarDefaultColors, location.pathname]);
+  }, [profile, viewedProfile, showAccent, showCardsGlass, chatDefaultStyle, sidebarDefaultStyle, sidebarDefaultColors, path]);
 
   return null;
 }
