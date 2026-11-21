@@ -320,7 +320,7 @@ html.fc-profile-glass:not(.fc-chat-default) .fc-dock-launcher:hover {
     width: 30px;
     height: 30px;
     border: none;
-    border-radius: 50%;
+    border-radius: var(--border, 10px);
     background: transparent;
     color: var(--color-text-secondary, #9ca3af);
     font-size: 0.78rem;
@@ -699,7 +699,7 @@ html.fc-profile-glass:not(.fc-chat-default) .fc-dock-launcher:hover {
 .fc-compose {
     position: relative;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     gap: 8px;
     padding: 9px 10px;
     border-top: 1px solid var(--color-border, #2a2a2a);
@@ -720,9 +720,9 @@ html.fc-profile-glass:not(.fc-chat-default) .fc-dock-launcher:hover {
     min-height: 34px;
     max-height: 96px;
     padding: 8px 11px;
-    border: 1px solid var(--color-border, #2a2a2a);
-    border-radius: 17px;
-    background: var(--color-bg, #000000);
+    border: none;
+    border-radius: var(--radius, 10px);
+    background: var(--color-surface-hover, #252525);
     color: var(--color-text, #ffffff);
     font-family: inherit;
     font-size: 0.8rem;
