@@ -18,7 +18,7 @@ import { getActivitySettings, readActivityHistory, clearActivityHistory, persist
 import { supabase } from '../services/supabaseclient';
 import { getNicknames, getCachedNicknames, cacheNicknames, setNickname, removeNickname } from '../services/chatService';
 import { ensureTranslationPrefs, getTranslationPrefs, hasLocalTranslator, setTranslationPrefs, subscribeTranslationPrefs } from '../services/postTranslation';
-import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop, FaBars,  FaInfoCircle, FaSyncAlt, FaDownload, FaUsers, FaFileAlt, FaLanguage } from 'react-icons/fa';
+import { FaGlobe, FaPalette, FaLock, FaChevronDown, FaChevronRight, FaCheck, FaSun, FaMoon, FaEyeSlash, FaCog, FaFeather, FaHeart, FaHeartBroken, FaComment, FaRetweet, FaEye, FaUser, FaBookmark, FaTags, FaChartBar, FaBell, FaBrush, FaBan, FaClock, FaAt, FaTrashAlt, FaTimes, FaDiscord, FaEdit, FaImage, FaCompress, FaUndo, FaGamepad, FaHistory, FaMusic, FaTv, FaDesktop, FaBars,  FaInfoCircle, FaSyncAlt, FaDownload, FaUsers, FaFileAlt, FaLanguage, FaBolt } from 'react-icons/fa';
 import { MdLogout } from 'react-icons/md';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../Resources/Components/ConfirmModal';
@@ -723,7 +723,7 @@ function AccountSettings({ t }) {
 /* ── Main Settings Component ── */
 
 export default function Settings() {
-  const { locale, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass, setShowCardsGlass, chatDefaultStyle, setChatDefaultStyle, sidebarDefaultStyle, setSidebarDefaultStyle, sidebarDefaultColors, setSidebarDefaultColors, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, theme, setTheme, t } = useI18n();
+  const { locale, setLocale, showAccent, setShowAccent, showAccentProfile, setShowAccentProfile, showAccentExplore, setShowAccentExplore, accentVisibility, setAccentVisibility, showProfileStats, setShowProfileStats, showToastNotifications, setShowToastNotifications, showGlobalBg, setShowGlobalBg, showCardsGlass, setShowCardsGlass, chatDefaultStyle, setChatDefaultStyle, sidebarDefaultStyle, setSidebarDefaultStyle, sidebarDefaultColors, setSidebarDefaultColors, showPushNotifications, setShowPushNotifications, showLikes, setShowLikes, filterEncrypted, setFilterEncrypted, allowMention, setAllowMention, allowEncryptedAdd, setAllowEncryptedAdd, hour24, setHour24, showBadges, setShowBadges, gifBehavior, setGifBehavior, theme, setTheme, t } = useI18n();
   usePageTitle(t('settings.title'));
   const { user, profile, profileLoading, refreshProfile, logout, linkDiscord, isDiscordLinked } = useAuth();
   const navigate = useNavigate();
@@ -1115,6 +1115,7 @@ export default function Settings() {
       { col: 'show_profile_stats', setter: setShowProfileStats },
       { col: 'show_likes', setter: setShowLikes },
       { col: 'show_badges', setter: setShowBadges },
+      { col: 'gif_behavior', setter: setGifBehavior },
       { col: 'allow_mention', setter: setAllowMention },
       { col: 'allow_encrypted_add', setter: setAllowEncryptedAdd },
       { col: 'filter_encrypted', setter: setFilterEncrypted },
@@ -1132,7 +1133,7 @@ export default function Settings() {
         setter(profile[col]);
       }
     }
-  }, [profile, profileSynced, setShowAccentProfile, setShowAccentExplore, setAccentVisibility, setShowProfileStats, setShowLikes, setAllowMention, setAllowEncryptedAdd, setFilterEncrypted, setShowGlobalBg, setShowCardsGlass, setChatDefaultStyle, setSidebarDefaultStyle, setSidebarDefaultColors]);
+  }, [profile, profileSynced, setShowAccentProfile, setShowAccentExplore, setAccentVisibility, setShowProfileStats, setShowLikes, setAllowMention, setAllowEncryptedAdd, setFilterEncrypted, setShowGlobalBg, setShowCardsGlass, setChatDefaultStyle, setSidebarDefaultStyle, setSidebarDefaultColors, setGifBehavior]);
 
   const handlePrivacyChange = async (value) => {
     if (!user?.id || privacyUpdating || value === isPrivate) return;
@@ -1789,6 +1790,53 @@ export default function Settings() {
               </div>
               </div>
               )}
+
+              <div className="settings-row-divider" />
+
+              {/* ── Rendimiento: comportamiento de los GIF ──
+                     Preferencia por dispositivo (localStorage cifrado): lo que
+                     conviene en un móvil no es lo mismo que en un equipo. */}
+              <div className="settings-row">
+                <div className="settings-row-header">
+                  <span className="settings-section-icon"><FaBolt /></span>
+                  <div>
+                    <h2 className="settings-section-title">{t('settings.performance')}</h2>
+                    <p className="settings-section-desc">{t('settings.performance_desc')}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="settings-accent-list">
+                <div className="settings-row">
+                  <div className="settings-row-header">
+                    <span className="settings-section-icon"><FaImage /></span>
+                    <div>
+                      <h2 className="settings-section-title">{t('settings.gif_behavior')}</h2>
+                      <p className="settings-section-desc">{t('settings.gif_behavior_desc')}</p>
+                    </div>
+                  </div>
+                  <div className="settings-segmented">
+                    {[
+                      { value: 'always', label: t('settings.gif_always') },
+                      { value: 'hover', label: t('settings.gif_hover') },
+                      { value: 'never', label: t('settings.gif_never') },
+                    ].map(({ value, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`settings-segmented-btn ${gifBehavior === value ? 'settings-segmented-btn--active' : ''}`}
+                        onClick={() => {
+                          setGifBehavior(value);
+                          syncProfilePref('gif_behavior', value);
+                        }}
+                        aria-pressed={gifBehavior === value}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
               <div className="settings-row-divider" />
 

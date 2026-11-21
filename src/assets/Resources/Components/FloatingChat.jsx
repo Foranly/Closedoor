@@ -27,6 +27,7 @@ import { useShortcodeSuggest } from '../../../hooks/useShortcodeSuggest';
 import { supabase } from '../../services/supabaseclient';
 import { getPost } from '../../services/postService';
 import Avatar from './Avatar';
+import SafeImage from './SafeImage';
 import ChatSongCard from './ChatSongCard';
 import ChatCommunityCard from './ChatCommunityCard';
 import ChatSharedPostCard from './ChatSharedPostCard';
@@ -645,7 +646,7 @@ export default function FloatingChat() {
 
         {msg.shared_song && <ChatSongCard song={msg.shared_song} />}
 
-        {imageUrl && <img className="fc-msg-img" src={imageUrl} alt="" loading="lazy" />}
+        {imageUrl && <SafeImage className="fc-msg-img" src={imageUrl} alt="" />}
         {text ? <span className={emojiSizeClass(text)}><EmojiText text={text} /></span> : null}
       </>
     );
