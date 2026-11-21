@@ -34,6 +34,10 @@ const TOOLTIP_STYLES = {
 export default function Tooltip({ text, children, style, className, placement = 'top', suppress = false }) {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
+  // Lado vertical resuelto al mostrar: si el placement pedido no cabe en
+  // pantalla, el tooltip se abre hacia el otro lado (una sola línea, altura
+  // conocida). Evita que se corte en bordes, p. ej. las acciones del lightbox.
+  const [openBottom, setOpenBottom] = useState(null);
   const targetRef = useRef(null);
   const tooltipRef = useRef(null);
   const showTimeoutRef = useRef(null);
@@ -72,8 +76,20 @@ export default function Tooltip({ text, children, style, className, placement = 
         left: rect.left - 8,
       });
     } else {
+      // Flip vertical: el tooltip mide una línea (~28px con padding). Si el
+      // lado pedido no tiene hueco, se abre hacia el lado contrario.
+      const TIP_HEIGHT = 28;
+      const GAP = 10;
+      const margin = 8;
+      const vh = window.innerHeight;
+      let bottom = isBottom;
+      const fitsBelow = vh - rect.bottom >= TIP_HEIGHT + GAP + margin;
+      const fitsAbove = rect.top >= TIP_HEIGHT + GAP + margin;
+      if (bottom && !fitsBelow && fitsAbove) bottom = false;
+      else if (!bottom && !fitsAbove && fitsBelow) bottom = true;
+      setOpenBottom(bottom);
       setPosition({
-        top: isBottom ? rect.bottom + 6 : rect.top - 6,
+        top: bottom ? rect.bottom + 6 : rect.top - 6,
         left: rect.left + rect.width / 2,
       });
     }
@@ -133,6 +149,9 @@ export default function Tooltip({ text, children, style, className, placement = 
 
   if (!text) return <>{children}</>;
 
+  // Lado vertical realmente usado al pintar (isBottom = placement pedido).
+  const placedBottom = openBottom === null ? isBottom : openBottom;
+
   let visibleTransform, hiddenTransform, arrowStyle;
 
   if (isRight) {
@@ -165,14 +184,14 @@ export default function Tooltip({ text, children, style, className, placement = 
       borderLeft: '5px solid rgba(30, 30, 35, 0.95)',
     };
   } else {
-    visibleTransform = isBottom
+    visibleTransform = placedBottom
       ? 'translate(-50%, 6px)'
       : 'translate(-50%, -100%)';
-    hiddenTransform = isBottom
+    hiddenTransform = placedBottom
       ? 'translate(-50%, 0)'
       : 'translate(-50%, calc(-100% + 4px))';
 
-    arrowStyle = isBottom
+    arrowStyle = placedBottom
       ? {
           position: 'absolute',
           top: -4,

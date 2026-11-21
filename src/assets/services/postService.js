@@ -126,7 +126,7 @@ export async function getPosts({ userId, profileUserId, limit = 20, offset = 0 }
     'likes_count', 'dislikes_count', 'comments_count', 'reposts_count', 'views_count',
     'created_at', 'updated_at', 'mentions',
     'obfuscated_display', 'comments_allowed', 'poll_data', 'song',
-    'profiles!posts_user_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position)'
+    'profiles!posts_user_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position, accent_color)'
   ].join(',');
   let query = dbPublic.from('posts').select(feedSelect);
 
@@ -164,7 +164,7 @@ export async function getPost(postId) {
     'likes_count', 'dislikes_count', 'comments_count', 'reposts_count', 'views_count',
     'created_at', 'updated_at', 'mentions',
     'obfuscated_display', 'comments_allowed', 'poll_data', 'song',
-    'profiles!posts_user_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position)'
+    'profiles!posts_user_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position, accent_color)'
   ].join(',');
   const { data, error } = await dbPublic.from('posts').select(explicitSelect)
     .eq('id', postId)
@@ -263,7 +263,7 @@ export async function getProfileContent(profileUserId, currentUserId, { offset =
           id, user_id, content, image_url, image_urls, image_meta, video_url, video_meta, song, is_pinned, pinned_at, mentions,
           is_encrypted, encrypted_content, encrypted_iv, allowed_users, obfuscated_display,
           likes_count, dislikes_count, comments_count, reposts_count, views_count, created_at, updated_at,
-          profiles!posts_user_id_fkey (id, username, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position)
+          profiles!posts_user_id_fkey (id, username, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position, accent_color)
         )
       `)
       .eq('user_id', profileUserId)
@@ -406,7 +406,7 @@ async function refreshVisibleIds(userId) {
 export async function getFeed({ limit = 20, offset = 0, userId, authorIds } = {}) {
   let query = dbPublic
     .from('posts')
-    .select('*, profiles!posts_user_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position, interests)');
+    .select('*, profiles!posts_user_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position, interests, accent_color)');
 
   // Excluir posts programados del feed.
   // Los posts encriptados se filtran en JS (al final): son invisibles para todo
@@ -1341,7 +1341,7 @@ export async function getScheduledPosts(userId, { limit = 50, offset = 0 } = {})
     'likes_count', 'dislikes_count', 'comments_count', 'reposts_count', 'views_count',
     'created_at', 'updated_at', 'mentions',
     'obfuscated_display', 'comments_allowed', 'poll_data', 'song',
-    'profiles!posts_user_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position)'
+    'profiles!posts_user_id_fkey (id, username, displayname, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position, accent_color)'
   ].join(',');
   const { data, error } = await dbPublic.from('posts').select(explicitSelect)
     .eq('user_id', userId)
@@ -1374,7 +1374,7 @@ export async function getLikedPosts(userId, { limit = 50, offset = 0 } = {}) {
         id, user_id, content, image_url, image_urls, image_meta, video_url, video_meta, mentions, song,
         is_encrypted, encrypted_content, encrypted_iv, allowed_users, obfuscated_display,
         likes_count, dislikes_count, comments_count, reposts_count, views_count, created_at, updated_at,
-        profiles!posts_user_id_fkey (id, username, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position)
+        profiles!posts_user_id_fkey (id, username, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position, accent_color)
       )
     `)
     .eq('user_id', userId)
@@ -1527,7 +1527,7 @@ export async function getSavedPosts(userId, { limit = 50, offset = 0, collection
         id, user_id, content, image_url, image_urls, image_meta, video_url, video_meta, mentions, song,
         is_encrypted, encrypted_content, encrypted_iv, allowed_users, obfuscated_display,
         likes_count, dislikes_count, comments_count, reposts_count, views_count, created_at, updated_at,
-        profiles!posts_user_id_fkey (id, username, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position)
+        profiles!posts_user_id_fkey (id, username, avatar_url, avatar_frame_url, avatar_frame_position, roles, is_private, avatar_position, accent_color)
       )
     `)
     .eq('user_id', userId);

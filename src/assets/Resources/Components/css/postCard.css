@@ -176,21 +176,18 @@
     object-fit: cover;
     overflow: hidden;
     display: block;
-    border: 2px solid var(--color-border, #2a2a2a);
-    transition: border-color 0.2s ease;
+    /* Aro con el acento del avatar (lo pone PostCard en el link). */
+    box-shadow: 0 0 0 2px var(--fc-user-accent, var(--color-border, #2a2a2a));
+    transition: box-shadow 0.2s ease;
 }
 
 .post-card-avatar-link:hover .post-card-avatar {
-    border-color: var(--color-text-muted, #6b7280);
+    box-shadow: 0 0 0 2px var(--color-text-muted, #6b7280);
 }
 
-/* ── Profile page: avatar border usa accent-color ── */
-.profile-page .post-card-avatar {
-    border-color: var(--accent-color, var(--color-border, #2a2a2a));
-}
-
+/* ── Profile page: el aro mantiene el acento al hacer hover ── */
 .profile-page .post-card-avatar-link:hover .post-card-avatar {
-    border-color: var(--accent-color, var(--color-text-muted, #6b7280));
+    box-shadow: 0 0 0 2px var(--fc-user-accent, var(--color-text-muted, #6b7280));
 }
 
 /* ---- Content area ---- */
@@ -445,29 +442,17 @@
     background: var(--overlay-bg-active);
 }
 
-/* Like activo: usa el color de acento */
+/* Like activo: acento del autor de la card (`--fc-user-accent`). El texto usa
+   el contraste calculado en PostCard (`--fc-user-accent-text`), así que se lee
+   aunque el acento sea claro. Sin acento, cae al blanco de siempre. */
 .post-card-action--liked {
-    background: var(--color-text, #ffffff);
-    color: var(--bg-color, #000000);
+    background: var(--fc-user-accent, var(--color-text, #ffffff));
+    color: var(--fc-user-accent-text, var(--bg-color, #000000));
 }
 
 .post-card-action--liked:hover {
-    background: var(--color-text, #ffffff);
-    color: var(--bg-color, #000000);
-}
-
-/* En el perfil el like activo toma el color de acento del usuario en lugar del
-   blanco fijo del feed; el texto usa el color de contraste calculado a partir
-   del acento (`--accent-contrast-color`, ver profile.jsx), así que se sigue
-   leyendo aunque el acento sea claro. */
-.profile-page .post-card-action.post-card-action--liked {
-    background: var(--accent-color, var(--color-text, #ffffff));
-    color: var(--accent-contrast-color, var(--bg-color, #000000));
-}
-
-.profile-page .post-card-action.post-card-action--liked:hover {
-    background: color-mix(in srgb, var(--accent-color, var(--color-text, #ffffff)) 82%, #000000);
-    color: var(--accent-contrast-color, var(--bg-color, #000000));
+    background: var(--fc-user-accent, var(--color-text, #ffffff));
+    color: var(--fc-user-accent-text, var(--bg-color, #000000));
 }
 
 /* Comentarios restringidos (nobody / followers_only) */
