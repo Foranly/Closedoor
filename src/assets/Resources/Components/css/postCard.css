@@ -2053,6 +2053,11 @@
     cursor: pointer;
 }
 
+/* Acento del reproductor: el del AUTOR del post (`--fc-user-accent`), que
+   PostCard pone en la card, con el del contexto como respaldo. `--accent-color`
+   solo existe mientras se ve un perfil, así que fuera de él el reproductor
+   caía siempre al azul por defecto. El host flotante vive en <body> y recibe
+   el color por `--fc-video-accent`. */
 .post-video-player-progress {
     flex: 1 1 100%;
     width: 100%;
@@ -2060,7 +2065,7 @@
     margin: 0 0 2px;
     padding: 0;
     cursor: pointer;
-    accent-color: var(--accent-color, #7c9cff);
+    accent-color: var(--fc-video-accent, var(--fc-user-accent, var(--accent-color, #7c9cff)));
 }
 
 .post-video-player-controls {
@@ -2117,7 +2122,7 @@
 }
 
 .post-video-player-btn--active {
-    color: var(--accent-color, #7c9cff);
+    color: var(--fc-video-accent, var(--fc-user-accent, var(--accent-color, #7c9cff)));
 }
 
 .post-video-player-time {
@@ -2142,7 +2147,7 @@
     height: 14px;
     margin: 0;
     cursor: pointer;
-    accent-color: var(--accent-color, #7c9cff);
+    accent-color: var(--fc-video-accent, var(--fc-user-accent, var(--accent-color, #7c9cff)));
 }
 
 .post-video-player-spacer {

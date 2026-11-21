@@ -39,7 +39,7 @@ function formatTime(seconds) {
  *   • Un IntersectionObserver pausa el video inline que sale de la vista: nunca
  *     se queda sonando fuera de pantalla. No se reanuda solo al volver.
  */
-export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, className = '' }) {
+export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, className = '', accent = '' }) {
   const floating = useFloatingVideo();
   const isFloatHost = Boolean(floating?.isHost);
   const openFloating = floating?.open ?? null;
@@ -168,6 +168,15 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
     return () => io.disconnect();
   }, [src, isFloatHost]);
 
+  // Acento del autor del post para la ventana minimizada: el host vive en
+  // <body> y no hereda las vars de la card.
+  const readAccent = useCallback(() => {
+    const node = containerRef.current;
+    if (!node || typeof window === 'undefined') return '';
+    const cs = window.getComputedStyle(node);
+    return (cs.getPropertyValue('--fc-user-accent') || '').trim();
+  }, []);
+
   const minimize = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
@@ -198,11 +207,12 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
         volume: video.volume,
         muted: video.muted,
         loop,
+        accent: readAccent(),
       });
       // Detiene el inline: el host crea su propio <video> y continúa ahí.
       video.pause();
     }
-  }, [isFloatHost, openFloating, src, title, ratio, loop]);
+  }, [isFloatHost, openFloating, src, title, ratio, loop, readAccent]);
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
@@ -257,7 +267,10 @@ export default function PostVideoPlayer({ src, title, ratio: savedRatio = 0, cla
     <div
       ref={containerRef}
       className={`post-video-player${className ? ` ${className}` : ''}`}
-      style={{ aspectRatio: ratio }}
+      style={{
+        aspectRatio: ratio,
+        ...(accent ? { '--fc-video-accent': accent } : null),
+      }}
     >
       <video
         ref={videoRef}
