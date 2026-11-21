@@ -603,7 +603,7 @@
 }
 .community-header-role-badge {
   padding: 5px 12px;
-  border-radius: 999px;
+  border-radius: var(--border, 10px);
   background: color-mix(in srgb, var(--cc-accent, #6b7280) 22%, transparent);
   border: none;
   color: var(--color-text, #fff);
@@ -799,15 +799,18 @@
   padding: 8px 22px;
   border-radius: 999px;
   border: none;
-  background: var(--color-accent, #6b7280);
-  color: #fff;
+  background: var(--text-color, #ffffff);
+  color: var(--bg-color, #000000);
   font-weight: 600;
   font-size: 0.85rem;
   font-family: inherit;
   cursor: pointer;
   transition: opacity 0.15s ease;
 }
-.community-composer-post:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.community-composer-post:disabled { 
+    opacity: 0.5; cursor: not-allowed; 
+}
 
 /* Join prompt (privada / no miembro) */
 .community-join-prompt {
@@ -1321,4 +1324,8 @@ dialog.fc-modal.community-role-modal {
 
 @media (max-width: 760px) {
   .community-settings-grid { grid-template-columns: 1fr; }
+}
+
+.community-invite-limit{
+    color: var(--color-text-danger, #ef4444);
 }

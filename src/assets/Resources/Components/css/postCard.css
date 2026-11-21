@@ -181,10 +181,6 @@
     transition: box-shadow 0.2s ease;
 }
 
-.post-card-avatar-link:hover .post-card-avatar {
-    box-shadow: 0 0 0 2px var(--color-text-muted, #6b7280);
-}
-
 /* ── Profile page: el aro mantiene el acento al hacer hover ── */
 .profile-page .post-card-avatar-link:hover .post-card-avatar {
     box-shadow: 0 0 0 2px var(--fc-user-accent, var(--color-text-muted, #6b7280));
@@ -1144,7 +1140,6 @@
 
 .post-card-share-modal {
     background: var(--color-surface, #1a1a1a);
-    border: 1px solid var(--color-border, #2a2a2a);
     border-radius: var(--radius-lg, 14px);
     width: 380px;
     max-width: calc(100vw - 32px);
@@ -1178,7 +1173,7 @@
     width: 30px;
     height: 30px;
     border: none;
-    border-radius: 50%;
+    border-radius: var(--radius, 10px);
     background: transparent;
     color: var(--color-text-secondary, #9ca3af);
     cursor: pointer;

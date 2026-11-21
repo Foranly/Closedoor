@@ -938,7 +938,7 @@ export default function Modal({
                 </div>                <div className="fc-preview-card-info" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
                   <div style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                     <span className="fc-preview-card-name"><EmojiText text={previewDisplayname} /></span>
-                    <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.6, color: 'rgba(255,255,255,0.7)' }}>@{username}</span>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.6, color: 'white' }}>@{username}</span>
                     <Badge roles={userRoles} />
                   </div>
 
@@ -1346,7 +1346,7 @@ export default function Modal({
                 <div className="explore-card-info">
                   <div className="explore-card-name-row">
                     <span className="explore-card-name"><EmojiText text={previewDisplayname} /></span>
-                    <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.5 }}>@{username}</span>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.5, color: 'white' }}>@{username}</span>
                     <Badge roles={userRoles} />
                   </div>
                   <span className="explore-card-followers">
