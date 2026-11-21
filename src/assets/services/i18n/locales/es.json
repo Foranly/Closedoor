@@ -470,6 +470,7 @@
   "modal.avatar_frame_upload": "Subir marco",
   "modal.avatar_frame_change": "Cambiar marco",
   "modal.avatar_frame_hint": "PNG cuadrado (1:1) con transparencia. Recomendado 1000 × 1000 px.",
+  "modal.media_history": "Historial",
   "modal.avatar_frame_type": "El marco debe ser un PNG o WebP con transparencia",
   "modal.banner_dim": "Oscuridad del banner",
   "modal.banner_dim_desc": "Capa oscura para contraste del texto",

@@ -1616,6 +1616,19 @@ function Profile() {
         } : {}),
     };
 
+    // El dropdown "All posts / Only reposts" se monta en un portal sobre <body>,
+    // fuera del árbol del perfil, así que no hereda las variables CSS del
+    // acento. Se las pasamos inline: el ítem activo debe usar el acento del
+    // perfil que se está viendo, no el acento global del tema.
+    const portalAccentVars = styleVars['--accent-color']
+      ? {
+          '--accent-color': styleVars['--accent-color'],
+          '--accent-color-2': styleVars['--accent-color-2'],
+          '--accent-text-color': styleVars['--accent-text-color'],
+          '--accent-contrast-color': styleVars['--accent-contrast-color'],
+        }
+      : null;
+
     return (            <div className={`profile-page${surfGlass ? ' profile-page--glass' : ''}`} style={styleVars}>
             {/* ── Dim & blur overlay for profile background (imagen vía .profile-page::before) ── */}
             {hasBg && (
@@ -2110,7 +2123,7 @@ function Profile() {
                                 <div
                                     ref={postFilterDropdownRef}
                                     className="posts-tab-filter-dropdown"
-                                    style={postFilterDropdownStyle}
+                                    style={{ ...postFilterDropdownStyle, ...portalAccentVars }}
                                 >
                                     <button
                                         className={`posts-tab-filter-item ${postSubFilter === 'all' ? 'posts-tab-filter-item--active' : ''}`}

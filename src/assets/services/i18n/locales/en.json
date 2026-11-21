@@ -470,6 +470,7 @@
   "modal.avatar_frame_upload": "Upload frame",
   "modal.avatar_frame_change": "Change frame",
   "modal.avatar_frame_hint": "Square PNG (1:1) with transparency. 1000 × 1000 px recommended.",
+  "modal.media_history": "History",
   "modal.avatar_frame_type": "The frame must be a PNG or WebP with transparency",
   "modal.banner_dim": "Banner darkness",
   "modal.banner_dim_desc": "Dark overlay for text contrast",
