@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import ModalShell from './ModalShell';
+import ConfirmModal from './ConfirmModal';
 import EmojiText from './EmojiText';
 import EmojiPickerButton from './EmojiPickerButton';
 import { useAuth } from '../../../hooks/useAuth';
@@ -53,6 +54,8 @@ export default function CreateCommunityModal({ isOpen, onClose, onSuccess }) {
   // Subida en vuelo: bloquea crear mientras la URL real del CDN no llega
   // (evita persistir un blob: URL que solo vería el creador).
   const [uploading, setUploading] = useState(false);
+  // Cierre con datos escritos: se pide confirmación (backdrop o Escape).
+  const [pendingClose, setPendingClose] = useState(false);
 
   const nameTimerRef = useRef(null);
   const nameRef = useRef(null);
@@ -246,8 +249,18 @@ export default function CreateCommunityModal({ isOpen, onClose, onSuccess }) {
   const needsFollowers = followers !== null && !canCreate && !limitReached;
   const needsLimit = followers !== null && !canCreate && limitReached;
 
+  const isDirty = Boolean(
+    name.trim() || avatar || banner || description.trim() || rulesText.trim() ||
+    interests.length || isPrivate || isMature || accentColor || accentSecondary
+  );
+
+  const requestClose = () => {
+    if (isDirty) setPendingClose(true);
+    else onClose();
+  };
+
   return (
-    <ModalShell isOpen={isOpen} onClose={onClose} className="community-create-modal">
+    <ModalShell isOpen={isOpen} onClose={requestClose} onEscape={requestClose} className="community-create-modal">
       {/* ── Header bar: title + actions ── */}
       <div className="fc-modal-header">
         <h3 className="fc-modal-title">{t('comunidades.create_community')}</h3>
@@ -255,7 +268,7 @@ export default function CreateCommunityModal({ isOpen, onClose, onSuccess }) {
           <button className="fc-modal-save" onClick={handleSubmit} disabled={saving || uploading}>
             {saving ? <FaSpinner className="fc-spin" /> : t('comunidades.create_btn')}
           </button>
-          <button type="button" className="fc-modal-close" onClick={onClose} aria-label={t('common.close')}>
+          <button type="button" className="fc-modal-close" onClick={requestClose} aria-label={t('common.close')}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
@@ -687,6 +700,14 @@ export default function CreateCommunityModal({ isOpen, onClose, onSuccess }) {
           </div>
         </div>
       </div>
+
+      {pendingClose && (
+        <ConfirmModal
+          message={t('modal.discard_changes')}
+          onConfirm={() => { setPendingClose(false); onClose(); }}
+          onCancel={() => setPendingClose(false)}
+        />
+      )}
     </ModalShell>
   );
 }

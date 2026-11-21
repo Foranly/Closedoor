@@ -795,7 +795,13 @@ export default function CreatePostModal({
   }, [content, previewUrl]);
 
   return (
-    <ModalShell isOpen={isOpen} onClose={onClose} onEscape={() => confirmCloseRef.current()} className="create-post-modal">
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      onEscape={() => confirmCloseRef.current()}
+      className="create-post-modal"
+      disableBackdropClose
+    >
         <div className="fc-modal-header">
           <h3 className="fc-modal-title">{isEditing ? t('create_post.edit_title') : t('create_post.title')}</h3>
           <div className="fc-modal-header-actions">
