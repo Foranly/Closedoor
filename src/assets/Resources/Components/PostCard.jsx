@@ -959,7 +959,7 @@ const PostCard = React.memo(function PostCard({
                       )}
                       <button className="fc-dropdown-btn" onClick={handleEdit}><FaEdit /> {t('post.edit')}</button>
                       <button className="fc-dropdown-btn" onClick={handlePin}><FaThumbtack /> {post.is_pinned ? t('post.unpin') : t('post.pin')}</button>
-                      <button className="fc-dropdown-btn" onClick={async (e) => {
+                      <button className="fc-dropdown-btn fc-dropdown-btn-save" onClick={async (e) => {
                         await handleSave(e);
                         setShowMenu(false);
                       }}>
@@ -990,13 +990,6 @@ const PostCard = React.memo(function PostCard({
                       style={{ ...dropdownStyle, minWidth: 170 }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button className="fc-dropdown-btn" onClick={async (e) => {
-                        await handleSave(e);
-                        setShowMenu(false);
-                      }}>
-                        {saved ? <FaBookmark /> : <FaRegBookmark />}
-                        {saved ? (t('post.unsave') || 'Quitar guardado') : t('post.save')}
-                      </button>
                       <button
                         className="fc-dropdown-btn"
                         onClick={openShareModal}
@@ -1017,8 +1010,15 @@ const PostCard = React.memo(function PostCard({
                             : t('post.translate')}
                         </button>
                       )}
+                      <button className="fc-dropdown-btn fc-dropdown-btn-save" onClick={async (e) => {
+                        await handleSave(e);
+                        setShowMenu(false);
+                      }}>
+                        {saved ? <FaBookmark /> : <FaRegBookmark />}
+                        {saved ? (t('post.unsave') || 'Quitar guardado') : t('post.save')}
+                      </button>
                       <button
-                        className="fc-dropdown-btn"
+                        className="fc-dropdown-btn fc-dropdown-btn--danger"
                         onClick={async (e) => {
                           e.stopPropagation();
                           setShowMenu(false);

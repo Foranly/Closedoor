@@ -73,7 +73,7 @@ export default function ExploreCard({ profile, counts, isOwnProfile, showAccent,
         <div className="explore-card-info">
           <div className="explore-card-name-row">
             <span className="explore-card-name"><EmojiText text={getDisplayName ? getDisplayName(profile) : (profile.displayname || profile.username)} /></span>
-            <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.5 }}> · @{profile.username}</span>
+            <span style={{ fontSize: '0.68rem', fontWeight: 400, opacity: 0.5, color: 'white' }}> · @{profile.username}</span>
             {profile.is_private === true && (
               <span className="explore-card-private-icon" title={t('profile.private_profile')}>
                 <FaLock />

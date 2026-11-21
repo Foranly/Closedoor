@@ -525,8 +525,16 @@ body:has(.sidebar--users.sidebar--collapsed:not(.sidebar--users--hidden)) .app-l
     transition: background 0.12s ease;
 }
 
+.fc-dropdown-btn-save{
+    color: #facc15;
+}
+
 .fc-dropdown-btn:hover {
     background: var(--overlay-bg);
+}
+
+.fc-dropdown-btn-save:hover{
+    background: rgba(250, 204, 21, 0.08);
 }
 
 .fc-dropdown-btn svg {
@@ -555,7 +563,7 @@ body:has(.sidebar--users.sidebar--collapsed:not(.sidebar--users--hidden)) .app-l
 }
 
 .fc-dropdown-btn--danger:hover {
-    background: rgba(255, 255, 255, 0.08) !important;
+    background: var(--color-danger-action) !important;
 }
 
 .fc-dropdown-btn--active {

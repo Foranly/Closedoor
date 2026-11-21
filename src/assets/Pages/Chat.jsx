@@ -4143,7 +4143,7 @@ export default function Chat() {
               {headerMenuOpen && (
                 <div className="chat-header-dropdown">
                   {!isActiveGroup && (
-                    <button className="chat-context-menu-btn" onClick={() => { setHeaderMenuOpen(false); setConfirmBlock(true); }}>
+                    <button className="chat-context-menu-btn chat-context-menu-btn--danger" onClick={() => { setHeaderMenuOpen(false); setConfirmBlock(true); }}>
                       <FaBan />
                       <span>{getCachedBlockStatus(user?.id, otherUser?.id) === true ? t('block.unblock') : t('block.block')}</span>
                     </button>
@@ -4978,7 +4978,7 @@ export default function Chat() {
               )}
             </>);
           })()}
-          <button className="chat-context-menu-btn" onClick={handleCloseConversation}>
+          <button className="chat-context-menu-btn chat-context-menu-btn--danger" onClick={handleCloseConversation}>
             <FaTimes />
             <span>{t('chat.close_conversation') || 'Cerrar conversación'}</span>
           </button>
@@ -5332,7 +5332,7 @@ export default function Chat() {
                   <span>{t('chat.delete_for_everyone')}</span>
                 </button>
               )}
-              <button className="chat-context-menu-btn" onClick={handleDeleteMessageForMe}>
+              <button className="chat-context-menu-btn chat-context-menu-btn--danger" onClick={handleDeleteMessageForMe}>
                 <FaTrash />
                 <span>{t('chat.delete_for_me')}</span>
               </button>

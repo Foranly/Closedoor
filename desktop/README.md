@@ -14,7 +14,7 @@ del propio repo (el mismo que usa producción) escuchando **solo en
 
 ```
 ┌────────────────────────── Closedoor Desktop ───────────────────────┐
-│  BrowserWindow ──► https://app.foranly.space  (la web publicada)    │
+│  BrowserWindow ──► https://app.foranly.cloud  (la web publicada)    │
 │        │ window.foranlyDesktop = { musicApiUrl, musicReady, … }     │
 │        ▼                                                            │
 │  src/assets/services/desktopApp.js  (detección en el cliente)       │
