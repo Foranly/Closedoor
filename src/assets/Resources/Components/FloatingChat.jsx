@@ -882,15 +882,6 @@ export default function FloatingChat() {
                   value={input}
                   onChange={setInput}
                 />
-                <button
-                  type="button"
-                  className="fc-send"
-                  onClick={send}
-                  disabled={!input.trim() || sending}
-                  title={t('chat.dock_send') || 'Send'}
-                >
-                  {sending ? <FaSpinner className="fc-spin" /> : <FaPaperPlane />}
-                </button>
               </div>
             </>
           )}
