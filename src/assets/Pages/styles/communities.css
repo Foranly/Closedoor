@@ -570,8 +570,7 @@
   min-width: 170px;
   z-index: 1100;
   background: var(--color-surface, #1a1a1a);
-  border: 1px solid var(--color-border, #2a2a2a);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius, 10px);
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   animation: fcFadeIn 0.1s ease;
@@ -1015,6 +1014,7 @@
   justify-content: center;
   padding: 20px;
 }
+
 .community-modal {
   width: 100%;
   max-width: 480px;
@@ -1023,9 +1023,9 @@
   flex-direction: column;
   border-radius: var(--radius, 10px);
   background: var(--color-surface, #1c1c1e);
-  border: 1px solid var(--color-border, #2a2a2a);
   overflow: hidden;
 }
+
 .community-modal-header {
   display: flex;
   align-items: center;
@@ -1033,14 +1033,34 @@
   padding: 14px 16px;
   border-bottom: 1px solid var(--color-border, #2a2a2a);
 }
-.community-modal-title { font-size: 0.95rem; font-weight: 700; color: var(--color-text, #fff); }
-.community-modal-close {
-  background: none;
-  border: none;
-  color: var(--color-text-muted, #6b7280);
-  cursor: pointer;
-  font-size: 0.9rem;
+
+.community-modal-title { 
+    font-size: 0.95rem; 
+    font-weight: 700; 
+    color: var(--color-text, #fff); 
 }
+
+.community-modal-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary, #9ca3af);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+    padding: 0;
+    font-size: 1rem;
+}
+
+.community-modal-close:hover{
+    background: var(--color-surface-hover, #252525);
+    color: var(--color-text, #ffffff);
+}
+
 .community-modal-body { padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .community-modal-empty { text-align: center; color: var(--color-text-muted, #6b7280); font-size: 0.85rem; padding: 20px 0; }
 
@@ -1052,6 +1072,7 @@
   padding: 8px;
   border-radius: 10px;
 }
+
 .community-member-row:hover { background: var(--color-surface-hover, #252525); }
 .community-member-main {
   display: flex;
@@ -1081,12 +1102,11 @@
   justify-content: center;
   gap: 6px;
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius, 10px);
   border: none;
-  background: var(--color-accent, #6b7280);
-  color: #fff;
-  font-weight: 600;
-  font-size: 0.8rem;
+  background: var(--text-color, #ffffff);
+  color: var(--bg-color, #000000);
+  font-size: 1rem;
   font-family: inherit;
   cursor: pointer;
 }
