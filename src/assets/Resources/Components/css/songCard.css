@@ -202,11 +202,11 @@
     repeating-radial-gradient(circle at center, #101012 0 1px, #1b1b1e 1px 2.5px, #141417 2.5px 4px);
   animation: songCardSpin 5s linear infinite;
   animation-play-state: paused;
+  transition: 0.3s ease;
 }
 
 .song-card-vinyl:hover:not(:disabled) {
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
     0 6px 18px rgba(0, 0, 0, 0.55);
 }
 
