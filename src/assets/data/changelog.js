@@ -22,6 +22,24 @@ export const CHANGELOG_SEEN_KEY = 'fc_changelog_seen';
 
 export const RELEASES = [
   {
+    id: '2026-11-21',
+    date: '2026-11-21',
+    title: 'Bookmark collections, image history and profile themes',
+    items: [
+      'The "Saved" tab is now Bookmarks: create collections with a name, description and cover, and pick the collection every post goes to. Collections are private and only you can see them.',
+      'Your avatar, banner and frame now keep a history: reopen the edit dialog and pick any image you used before. The history follows your account across devices.',
+      'New profile options: remove the accent colour from the profile background, and give the sidebar the same translucent treatment as the cards — visitors see the same thing you do.',
+      'Animated GIFs can now be set to play always, only on hover or never, under Settings → System → Performance. The setting also applies to animated avatars.',
+      'Notifications can be opened from the avatar or the name of whoever triggered them, and comment notifications jump to and highlight the exact comment.',
+      'Clicking outside a dialog closes it again, except in the post composer; dialogs with unsaved changes now ask before throwing them away.',
+      'Post cards take the accent colour of their author: in the avatar ring and in the active like button. Tooltips now open downwards when there is no room above.',
+      'Floating chats keep their conversation when you change pages or reload, show markdown in the bubbles, animate when closing and show the time on hover. The nickname dialog now shows your avatar frame.',
+      'The translucent profile theme was fixed: turning it off restores the sidebar, and the floating button only uses the profile style inside a profile.',
+      'The video player now uses the accent colour of the post author everywhere — progress bar, active buttons and volume — including the minimised window.',
+      'Security and speed: the database rules were tightened so sensitive data cannot be read from the client, and common actions do fewer queries, so the feed, chats and communities load faster.',
+    ],
+  },
+  {
     id: '2026-11-11',
     date: '2026-11-11',
     title: 'Videos in posts and chats, and a filter for notifications',
