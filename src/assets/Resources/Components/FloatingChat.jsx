@@ -31,6 +31,7 @@ import SafeImage from './SafeImage';
 import ChatSongCard from './ChatSongCard';
 import ChatCommunityCard from './ChatCommunityCard';
 import ChatSharedPostCard from './ChatSharedPostCard';
+import PostMarkdown from './PostMarkdown';
 import EmojiText from './EmojiText';
 import EmojiPickerButton from './EmojiPickerButton';
 import EmojiShortcodeSuggest from './EmojiShortcodeSuggest';
@@ -250,15 +251,18 @@ export default function FloatingChat() {
 
   // Cierra el panel con la animación de salida. Si ya había un cierre en
   // marcha no se reinicia, y abrir otra cosa lo cancela.
+  // Si el panel ya está cerrado no se hace nada: `closing` lo volvería a
+  // montar solo para animar la salida (parpadeo al navegar).
   const requestClose = useCallback(() => {
     if (closeTimerRef.current) return;
+    if (!open) return;
     setClosing(true);
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
       setClosing(false);
       setOpen(false);
     }, 150);
-  }, []);
+  }, [open]);
 
   const cancelClose = useCallback(() => {
     if (closeTimerRef.current) {
@@ -647,7 +651,18 @@ export default function FloatingChat() {
         {msg.shared_song && <ChatSongCard song={msg.shared_song} />}
 
         {imageUrl && <SafeImage className="fc-msg-img" src={imageUrl} alt="" />}
-        {text ? <span className={emojiSizeClass(text)}><EmojiText text={text} /></span> : null}
+        {/* Mismo markdown (GFM) que la burbuja del chat completo: negrita,
+            cursiva, código, listas, citas, enlaces, menciones y hashtags. */}
+        {text ? (
+          <PostMarkdown
+            text={text}
+            className={`fc-msg-text fc-msg-text--md ${emojiSizeClass(text)}`.trim()}
+            linkClass="fc-msg-link"
+            mentionClass="fc-msg-mention"
+            hashtagClass="fc-msg-hashtag"
+            emojiImages
+          />
+        ) : null}
       </>
     );
   };

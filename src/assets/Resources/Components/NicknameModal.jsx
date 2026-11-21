@@ -8,6 +8,7 @@ import { setNickname, removeNickname } from '../../services/chatService';
 import EmojiText from './EmojiText';
 import EmojiPickerButton from './EmojiPickerButton';
 import { DEFAULT_AVATAR, getImageStyle } from '../../services/helpers';
+import { getCdnUrl } from '../../services/cdnService';
 import Badge from './Badge';
 import Avatar from './Avatar';
 import '../Styles/chat.css';
@@ -84,6 +85,8 @@ export default function NicknameModal({ userData, currentName = '', onClose, onS
 
   if (!userData) return null;
 
+  const frameUrl = getCdnUrl(userData?.avatar_frame_url);
+
   return createPortal(
     <div className="chat-nickname-overlay" onClick={close}>
       <div className="chat-nickname-modal" onClick={(e) => e.stopPropagation()}>
@@ -122,12 +125,26 @@ export default function NicknameModal({ userData, currentName = '', onClose, onS
               <div className="fc-preview-card-overlay"></div>
 
               <div className="fc-preview-card-avatar">
-                <img
-                  src={userData?.avatar_url || DEFAULT_AVATAR}
-                  alt={userData?.username || ''}
-                  style={getImageStyle(userData?.avatar_position)}
-                  onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
-                />
+                {/* El recorte circular va en la capa interior: el marco del
+                    avatar puede sobresalir del aro sin quedar cortado. */}
+                <div className="fc-preview-card-avatar-clip">
+                  <img
+                    src={userData?.avatar_url || DEFAULT_AVATAR}
+                    alt={userData?.username || ''}
+                    style={getImageStyle(userData?.avatar_position)}
+                    onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
+                  />
+                </div>
+                {frameUrl && (
+                  <img
+                    className="fc-preview-card-frame"
+                    src={frameUrl}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                    style={getImageStyle(userData?.avatar_frame_position)}
+                  />
+                )}
               </div>
 
               <div className="fc-preview-card-info" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
@@ -190,6 +207,8 @@ export default function NicknameModal({ userData, currentName = '', onClose, onS
                 className="explore-card-avatar"
                 src={userData?.avatar_url || DEFAULT_AVATAR}
                 alt={userData?.username || ''}
+                frame={userData?.avatar_frame_url}
+                framePosition={userData?.avatar_frame_position}
                 style={getImageStyle(userData?.avatar_position)}
               />
               <div className="explore-card-info">
