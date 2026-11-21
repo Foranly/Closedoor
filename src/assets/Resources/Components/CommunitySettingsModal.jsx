@@ -11,6 +11,7 @@ import {
   FaComment,
 } from 'react-icons/fa';
 import ModalShell from './ModalShell';
+import ConfirmModal from './ConfirmModal';
 import EmojiText from './EmojiText';
 import EmojiPickerButton from './EmojiPickerButton';
 import { useAuth } from '../../../hooks/useAuth';
@@ -86,6 +87,8 @@ export default function CommunitySettingsModal({
   // Subida en vuelo: bloquea guardar mientras la URL real del CDN no llega
   // (un blob: solo lo vería quien lo subió).
   const [uploading, setUploading] = useState(false);
+  // Cierre con cambios sin guardar: se pide confirmación (backdrop o Escape).
+  const [pendingClose, setPendingClose] = useState(false);
 
   // ── Rellenar drafts al abrir ──
   useEffect(() => {
@@ -222,10 +225,30 @@ export default function CommunitySettingsModal({
 
   const previewHasAccent = !!(accentColor || accentSecondary);
 
+  // Los drafts se persisten de golpe al guardar: si algo difiere, cerrar
+  // perdería los cambios.
+  const isDirty =
+    name !== (community.name || '') ||
+    description !== (community.description || '') ||
+    rulesText !== (Array.isArray(community.rules) ? community.rules.join('\n') : '') ||
+    JSON.stringify(interests) !== JSON.stringify(community.interests || []) ||
+    avatar !== (community.avatar_url || '') ||
+    banner !== (community.banner_url || '') ||
+    accentColor !== (community.accent_color || '') ||
+    accentSecondary !== (community.accent_color_secondary || '') ||
+    isPrivate !== (community.is_private === true) ||
+    isMature !== (community.is_mature === true);
+
+  const requestClose = () => {
+    if (isDirty) setPendingClose(true);
+    else onClose();
+  };
+
   return (
     <ModalShell
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={requestClose}
+      onEscape={requestClose}
       className="community-create-modal community-settings-modal"
     >
       {/* Header: mismo patrón que el modal de creación */}
@@ -235,7 +258,7 @@ export default function CommunitySettingsModal({
           <button className="fc-modal-save" onClick={handleSave} disabled={saving || uploading}>
             {saving ? <FaSpinner className="fc-spin" /> : t('comunidades.save_changes')}
           </button>
-          <button type="button" className="fc-modal-close" onClick={onClose} aria-label={t('common.close')}>
+          <button type="button" className="fc-modal-close" onClick={requestClose} aria-label={t('common.close')}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
@@ -657,6 +680,14 @@ export default function CommunitySettingsModal({
           </div>
         </div>
       </div>
+
+      {pendingClose && (
+        <ConfirmModal
+          message={t('modal.discard_changes')}
+          onConfirm={() => { setPendingClose(false); onClose(); }}
+          onCancel={() => setPendingClose(false)}
+        />
+      )}
     </ModalShell>
   );
 }

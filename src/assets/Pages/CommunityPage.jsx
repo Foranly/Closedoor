@@ -148,6 +148,12 @@ export default function CommunityPage() {
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleColor, setNewRoleColor] = useState('#6366f1');
   const [newRolePerms, setNewRolePerms] = useState([]);
+  // Cerrar el formulario de rol con datos escritos pide confirmación.
+  const [rolePendingClose, setRolePendingClose] = useState(false);
+  const requestCloseRole = () => {
+    if (newRoleName.trim() || newRolePerms.length || newRoleColor !== '#6366f1') setRolePendingClose(true);
+    else setShowCreateRole(false);
+  };
   const [showInvites, setShowInvites] = useState(false);
   const [deletingPost, setDeletingPost] = useState(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
@@ -1595,7 +1601,8 @@ export default function CommunityPage() {
           capa superior del otro modal). */}
       <ModalShell
         isOpen={showCreateRole}
-        onClose={() => setShowCreateRole(false)}
+        onClose={requestCloseRole}
+        onEscape={requestCloseRole}
         className="community-create-modal community-role-modal"
       >
         <div className="fc-modal-header">
@@ -1604,7 +1611,7 @@ export default function CommunityPage() {
             <button type="button" className="fc-modal-save" onClick={handleCreateRole} disabled={!newRoleName.trim()}>
               {t('comunidades.role_save')}
             </button>
-            <button type="button" className="fc-modal-close" onClick={() => setShowCreateRole(false)} aria-label={t('common.close')}>
+            <button type="button" className="fc-modal-close" onClick={requestCloseRole} aria-label={t('common.close')}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
@@ -1639,6 +1646,14 @@ export default function CommunityPage() {
           ))}
         </div>
         </div>
+
+        {rolePendingClose && (
+          <ConfirmModal
+            message={t('modal.discard_changes')}
+            onConfirm={() => { setRolePendingClose(false); setShowCreateRole(false); }}
+            onCancel={() => setRolePendingClose(false)}
+          />
+        )}
       </ModalShell>
 
       {/* ── Confirmar salida ── */}

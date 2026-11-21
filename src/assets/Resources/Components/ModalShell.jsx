@@ -26,9 +26,11 @@ import './css/modal.css';
  *  - onEscape: (e) => void — optional custom Escape handler (e.g. confirm before close)
  *  - className: string — additional classes for the <dialog> element
  *  - disableBackdropClose: boolean — if true, clicking outside the dialog won't close it
+ *    (por defecto se cierra al pulsar fuera; los diálogos con cambios sin guardar
+ *    pasan un onEscape/onClose que pide confirmación antes de cerrar)
  *  - children: ReactNode
  */
-export default function ModalShell({ isOpen, onClose, onEscape, className = '', disableBackdropClose = true, children }) {
+export default function ModalShell({ isOpen, onClose, onEscape, className = '', disableBackdropClose = false, children }) {
   const dialogRef = useRef(null);
   const [state, setState] = useState('idle'); // 'idle' | 'entering' | 'open' | 'leaving'
   const prevOpenRef = useRef(isOpen);
@@ -107,16 +109,21 @@ export default function ModalShell({ isOpen, onClose, onEscape, className = '', 
     return () => el.removeEventListener('keydown', handleKeyDown);
   }, [state, onClose, onEscape]);
 
-  // ── Click on backdrop (target === dialog) ──
+  // ── Click on backdrop (target === dialog, fuera de su caja) ──
+  // El <dialog> también recibe los clics de su propio padding: se comprueban
+  // las coordenadas para cerrar solo cuando el clic cae fuera del panel.
   const handleBackdropClick = useCallback((e) => {
-    if (e.target === dialogRef.current) {
-      if (!disableBackdropClose) {
-        if (onEscape) {
-          onEscape(e);
-        } else if (onClose) {
-          onClose();
-        }
-      }
+    const el = dialogRef.current;
+    if (!el || e.target !== el || disableBackdropClose) return;
+    const rect = el.getBoundingClientRect();
+    const insidePanel =
+      e.clientX >= rect.left && e.clientX <= rect.right &&
+      e.clientY >= rect.top && e.clientY <= rect.bottom;
+    if (insidePanel) return;
+    if (onEscape) {
+      onEscape(e);
+    } else if (onClose) {
+      onClose();
     }
   }, [onClose, onEscape, disableBackdropClose]);
 

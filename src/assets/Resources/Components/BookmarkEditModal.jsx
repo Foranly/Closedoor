@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { FaImage, FaSpinner, FaTrash } from 'react-icons/fa';
 import ModalShell from './ModalShell';
+import ConfirmModal from './ConfirmModal';
 import ImagePositionEditor from './ImagePositionEditor';
 import { useI18n } from '../../services/i18n/useI18n';
 import { useAuth } from '../../../hooks/useAuth';
@@ -33,7 +34,20 @@ export default function BookmarkEditModal({ isOpen = true, collection, onClose, 
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [pendingClose, setPendingClose] = useState(false);
   const fileRef = useRef(null);
+
+  // Cambios sin guardar: nombre, descripción o portada distintos a los actuales.
+  const isDirty =
+    name !== (collection?.name || '') ||
+    description !== (collection?.description || '') ||
+    cover !== (collection?.cover_url || '') ||
+    coverPosition !== (collection?.cover_position || '{"x":50,"y":50,"zoom":1}');
+
+  const requestClose = () => {
+    if (isDirty) setPendingClose(true);
+    else onClose?.();
+  };
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -96,15 +110,14 @@ export default function BookmarkEditModal({ isOpen = true, collection, onClose, 
   return (
     <ModalShell
       isOpen={isOpen}
-      onClose={onClose}
-      onEscape={onClose}
+      onClose={requestClose}
+      onEscape={requestClose}
       className="fc-modal--bookmark-edit"
-      disableBackdropClose
     >
       <div className="bookmark-edit" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
         <div className="bookmark-picker-header">
           <h3 className="fc-modal-title">{t('bookmarks.edit_title')}</h3>
-          <button type="button" className="bookmark-picker-close" onClick={onClose} aria-label={t('common.cancel')}>
+          <button type="button" className="bookmark-picker-close" onClick={requestClose} aria-label={t('common.cancel')}>
             ×
           </button>
         </div>
@@ -199,11 +212,19 @@ export default function BookmarkEditModal({ isOpen = true, collection, onClose, 
           <button type="button" className="fc-modal-save" onClick={handleSave} disabled={saving || uploading}>
             {saving ? <FaSpinner className="fc-spin" /> : t('common.save')}
           </button>
-          <button type="button" className="bookmark-edit-cancel" onClick={onClose}>
+          <button type="button" className="bookmark-edit-cancel" onClick={requestClose}>
             {t('common.cancel')}
           </button>
         </div>
       </div>
+
+      {pendingClose && (
+        <ConfirmModal
+          message={t('modal.discard_changes')}
+          onConfirm={() => { setPendingClose(false); onClose?.(); }}
+          onCancel={() => setPendingClose(false)}
+        />
+      )}
     </ModalShell>
   );
 }

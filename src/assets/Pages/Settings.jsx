@@ -755,6 +755,12 @@ export default function Settings() {
   const [nicknameList, setNicknameList] = useState([]);
   const [nicknameListLoading, setNicknameListLoading] = useState(false);
   const [editingNickname, setEditingNickname] = useState({ userId: null, current: '' });
+  // Cerrar la lista con un nickname a medio editar pide confirmación.
+  const [nicknamePendingClose, setNicknamePendingClose] = useState(false);
+  const requestCloseNicknames = () => {
+    if (editingNickname.userId !== null) setNicknamePendingClose(true);
+    else setShowNicknamesModal(false);
+  };
   const nicknameEditRef = useRef(null);
   const [removingNicknameId, setRemovingNicknameId] = useState(null);
   const [blockedUsers, setBlockedUsers] = useState(() => {
@@ -2920,9 +2926,8 @@ export default function Settings() {
       {/* ── Nicknames Modal ── */}
       <ModalShell
         isOpen={showNicknamesModal}
-        onClose={() => setShowNicknamesModal(false)}
-        onEscape={() => setShowNicknamesModal(false)}
-        disableBackdropClose={false}
+        onClose={requestCloseNicknames}
+        onEscape={requestCloseNicknames}
         className="settings-blocked-modal"
       >
         <div className="settings-blocked-header">
@@ -2930,7 +2935,7 @@ export default function Settings() {
           <button
             type="button"
             className="settings-blocked-close"
-            onClick={() => setShowNicknamesModal(false)}
+            onClick={requestCloseNicknames}
             aria-label={t('common.close')}
           >
             <FaTimes />
@@ -3010,6 +3015,18 @@ export default function Settings() {
             ))
           )}
         </div>
+
+        {nicknamePendingClose && (
+          <ConfirmModal
+            message={t('modal.discard_changes')}
+            onConfirm={() => {
+              setNicknamePendingClose(false);
+              setEditingNickname({ userId: null, current: '' });
+              setShowNicknamesModal(false);
+            }}
+            onCancel={() => setNicknamePendingClose(false)}
+          />
+        )}
       </ModalShell>
     </div>
   );

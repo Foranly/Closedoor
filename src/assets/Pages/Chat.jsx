@@ -452,6 +452,9 @@ export default function Chat() {
 
   // Edit message state
   const [editMsgId, setEditMsgId] = useState(null);
+  // Texto original del mensaje en edición (para saber si hay cambios sin guardar).
+  const editOriginalRef = useRef('');
+  const [editPendingClose, setEditPendingClose] = useState(false);
   const [editText, setEditText] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null); // mensaje al que se está respondiendo
@@ -1644,6 +1647,7 @@ export default function Chat() {
       cleanText = cleanText.replace(mediaUrl, '').replace(/\n{2,}/g, '\n').trim();
     }
     setEditMsgId(msg.id);
+    editOriginalRef.current = cleanText;
     setEditText(cleanText);
     setShowEditModal(true);
   }, []);
@@ -2053,8 +2057,15 @@ export default function Chat() {
   const handleCancelEdit = useCallback(() => {
     setEditMsgId(null);
     setEditText('');
+    setEditPendingClose(false);
     setShowEditModal(false);
   }, []);
+
+  // Cerrar la edición con texto modificado pide confirmación (backdrop/Escape/×).
+  const requestCancelEdit = useCallback(() => {
+    if (editText !== editOriginalRef.current) setEditPendingClose(true);
+    else handleCancelEdit();
+  }, [editText, handleCancelEdit]);
 
   const handleSaveEdit = useCallback(async () => {
     if (!editMsgId || (!editText.trim() && !editMediaUrlRef.current) || !user?.id) return;
@@ -2092,7 +2103,7 @@ export default function Chat() {
       handleSaveEdit();
     }
     if (e.key === 'Escape') {
-      handleCancelEdit();
+      requestCancelEdit();
     }
   };
 
@@ -5331,9 +5342,8 @@ export default function Chat() {
       )}
       <ModalShell
         isOpen={showEditModal && Boolean(editMsgId)}
-        onClose={handleCancelEdit}
-        onEscape={handleCancelEdit}
-        disableBackdropClose={false}
+        onClose={requestCancelEdit}
+        onEscape={requestCancelEdit}
         className="chat-edit-modal"
       >
         <div className="fc-modal-header">
@@ -5344,7 +5354,7 @@ export default function Chat() {
             <button type="button" className="fc-modal-save" onClick={handleSaveEdit}>
               {t('common.save')}
             </button>
-            <button type="button" className="fc-modal-close" onClick={handleCancelEdit} title={t('common.cancel')}>
+            <button type="button" className="fc-modal-close" onClick={requestCancelEdit} title={t('common.cancel')}>
               <FaTimes />
             </button>
           </div>
@@ -5400,6 +5410,14 @@ export default function Chat() {
             </div>
           </div>
         </div>
+
+        {editPendingClose && (
+          <ConfirmModal
+            message={t('modal.discard_changes')}
+            onConfirm={handleCancelEdit}
+            onCancel={() => setEditPendingClose(false)}
+          />
+        )}
       </ModalShell>
       {renderFollowersModal()}
       {renderGroupInfoModal()}
