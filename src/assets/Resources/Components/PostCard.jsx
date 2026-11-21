@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
+import { getContrastFromHex } from '../../services/colorExtractor';
 import {
   likePost,
   unlikePost,
@@ -833,6 +834,12 @@ const PostCard = React.memo(function PostCard({
   // posts antiguos): la card reserva el hueco desde el primer paint y no salta
   // cuando el <video> carga los metadatos (ver PostVideoPlayer `ratio`).
   const DEFAULT_VIDEO_RATIO = 16 / 9;
+  // Acento del autor: tiñe el aro del avatar y el like activo. El texto del
+  // like usa el contraste calculado para que se lea sobre cualquier acento.
+  const accentVars = profile?.accent_color
+    ? { '--fc-user-accent': profile.accent_color, '--fc-user-accent-text': getContrastFromHex(profile.accent_color) }
+    : undefined;
+
   const videoRatio = post.video_meta?.width && post.video_meta?.height
     ? post.video_meta.width / post.video_meta.height
     : DEFAULT_VIDEO_RATIO;
@@ -840,6 +847,7 @@ const PostCard = React.memo(function PostCard({
   return (
     <article
       className={`post-card ${deleting ? 'post-card--deleting' : ''} ${compact ? 'post-card--compact' : ''}`}
+      style={accentVars}
       onClick={handleCardClick}
       role="button"
       tabIndex={0}
